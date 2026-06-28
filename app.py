@@ -31,6 +31,13 @@ def fmt_date_kor(dt):
 # CSS Overrides
 st.markdown("""
 <style>
+    /* 다크모드 강제 적용: 모바일/PC 색상 통일 */
+    :root { color-scheme: dark !important; }
+    html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
+        background-color: #0e1117 !important;
+        color: #fafafa !important;
+        color-scheme: dark !important;
+    }
     .block-container { padding-top: 0.6rem !important; padding-bottom: 0 !important; }
     div[data-testid="stVerticalBlock"] > div:has(> .element-container) { padding-top: 0; padding-bottom: 0; }
     .main-header { font-size: 1.35rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.3; }
@@ -38,6 +45,9 @@ st.markdown("""
     h4 { font-size: 0.85rem !important; margin: 0.15rem 0 !important; }
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.82rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.2rem !important; }
+    /* 플로틀리 그래프 배경 강제 다크 */
+    .js-plotly-plot .plotly .bg { fill: rgba(14,17,23,0) !important; }
+    .stPlotlyChart > div { background: transparent !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -488,11 +498,7 @@ with tabs[0]:
     fig.update_yaxes(title_text="Indicators", title_font_size=9, **crosshair_yaxis(range=[-10,120]), secondary_y=True)
     fig.update_xaxes(**crosshair_xaxis())
 
-    zoom1 = st.toggle("🔍 줌 모드 (ON: 드래그로 범위 선택 후 줌)", key="zoom_tab1", value=False)
-    cfg1 = dict(COMMON_CONFIG, scrollZoom=zoom1)
-    if zoom1:
-        fig.update_layout(dragmode='zoom')
-    st.plotly_chart(fig, width='stretch', config=cfg1)
+    st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG)
 
     st.markdown("---")
     st.markdown("#### 📌 실시간 주요 시장 사건 (위기/하락 중심)")
@@ -524,7 +530,7 @@ with tabs[1]:
         counts_row = []
         for dt in r10:
             cnt = dc_top.get(dt, 1)
-            bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#F6B26B" if cnt==2 else "#A9D08E"
+            bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
             fg = "#FFF" if cnt>=3 else "#000"
             dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:3px 5px;border:1px solid #555;font-size:0.72rem;'>{fmt_date_kor(dt)}</td>")
             counts_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:3px 5px;border:1px solid #555;font-size:0.72rem;'>이탈 {cnt}개</td>")
@@ -574,11 +580,7 @@ with tabs[1]:
     fig_dsi.update_xaxes(**crosshair_xaxis())
     fig_dsi.update_annotations(font_size=10)
 
-    zoom2 = st.toggle("🔍 줌 모드 (ON: 드래그로 범위 선택 후 줌)", key="zoom_tab2", value=False)
-    cfg2 = dict(COMMON_CONFIG, scrollZoom=zoom2)
-    if zoom2:
-        fig_dsi.update_layout(dragmode='zoom')
-    st.plotly_chart(fig_dsi, width='stretch', config=cfg2)
+    st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG)
 
     st.markdown("#### 하한 미만 세부 분석 표")
     all_fd2 = []
@@ -592,7 +594,7 @@ with tabs[1]:
     def color_bg(cnt):
         if cnt==4: return "#595959", "#FFF"
         elif cnt==3: return "#E06666", "#FFF"
-        elif cnt==2: return "#F6B26B", "#000"
+        elif cnt==2: return "#FFD700", "#000"
         return "#A9D08E", "#000"
 
     TS = "width:100%;border-collapse:collapse;font-size:0.62rem;"
@@ -739,17 +741,6 @@ with tabs[2]:
         fig.update_yaxes(title_text=pname, title_font_size=9, **crosshair_yaxis(), secondary_y=True)
         return fig
         
-    zoom3a = st.toggle("🔍 줌 모드 (ON: 드래그로 범위 선택 후 줌)", key="zoom_tab3_kp", value=False)
-    fig_kp = make_line_fig(kp_b,"코스피 대표 종목 등락현황 추이 (영역형)",kp_p,"코스피", is_us=False)
-    if zoom3a: fig_kp.update_layout(dragmode='zoom')
-    st.plotly_chart(fig_kp, width='stretch', config=dict(COMMON_CONFIG, scrollZoom=zoom3a))
-
-    zoom3b = st.toggle("🔍 줌 모드 (ON: 드래그로 범위 선택 후 줌)", key="zoom_tab3_kd", value=False)
-    fig_kd = make_line_fig(kd_b,"코스닥 대표 종목 등락현황 추이 (영역형)",kd_p,"코스닥", is_us=False)
-    if zoom3b: fig_kd.update_layout(dragmode='zoom')
-    st.plotly_chart(fig_kd, width='stretch', config=dict(COMMON_CONFIG, scrollZoom=zoom3b))
-
-    zoom3c = st.toggle("🔍 줌 모드 (ON: 드래그로 범위 선택 후 줌)", key="zoom_tab3_ndx", value=False)
-    fig_ndx = make_line_fig(ndx_b,"나스닥 100 대표 종목 등락현황 추이 (영역형 - 상하한 제외)",qqq_p,"QQQ", is_us=True)
-    if zoom3c: fig_ndx.update_layout(dragmode='zoom')
-    st.plotly_chart(fig_ndx, width='stretch', config=dict(COMMON_CONFIG, scrollZoom=zoom3c))
+    st.plotly_chart(make_line_fig(kp_b,"코스피 대표 종목 등락현황 추이 (영역형)",kp_p,"코스피", is_us=False),width='stretch',config=COMMON_CONFIG)
+    st.plotly_chart(make_line_fig(kd_b,"코스닥 대표 종목 등락현황 추이 (영역형)",kd_p,"코스닥", is_us=False),width='stretch',config=COMMON_CONFIG)
+    st.plotly_chart(make_line_fig(ndx_b,"나스닥 100 대표 종목 등락현황 추이 (영역형 - 상하한 제외)",qqq_p,"QQQ", is_us=True),width='stretch',config=COMMON_CONFIG)
