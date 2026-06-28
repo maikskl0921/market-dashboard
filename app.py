@@ -31,13 +31,6 @@ def fmt_date_kor(dt):
 # CSS Overrides
 st.markdown("""
 <style>
-    /* 다크모드 강제 적용: 모바일/PC 색상 통일 */
-    :root { color-scheme: dark !important; }
-    html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
-        background-color: #0e1117 !important;
-        color: #fafafa !important;
-        color-scheme: dark !important;
-    }
     .block-container { padding-top: 0.6rem !important; padding-bottom: 0 !important; }
     div[data-testid="stVerticalBlock"] > div:has(> .element-container) { padding-top: 0; padding-bottom: 0; }
     .main-header { font-size: 1.35rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.3; }
@@ -45,9 +38,6 @@ st.markdown("""
     h4 { font-size: 0.85rem !important; margin: 0.15rem 0 !important; }
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.82rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.2rem !important; }
-    /* 플로틀리 그래프 배경 강제 다크 */
-    .js-plotly-plot .plotly .bg { fill: rgba(14,17,23,0) !important; }
-    .stPlotlyChart > div { background: transparent !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -424,12 +414,13 @@ with tabs[0]:
     five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
     df1 = df[df.index >= five_years_ago]
 
-    # ── 색깔 조건 정의 ──
+    # ── 색깔 조건 정의 (탭2 color_bg 색상표와 동일하게 맞춤) ──
+    # 검정(4개): #595959 / 빨강(3개): #E06666 / 노랑(2개): #FFD700 / 초록(1개): #A9D08E
     color_cond_map = [
-        ((df1['FearGreedIndex']<=9)&(df1['VIX']>=26),                                                          '#1a1a1a', '#FFFFFF', 'rgba(0,0,0,0.55)'),
-        ((df1['FearGreedIndex']>=10)&(df1['FearGreedIndex']<=19)&(df1['VIX']>=22)&(df1['VIX']<=25),            '#CC0000', '#FFFFFF', 'rgba(220,30,30,0.4)'),
-        ((df1['FearGreedIndex']>=20)&(df1['FearGreedIndex']<=29)&(df1['VIX']>=18)&(df1['VIX']<=21),            '#B8860B', '#FFFFFF', 'rgba(255,220,0,0.3)'),
-        ((df1['FearGreedIndex']>=30)&(df1['FearGreedIndex']<=39)&(df1['VIX']>=14)&(df1['VIX']<=17),            '#006400', '#FFFFFF', 'rgba(0,128,0,0.3)'),
+        ((df1['FearGreedIndex']<=9)&(df1['VIX']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.55)'),
+        ((df1['FearGreedIndex']>=10)&(df1['FearGreedIndex']<=19)&(df1['VIX']>=22)&(df1['VIX']<=25),            '#E06666', '#FFFFFF', 'rgba(220,30,30,0.4)'),
+        ((df1['FearGreedIndex']>=20)&(df1['FearGreedIndex']<=29)&(df1['VIX']>=18)&(df1['VIX']<=21),            '#FFD700', '#000000', 'rgba(255,220,0,0.3)'),
+        ((df1['FearGreedIndex']>=30)&(df1['FearGreedIndex']<=39)&(df1['VIX']>=14)&(df1['VIX']<=17),            '#A9D08E', '#000000', 'rgba(0,128,0,0.3)'),
     ]
 
     # ── 통합 색깔 감지 날짜표 (그래프 위) ──
