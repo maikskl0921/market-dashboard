@@ -38,6 +38,17 @@ st.markdown("""
     h4 { font-size: 0.85rem !important; margin: 0.15rem 0 !important; }
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.82rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.2rem !important; }
+    
+    /* 모든 표와 표 안의 글씨 크기를 0.45rem으로 통일 */
+    table, th, td {
+        font-size: 0.45rem !important;
+        padding: 2px 4px !important;
+    }
+    
+    /* 모바일 터치 드래그 최적화: 차트 영역에서 터치 스크롤 충돌 방지 */
+    .stPlotlyChart {
+        touch-action: pan-y !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,12 +64,11 @@ with col_btn:
 
 # ── 2. 미국 주식 시장 하락에 매우 중요한 역사적/실시간 주요 시장 사건 데이터 ──
 static_historical_events = [
-    {'title': 'COVID-19 팬데믹 및 연준 무제한 양적완화 시작 (지수 폭락 후 급반등)', 'period': '2020.02 ~ 2020.03'},
-    {'title': '글로벌 인플레이션 고조 및 고강도 금리 인상 사이클 진입', 'period': '2021.11 ~ 2022.10'},
-    {'title': '미국 실리콘밸리은행(SVB) 파산 및 중소형 지방은행 연쇄 위기', 'period': '2023.03 ~ 2023.03'},
-    {'title': 'AI 거품론(수익성 의문) 대두 및 엔 캐리 트레이드 청산 크래시', 'period': '2024.07 ~ 2024.08'},
-    {'title': '미국 관세 장벽 격화 및 글로벌 무역 분쟁 재점화 (4월 대규모 크래시)', 'period': '2025.03 ~ 2025.04'},
-    {'title': '중동 지정학적 위기 고조 (이란 갈등 격화 및 유가 급등)', 'period': '2026.01 ~ 2026.02'}
+    {"title": "코로나 19 팬데믹 폭락", "period": "2020.02 ~ 2020.03"},
+    {"title": "2022년 인플레이션 및 금리 인상 하락장", "period": "2021.11 ~ 2022.10"},
+    {"title": "2023년 실리콘밸리 은행(SVB) 파산 사태", "period": "2023.03 ~ 2023.03"},
+    {"title": "2024년 8월 엔 캐리 트레이드 청산 우려 폭락", "period": "2024.07 ~ 2024.08"},
+    {"title": "2025년 미-중 경제 무역 전쟁 재발 우려 폭락", "period": "2025.03 ~ 2025.04"}
 ]
 
 @st.cache_data(ttl=3600)
@@ -97,13 +107,20 @@ events_data = fetch_live_market_events_filtered()
 
 def parse_period(period_str):
     if '~' in period_str:
-        start_str, end_str = period_str.split(' ~ ')
-        s_year, s_mon = map(int, start_str.split('.'))
-        e_year, e_mon = map(int, end_str.split('.'))
-        start_date = datetime.date(s_year, s_mon, 1)
-        _, last_day = calendar.monthrange(e_year, e_mon)
-        end_date = datetime.date(e_year, e_mon, last_day)
-        return pd.to_datetime(start_date), pd.to_datetime(end_date)
+        try:
+            start_str, end_str = period_str.split(' ~ ')
+            if '-' in start_str:
+                return pd.to_datetime(start_str), pd.to_datetime(end_str)
+            else:
+                s_year, s_mon = map(int, start_str.split('.'))
+                e_year, e_mon = map(int, end_str.split('.'))
+                start_date = datetime.date(s_year, s_mon, 1)
+                _, last_day = calendar.monthrange(e_year, e_mon)
+                end_date = datetime.date(e_year, e_mon, last_day)
+                return pd.to_datetime(start_date), pd.to_datetime(end_date)
+        except Exception:
+            dt = pd.to_datetime(datetime.date.today())
+            return dt - datetime.timedelta(days=7), dt + datetime.timedelta(days=7)
     else:
         try:
             dt = pd.to_datetime(period_str)
@@ -127,30 +144,45 @@ def slope_sum_lagged(slope_arr, n):
     return result
 
 # ── 공통 Plotly 레이아웃 설정 ──
-COMMON_CONFIG = {'scrollZoom': False, 'displayModeBar': True}
+COMMON_CONFIG = {
+    'scrollZoom': True,       # 핀치줌(두 손가락 확대/축소) 가능
+    'displayModeBar': True,
+    'doubleClick': 'reset'    # 더블 클릭 시 원상복구
+}
 COMMON_LAYOUT = dict(
     template="plotly_dark",
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    dragmode=False, # 초기 줌 비활성화
-    hovermode="x unified",
+    dragmode=False,           # 드래그 시 줌 상자 대신 호버 추적이 부드럽게 되도록 드래그모드 비활성화
+    hovermode="x unified",    # 터치 시 X축 기준 전체 지시선 표시 및 손가락 이동 추적 최적화
     hoverlabel=dict(
-        bgcolor="rgba(20,20,20,0.95)",
-        font_size=11,
+        bgcolor="rgba(20,20,20,0.5)",  # 팝업 투명도 50%
+        font_size=10,
         font_family="sans-serif",
         font_color="white"
     ),
+    # 그래프 테두리 회색 (shapes 이용)
+    shapes=[dict(
+        type="rect",
+        xref="paper",
+        yref="paper",
+        x0=0,
+        y0=0,
+        x1=1,
+        y1=1,
+        line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2)
+    )]
 )
 
-# 십자선 지시선 색상을 어둡게 (rgba(50,50,50,0.5))
+# 십자선 지시선 색상을 어둡게 (rgba(150,150,150,0.5))
 def crosshair_xaxis(**kwargs):
     return dict(
         showgrid=False,
         tickfont_size=8,
         showspikes=True,
         spikemode='across',
-        spikesnap='cursor',
-        spikecolor='rgba(50,50,50,0.5)',
+        spikesnap='cursor', # 손가락 위치에 지시선이 붙어 따라다니도록 설정
+        spikecolor='rgba(150,150,150,0.5)', 
         spikethickness=1,
         spikedash='dot',
         **kwargs
@@ -162,92 +194,12 @@ def crosshair_yaxis(**kwargs):
         tickfont_size=8,
         showspikes=True,
         spikemode='across',
-        spikesnap='cursor',
-        spikecolor='rgba(50,50,50,0.5)',
+        spikesnap='cursor', # 손가락 위치에 지시선이 붙어 따라다니도록 설정
+        spikecolor='rgba(150,150,150,0.5)',
         spikethickness=1,
         spikedash='dot',
         **kwargs
     )
-
-# ── 5. 부모 window 객체에 직접 접근하여 2초 롱프레스 드래그 줌을 동작시키는 JS ──
-LONGPRESS_ZOOM_JS = """
-<script>
-(function() {
-    function enableLongPressZoom() {
-        var parentDoc = window.parent.document;
-        var parentPlotly = window.parent.Plotly;
-        if (!parentDoc || !parentPlotly) return;
-        
-        var plots = parentDoc.querySelectorAll('.js-plotly-plot');
-        plots.forEach(function(plot) {
-            if (plot._longPressAttached) return;
-            plot._longPressAttached = true;
-            
-            var timer = null;
-            var isZoomActive = false;
-            var startX = 0, startY = 0;
-
-            plot.addEventListener('pointerdown', function(e) {
-                startX = e.clientX;
-                startY = e.clientY;
-                if (timer) clearTimeout(timer);
-                
-                timer = setTimeout(function() {
-                    isZoomActive = true;
-                    try {
-                        parentPlotly.relayout(plot, {dragmode: 'zoom'});
-                        plot.style.outline = '2px solid #00d2ff';
-                        plot.style.cursor = 'crosshair';
-                    } catch(err) {
-                        console.error("Relayout error:", err);
-                    }
-                }, 2000);
-            });
-
-            plot.addEventListener('pointermove', function(e) {
-                if (!isZoomActive && timer) {
-                    var diffX = Math.abs(e.clientX - startX);
-                    var diffY = Math.abs(e.clientY - startY);
-                    if (diffX > 5 || diffY > 5) {
-                        clearTimeout(timer);
-                        timer = null;
-                    }
-                }
-            });
-
-            plot.addEventListener('pointerup', function(e) {
-                if (timer) { clearTimeout(timer); timer = null; }
-                if (isZoomActive) {
-                    setTimeout(function() {
-                        isZoomActive = false;
-                        plot.style.outline = 'none';
-                        plot.style.cursor = '';
-                        try {
-                            parentPlotly.relayout(plot, {dragmode: false});
-                        } catch(err) {}
-                    }, 3000); 
-                }
-            });
-
-            plot.addEventListener('pointerleave', function(e) {
-                if (timer) { clearTimeout(timer); timer = null; }
-            });
-            
-            plot.addEventListener('dblclick', function() {
-                plot.style.outline = 'none';
-                plot.style.cursor = '';
-                isZoomActive = false;
-                try {
-                    parentPlotly.relayout(plot, {dragmode: false, 'xaxis.autorange': true, 'yaxis.autorange': true});
-                } catch(err) {}
-            });
-        });
-    }
-    
-    setInterval(enableLongPressZoom, 1000);
-})();
-</script>
-"""
 
 @st.cache_data(ttl=300)
 def fetch_korean_market_status():
@@ -400,8 +352,6 @@ def fetch_and_process_data():
 with st.spinner('데이터 로딩 중...'):
     df = fetch_and_process_data()
 
-st.components.v1.html(LONGPRESS_ZOOM_JS, height=0)
-
 tab_names = [
     '📊 QQQ vs VIX vs Fear & Greed', 
     '📈 슬로프합 지표', 
@@ -484,7 +434,7 @@ with tabs[0]:
     for cond, _bg, _fg, fc in color_cond_map:
         fig.add_trace(go.Scatter(x=hd1, y=cond.astype(int)*200, fill='tozeroy', line=dict(width=0), fillcolor=fc, showlegend=False, hoverinfo='skip'), secondary_y=True)
     
-    fig.update_layout(**COMMON_LAYOUT, height=550, margin=dict(l=10,r=10,t=30,b=10), legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="left",x=0,font_size=10))
+    fig.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=10,r=10,t=60,b=10), legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="left",x=0,font_size=10))
     fig.update_yaxes(title_text="QQQ ($)", title_font_size=9, **crosshair_yaxis(), secondary_y=False)
     fig.update_yaxes(title_text="Indicators", title_font_size=9, **crosshair_yaxis(range=[-10,120]), secondary_y=True)
     fig.update_xaxes(**crosshair_xaxis())
@@ -494,7 +444,7 @@ with tabs[0]:
     st.markdown("---")
     st.markdown("#### 📌 실시간 주요 시장 사건 (위기/하락 중심)")
     
-    # 주요 사건 표: 글씨/패딩 크기를 4/5로 축소 (0.85rem → 0.68rem, padding 6px → 5px)
+    # 주요 사건 표: 글씨/패딩 크기를 전역 CSS에 맞추어 깔끔하게 표현
     news_df = pd.DataFrame(events_data)
     if not news_df.empty:
         news_df.index = news_df.index + 1
@@ -502,8 +452,8 @@ with tabs[0]:
         
         rows_html = ""
         for idx, row in news_df.iterrows():
-            rows_html += f"<tr><td style='border:1px solid #555;padding:5px;text-align:center;font-size:0.68rem;'>{row['사건 내용']}</td><td style='border:1px solid #555;padding:5px;text-align:center;font-size:0.68rem;'>{row['날짜']}</td></tr>"
-        st.markdown(f"<table style='width:100%;border-collapse:collapse;font-size:0.68rem;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:5px;text-align:center;font-size:0.68rem;'>사건 내용</th><th style='border:1px solid #555;padding:5px;text-align:center;font-size:0.68rem;'>날짜</th></tr></thead><tbody>{rows_html}</tbody></table>", unsafe_allow_html=True)
+            rows_html += f"<tr><td style='border:1px solid #555;padding:3px;text-align:center;'>{row['사건 내용']}</td><td style='border:1px solid #555;padding:3px;text-align:center;'>{row['날짜']}</td></tr>"
+        st.markdown(f"<table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:3px;text-align:center;'>사건 내용</th><th style='border:1px solid #555;padding:3px;text-align:center;'>날짜</th></tr></thead><tbody>{rows_html}</tbody></table>", unsafe_allow_html=True)
 
 # ── Tab 2 ──
 with tabs[1]:
@@ -523,20 +473,20 @@ with tabs[1]:
             cnt = dc_top.get(dt, 1)
             bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
             fg = "#FFF" if cnt>=3 else "#000"
-            dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:3px 5px;border:1px solid #555;font-size:0.72rem;'>{fmt_date_kor(dt)}</td>")
-            counts_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:3px 5px;border:1px solid #555;font-size:0.72rem;'>이탈 {cnt}개</td>")
+            dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;'>{fmt_date_kor(dt)}</td>")
+            counts_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;'>이탈 {cnt}개</td>")
         
         # 종합 최근 이탈 신호 (최근 10개) 표 행열 전환
         top_html_transposed = f"""
         <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-        <span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 10개 - 행열전환)</span>
-        <table style='border-collapse:collapse;font-size:0.72rem;margin-top:3px;'>
+        <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 10개 - 행열전환)</span>
+        <table style='border-collapse:collapse;margin-top:3px;'>
             <tr>
-                <th style='border:1px solid #555;padding:3px 8px;background:#1F4E79;color:white;text-align:center;font-size:0.72rem;'>날짜</th>
+                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>날짜</th>
                 {"".join(dates_row)}
             </tr>
             <tr>
-                <th style='border:1px solid #555;padding:3px 8px;background:#1F4E79;color:white;text-align:center;font-size:0.72rem;'>이탈 수</th>
+                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>이탈 수</th>
                 {"".join(counts_row)}
             </tr>
         </table>
@@ -557,17 +507,19 @@ with tabs[1]:
     for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS:
         sf = (rn == 1)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='#1F4E79',width=1.5),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='#87CEEB',width=1.2),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
+        # 슬로프합계 그래프를 하늘색(#87CEEB)에서 빨강, 50% 투명도(rgba(220,30,30,0.5))로 변경
+        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(220,30,30,0.5)',width=1.2),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='#FFEB3B',width=1,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='#FFEB3B',width=1,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
         for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.35)'),(rc,'rgba(220,30,30,0.4)'),(bc,'rgba(0,0,0,0.55)')]:
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[cn],fill='tozeroy',line=dict(width=0),fillcolor=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
     
-    fig_dsi.update_layout(**COMMON_LAYOUT, height=2100, margin=dict(l=10,r=10,t=60,b=10), legend=dict(orientation="h",yanchor="bottom",y=1.005,xanchor="left",x=0,font_size=9))
+    fig_dsi.update_layout(**COMMON_LAYOUT, height=1400, margin=dict(l=10,r=10,t=70,b=10), legend=dict(orientation="h",yanchor="bottom",y=1.005,xanchor="left",x=0,font_size=9))
     qmin, qmax = float(df['QQQ'].min()), float(df['QQQ'].max())
     for i in range(1, 5):
-        fig_dsi.update_yaxes(range=[qmin*0.95,qmax*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
-        fig_dsi.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
+        # 탭2의 Y축 기본축 제목 "QQQ ($)", 보조축 제목 "슬로프합" 추가
+        fig_dsi.update_yaxes(title_text="QQQ ($)", title_font_size=8, range=[qmin*0.95,qmax*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
+        fig_dsi.update_yaxes(title_text="슬로프합", title_font_size=8, range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
     fig_dsi.update_xaxes(**crosshair_xaxis())
     fig_dsi.update_annotations(font_size=10)
 
@@ -588,9 +540,9 @@ with tabs[1]:
         elif cnt==2: return "#FFD700", "#000"
         return "#A9D08E", "#000"
 
-    TS = "width:100%;border-collapse:collapse;font-size:0.62rem;"
-    TH = "border:1px solid #555;padding:4px 6px;text-align:center;background:#1F4E79;color:white;"
-    TD = "text-align:center;padding:3px 5px;border:1px solid #555;"
+    TS = "width:100%;border-collapse:collapse;"
+    TH = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;"
+    TD = "text-align:center;padding:2px 4px;border:1px solid #555;"
 
     # ── 3. 하한 미만 세부 분석 표 세로형 복원 및 2. 가운데 정렬 ──
     if sel == '종합':
@@ -636,8 +588,8 @@ with tabs[2]:
         cols_values = []
         for k in ['상한가','상승','보합','하락','하한가']:
             c = CM.get(k, '#FFF')
-            cols_headers.append(f"<th style='padding:2px 6px;border:1px solid #444;font-size:0.55rem;color:white;background:#1F4E79;text-align:center;'>{k}</th>")
-            cols_values.append(f"<td style='padding:2px 6px;border:1px solid #444;font-size:0.55rem;font-weight:bold;color:{c};text-align:center;'>{sd.get(k,'0')}</td>")
+            cols_headers.append(f"<th style='padding:2px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>{k}</th>")
+            cols_values.append(f"<td style='padding:2px 6px;border:1px solid #444;font-weight:bold;color:{c};text-align:center;'>{sd.get(k,'0')}</td>")
         return f"""
         <div style='margin-bottom: 0.5rem;'>
             <span style='font-size:0.75rem; font-weight:600;'>{title}</span>
@@ -653,8 +605,8 @@ with tabs[2]:
         cols_values = []
         for k in ['상승','보합','하락']:
             c = CM.get(k, '#FFF')
-            cols_headers.append(f"<th style='padding:2px 6px;border:1px solid #444;font-size:0.55rem;color:white;background:#1F4E79;text-align:center;'>{k}</th>")
-            cols_values.append(f"<td style='padding:2px 6px;border:1px solid #444;font-size:0.55rem;font-weight:bold;color:{c};text-align:center;'>{sd.get(k,'0')}</td>")
+            cols_headers.append(f"<th style='padding:2px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>{k}</th>")
+            cols_values.append(f"<td style='padding:2px 6px;border:1px solid #444;font-weight:bold;color:{c};text-align:center;'>{sd.get(k,'0')}</td>")
         return f"""
         <div style='margin-bottom: 0.5rem;'>
             <span style='font-size:0.75rem; font-weight:600;'>{title}</span>
@@ -718,7 +670,7 @@ with tabs[2]:
         fig.update_layout(
             **COMMON_LAYOUT,
             title=dict(text=title, font=dict(size=12), x=0, xanchor='left'),
-            height=420,
+            height=350,
             margin=dict(l=10, r=10, t=60, b=10),
             legend=dict(
                 orientation="h",
