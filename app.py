@@ -31,18 +31,44 @@ def fmt_date_kor(dt):
 # CSS Overrides
 st.markdown("""
 <style>
-    .block-container { padding-top: 0.6rem !important; padding-bottom: 0 !important; }
-    div[data-testid="stVerticalBlock"] > div:has(> .element-container) { padding-top: 0; padding-bottom: 0; }
-    .main-header { font-size: 1.35rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.3; }
-    h3 { font-size: 0.95rem !important; margin: 0.2rem 0 !important; }
-    h4 { font-size: 0.85rem !important; margin: 0.15rem 0 !important; }
-    .stTabs [data-baseweb="tab-list"] button p { font-size: 0.82rem; }
-    .stButton > button { margin-top: 0 !important; margin-bottom: 0.2rem !important; }
+    /* 상단 헤더 숨김 및 간격 축소 */
+    header[data-testid="stHeader"], .stAppHeader, .viewerBadge_container__oz27K, div[data-testid="stConnectionStatus"] {
+        display: none !important;
+        height: 0px !important;
+    }
+    .block-container { padding-top: 0.1rem !important; padding-bottom: 0 !important; }
     
-    /* 모든 표와 표 안의 글씨 크기를 0.45rem으로 통일 */
+    /* 탭 간격 최적화 */
+    .stTabs [data-baseweb="tab-list"] {
+        margin-top: -1.2rem !important;
+        margin-bottom: 0.2rem !important;
+    }
+    
+    /* 요소 간의 여백 최소화 */
+    div[data-testid="element-container"] {
+        margin-top: 0.05rem !important;
+        margin-bottom: 0.05rem !important;
+    }
+    div[data-testid="stVerticalBlock"] > div:has(> .element-container) { padding-top: 0 !important; padding-bottom: 0 !important; }
+    .main-header { font-size: 1.2rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.1; }
+    h3 { font-size: 0.85rem !important; margin: 0.1rem 0 !important; }
+    h4 { font-size: 0.75rem !important; margin: 0.05rem 0 !important; }
+    .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
+    .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
+    
+    /* 모든 표의 크기를 원래의 1/5(20%)로 변경하고 여백/자간/장평 축소 */
+    table {
+        width: 20% !important;
+        max-width: 20% !important;
+        border-collapse: collapse;
+        margin: 0 !important;
+    }
     table, th, td {
-        font-size: 0.45rem !important;
-        padding: 2px 4px !important;
+        font-size: 0.38rem !important;
+        padding: 1px 2px !important;
+        letter-spacing: -0.06em !important;
+        font-stretch: ultra-condensed !important;
+        line-height: 1.1 !important;
     }
     
     /* 모바일 터치 드래그 최적화: 차트 영역에서 터치 스크롤 충돌 방지 */
@@ -57,7 +83,7 @@ col_hdr, col_btn = st.columns([6, 1])
 with col_hdr:
     st.markdown('<p class="main-header">US Market Indicators Dashboard</p>', unsafe_allow_html=True)
 with col_btn:
-    st.markdown("<div style='height: 1.6rem;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
     if st.button("🔄 데이터 새로고침", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
@@ -147,7 +173,7 @@ def slope_sum_lagged(slope_arr, n):
 COMMON_CONFIG = {
     'scrollZoom': True,       # 핀치줌(두 손가락 확대/축소) 가능
     'displayModeBar': True,
-    'doubleClick': 'reset'    # 더블 클릭 시 원상복구
+    'doubleClick': 'autosize' # 대안 A: 더블 클릭 시 전체 범위(autorange)로 원상복구
 }
 COMMON_LAYOUT = dict(
     template="plotly_dark",
@@ -379,22 +405,39 @@ with tabs[0]:
     for cond, bg, fg, _ in reversed(color_cond_map):  # 우선순위: 검정 > 빨강 > 노랑 > 초록
         for d in df1[cond].index:
             date_color_map[d] = (bg, fg)
-    # 최근 10개 날짜 추출
-    all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:10]
+    # 최근 30개 날짜 추출
+    all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:30]
 
-    TH_SIG = "border:1px solid #555;padding:3px 6px;text-align:center;background:#1F4E79;color:white;font-size:0.62rem;"
-    TD_SIG = "border:1px solid #555;padding:3px 5px;text-align:center;font-size:0.62rem;"
+    TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;"
+    TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;"
     if all_detected_sorted:
         date_cells = "".join([
             f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>"
             for d in all_detected_sorted
         ])
+        vix_cells = "".join([
+            f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, 'VIX']:.2f}</td>"
+            for d in all_detected_sorted
+        ])
+        fgi_cells = "".join([
+            f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, 'FearGreedIndex']:.1f}</td>"
+            for d in all_detected_sorted
+        ])
+        fv5_cells = "".join([
+            f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, '(FGI-VIX)/5']:.2f}</td>"
+            for d in all_detected_sorted
+        ])
         st.markdown(
-            f"<div style='margin-bottom:0.4rem;'>"
-            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 10개)</span>"
+            f"<div style='margin-bottom:0.2rem;'>"
+            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 30개)</span>"
             f"<div style='overflow-x:auto;margin-top:3px;'>"
-            f"<table style='border-collapse:collapse;font-size:0.62rem;'>"
-            f"<tbody><tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr></tbody>"
+            f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
+            f"<tbody>"
+            f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>VIX</th>{vix_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>(F-V)/5</th>{fv5_cells}</tr>"
+            f"</tbody>"
             f"</table></div></div>",
             unsafe_allow_html=True
         )
@@ -434,14 +477,32 @@ with tabs[0]:
     for cond, _bg, _fg, fc in color_cond_map:
         fig.add_trace(go.Scatter(x=hd1, y=cond.astype(int)*200, fill='tozeroy', line=dict(width=0), fillcolor=fc, showlegend=False, hoverinfo='skip'), secondary_y=True)
     
-    fig.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=10,r=10,t=60,b=10), legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="left",x=0,font_size=10))
-    fig.update_yaxes(title_text="QQQ ($)", title_font_size=9, **crosshair_yaxis(), secondary_y=False)
-    fig.update_yaxes(title_text="Indicators", title_font_size=9, **crosshair_yaxis(range=[-10,120]), secondary_y=True)
-    fig.update_xaxes(**crosshair_xaxis())
+    one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
+    detected_indices = [i for i, d in enumerate(df1.index) if d >= pd.to_datetime(one_year_ago)]
+    initial_x_range = [hd1[detected_indices[0]], hd1[detected_indices[-1]]] if detected_indices else None
+
+    fig.update_layout(
+        **COMMON_LAYOUT, 
+        height=320, 
+        margin=dict(l=0,r=100,t=30,b=10), 
+        legend=dict(
+            orientation="h",
+            yanchor="top",y=-0.15,
+            xanchor="center",x=0.5,
+            font=dict(size=4.5)
+        )
+    )
+    if initial_x_range:
+        fig.update_xaxes(range=initial_x_range, **crosshair_xaxis())
+    else:
+        fig.update_xaxes(**crosshair_xaxis())
+        
+    fig.update_yaxes(**crosshair_yaxis(), secondary_y=False)
+    fig.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
 
     st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG)
 
-    st.markdown("---")
+    st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
     st.markdown("#### 📌 실시간 주요 시장 사건 (위기/하락 중심)")
     
     # 주요 사건 표: 글씨/패딩 크기를 전역 CSS에 맞추어 깔끔하게 표현
@@ -452,8 +513,8 @@ with tabs[0]:
         
         rows_html = ""
         for idx, row in news_df.iterrows():
-            rows_html += f"<tr><td style='border:1px solid #555;padding:3px;text-align:center;'>{row['사건 내용']}</td><td style='border:1px solid #555;padding:3px;text-align:center;'>{row['날짜']}</td></tr>"
-        st.markdown(f"<table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:3px;text-align:center;'>사건 내용</th><th style='border:1px solid #555;padding:3px;text-align:center;'>날짜</th></tr></thead><tbody>{rows_html}</tbody></table>", unsafe_allow_html=True)
+            rows_html += f"<tr><td style='border:1px solid #555;padding:2px;text-align:center;'>{row['사건 내용']}</td><td style='border:1px solid #555;padding:2px;text-align:center;'>{row['날짜']}</td></tr>"
+        st.markdown(f"<div style='margin-right: 100px;'><table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:2px;text-align:center;'>사건 내용</th><th style='border:1px solid #555;padding:2px;text-align:center;'>날짜</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
 # ── Tab 2 ──
 with tabs[1]:
@@ -466,27 +527,46 @@ with tabs[1]:
     parent_dates = sorted(list(set(all_fd)), reverse=True)
     
     if parent_dates:
-        r10 = parent_dates[:10]
+        r30 = parent_dates[:30]
         dates_row = []
         counts_row = []
-        for dt in r10:
+        for dt in r30:
             cnt = dc_top.get(dt, 1)
             bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
             fg = "#FFF" if cnt>=3 else "#000"
             dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;'>{fmt_date_kor(dt)}</td>")
-            counts_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;'>이탈 {cnt}개</td>")
+            
+            # 이탈된 그래프 지표 감지 및 해당 지표의 감지 색상 추출
+            detected = []
+            for days in [5, 10, 20, 40]:
+                dc_col = f'{days}일하한'
+                sc_col = f'슬로프{days}일합'
+                val_diff = df.loc[dt, dc_col] - df.loc[dt, sc_col]
+                if val_diff >= 0:
+                    if 0 <= val_diff < 10:
+                        color = '#A9D08E'
+                    elif 10 <= val_diff < 20:
+                        color = '#FFD700'
+                    elif 20 <= val_diff < 30:
+                        color = '#E06666'
+                    else:
+                        color = '#595959'
+                    detected.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+            
+            val_str = "<br>".join(detected) if detected else "-"
+            counts_row.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;'>{val_str}</td>")
         
-        # 종합 최근 이탈 신호 (최근 10개) 표 행열 전환
+        # 종합 최근 이탈 신호 (최근 30개) 표 행열 전환
         top_html_transposed = f"""
         <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-        <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 10개 - 행열전환)</span>
+        <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 30개)</span>
         <table style='border-collapse:collapse;margin-top:3px;'>
             <tr>
                 <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>날짜</th>
                 {"".join(dates_row)}
             </tr>
             <tr>
-                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>이탈 수</th>
+                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>이탈</th>
                 {"".join(counts_row)}
             </tr>
         </table>
@@ -514,13 +594,29 @@ with tabs[1]:
         for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.35)'),(rc,'rgba(220,30,30,0.4)'),(bc,'rgba(0,0,0,0.55)')]:
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[cn],fill='tozeroy',line=dict(width=0),fillcolor=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
     
-    fig_dsi.update_layout(**COMMON_LAYOUT, height=1400, margin=dict(l=10,r=10,t=70,b=10), legend=dict(orientation="h",yanchor="bottom",y=1.005,xanchor="left",x=0,font_size=9))
+    detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(one_year_ago)]
+    initial_x_range_dsi = [hd_df[detected_indices_dsi[0]], hd_df[detected_indices_dsi[-1]]] if detected_indices_dsi else None
+
+    fig_dsi.update_layout(
+        **COMMON_LAYOUT, 
+        height=1200, 
+        margin=dict(l=0,r=100,t=30,b=10), 
+        legend=dict(
+            orientation="h",
+            yanchor="top",y=-0.04,
+            xanchor="center",x=0.5,
+            font=dict(size=4.5)
+        )
+    )
     qmin, qmax = float(df['QQQ'].min()), float(df['QQQ'].max())
     for i in range(1, 5):
-        # 탭2의 Y축 기본축 제목 "QQQ ($)", 보조축 제목 "슬로프합" 추가
-        fig_dsi.update_yaxes(title_text="QQQ ($)", title_font_size=8, range=[qmin*0.95,qmax*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
-        fig_dsi.update_yaxes(title_text="슬로프합", title_font_size=8, range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
-    fig_dsi.update_xaxes(**crosshair_xaxis())
+        fig_dsi.update_yaxes(range=[qmin*0.95,qmax*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
+        fig_dsi.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
+    
+    if initial_x_range_dsi:
+        fig_dsi.update_xaxes(range=initial_x_range_dsi, **crosshair_xaxis())
+    else:
+        fig_dsi.update_xaxes(**crosshair_xaxis())
     fig_dsi.update_annotations(font_size=10)
 
     st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG)
@@ -591,7 +687,7 @@ with tabs[2]:
             cols_headers.append(f"<th style='padding:2px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>{k}</th>")
             cols_values.append(f"<td style='padding:2px 6px;border:1px solid #444;font-weight:bold;color:{c};text-align:center;'>{sd.get(k,'0')}</td>")
         return f"""
-        <div style='margin-bottom: 0.5rem;'>
+        <div style='margin-bottom: 0.2rem;'>
             <span style='font-size:0.75rem; font-weight:600;'>{title}</span>
             <table style='border-collapse:collapse;width:100%;margin-top:2px;'>
                 <tr>{"".join(cols_headers)}</tr>
@@ -608,7 +704,7 @@ with tabs[2]:
             cols_headers.append(f"<th style='padding:2px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>{k}</th>")
             cols_values.append(f"<td style='padding:2px 6px;border:1px solid #444;font-weight:bold;color:{c};text-align:center;'>{sd.get(k,'0')}</td>")
         return f"""
-        <div style='margin-bottom: 0.5rem;'>
+        <div style='margin-bottom: 0.2rem;'>
             <span style='font-size:0.75rem; font-weight:600;'>{title}</span>
             <table style='border-collapse:collapse;width:100%;margin-top:2px;'>
                 <tr>{"".join(cols_headers)}</tr>
@@ -617,7 +713,7 @@ with tabs[2]:
         </div>
         """
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3 = st.columns(3, gap="small")
     with c1:
         st.markdown(build_table_transposed_kr(kp_s, "🇰🇷 코스피 등락 현황 (당일)"), unsafe_allow_html=True)
     with c2:
@@ -625,12 +721,13 @@ with tabs[2]:
     with c3:
         st.markdown(build_table_transposed_us(ndx_s, "🇺🇸 나스닥 100 등락 현황 (당일 - 상하한가 제외)"), unsafe_allow_html=True)
         
-    st.markdown("---")
+    st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
     st.markdown("### 📈 대표 종목 기준 등락현황 시계열 추이 (최근 90영업일)")
     
     # ── 7번 요청: 지수를 제외한 그래프는 영역형(Area)으로 채우기 ──
     def make_line_fig(df_b, title, ps=None, pname="지수", is_us=False):
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        # 5번 요청: subplot_titles를 주입하여 2번 탭과 완벽히 동일한 어노테이션 기반 제목 사용
+        fig = make_subplots(subplot_titles=(title,), specs=[[{"secondary_y": True}]])
         if not df_b.empty:
             dfp = df_b.copy()
             dfp.index = pd.to_datetime(dfp.index)
@@ -669,19 +766,20 @@ with tabs[2]:
                 
         fig.update_layout(
             **COMMON_LAYOUT,
-            title=dict(text=title, font=dict(size=12), x=0, xanchor='left'),
-            height=350,
-            margin=dict(l=10, r=10, t=60, b=10),
+            height=300, # 간격 축소를 위해 높이 축소
+            margin=dict(l=0, r=100, t=30, b=10), # 그래프 위치 왼쪽으로 붙이고 오른쪽 100px 여백 적용
             legend=dict(
                 orientation="h",
-                yanchor="bottom", y=1.01,
-                xanchor="left", x=0,
-                font_size=9
+                yanchor="top", y=-0.15, # 도구창과 안겹치게 하단 배치
+                xanchor="center", x=0.5,
+                font=dict(size=4.5) # 범례 크기 축소 (기존의 약 1/3)
             )
         )
         fig.update_xaxes(**crosshair_xaxis())
-        fig.update_yaxes(title_text="종목 수", title_font_size=9, **crosshair_yaxis(), secondary_y=False)
-        fig.update_yaxes(title_text=pname, title_font_size=9, **crosshair_yaxis(), secondary_y=True)
+        # Y축 제목 제거
+        fig.update_yaxes(**crosshair_yaxis(), secondary_y=False)
+        fig.update_yaxes(**crosshair_yaxis(), secondary_y=True)
+        fig.update_annotations(font_size=10) # 2번 탭 어노테이션 폰트 크기(10)와 일치
         return fig
         
     st.plotly_chart(make_line_fig(kp_b,"코스피 대표 종목 등락현황 추이 (영역형)",kp_p,"코스피", is_us=False),width='stretch',config=COMMON_CONFIG)
