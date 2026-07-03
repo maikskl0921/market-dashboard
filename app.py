@@ -97,6 +97,18 @@ st.markdown("""
     .stPlotlyChart {
         touch-action: pan-y !important;
     }
+    
+    /* 모바일 환경에서 상단 헤더 버튼과 토글이 가로 일렬(수평)을 유지하도록 반응형 스택 강제 방지 */
+    @media (max-width: 768px) {
+        div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"]:first-of-type {
+            flex-wrap: nowrap !important;
+        }
+        div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="column"] {
+            width: auto !important;
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
