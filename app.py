@@ -118,6 +118,14 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] {
         gap: 0px !important;
     }
+    
+    /* 완벽한 왼쪽 밀착 나열을 위한 Float 꼼수 (st.columns의 한계를 박살냄) */
+    #header-float-marker ~ div[data-testid="element-container"] {
+        float: left !important;
+        width: auto !important;
+        margin-right: -0.2rem !important; /* 버튼과 토글 간 간격 최소화 */
+        clear: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,23 +144,18 @@ for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
 # ── 헤더 타이틀을 버튼들 위로 분리 (단독 한 줄 차지) ──
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">US Market Indicators</p>', unsafe_allow_html=True)
 
-# ── 토글 및 데이터 새로고침 버튼 배치 (st.columns 원상복구 및 배치 순서 변경) ──
-# refresh(왼쪽), 토글 4개(바로 그 옆), 빈 공간(스페이서를 맨 오른쪽으로)
-col_btn, col_t1, col_t2, col_t3, col_t4, col_spacer = st.columns([1.5, 0.4, 0.4, 0.4, 0.4, 4.5])
-with col_btn:
+# ── 토글 및 데이터 새로고침 버튼 배치 (st.columns 제약을 깬 완벽 밀착 Float 배치) ──
+with st.container():
+    st.markdown('<div id="header-float-marker" style="display:none;"></div>', unsafe_allow_html=True)
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
-with col_t1:
     st.toggle("12m", key="t_1y", on_change=update_toggles, args=("t_1y",))
-with col_t2:
     st.toggle("6m", key="t_6m", on_change=update_toggles, args=("t_6m",))
-with col_t3:
     st.toggle("3m", key="t_3m", on_change=update_toggles, args=("t_3m",))
-with col_t4:
     st.toggle("1m", key="t_1m", on_change=update_toggles, args=("t_1m",))
-with col_spacer:
-    st.write("") # 남은 공간을 스페이서가 흡수하여 토글들을 왼쪽으로 바짝 밀어줌
+    # Float 속성 해제 (다음 요소들이 딸려 올라오지 않게 방어)
+    st.markdown('<div style="clear: both; display: block; height: 0;"></div>', unsafe_allow_html=True)
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
