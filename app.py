@@ -97,17 +97,14 @@ if st.button("refresh", key="header_data_refresh"):
     st.cache_data.clear()
     st.rerun()
 
-# ── 기간 선택 라디오 버튼 (두 번째 줄, 우측 정렬) ──
-# CSS 꼼수가 먹히지 않아, 빈 컬럼을 두어 라디오 버튼을 강제로 우측으로 밀어냅니다.
-col_empty, col_radio = st.columns([2.5, 1.0])
-with col_radio:
-    selected_period = st.radio(
-        "Period",
-        options=["12m", "6m", "3m", "1m"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="period_radio"
-    )
+# ── 기간 선택 라디오 버튼 (두 번째 줄, 좌측 정렬 유지) ──
+selected_period = st.radio(
+    "Period",
+    options=["12m", "6m", "3m", "1m"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="period_radio"
+)
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
@@ -201,7 +198,7 @@ def slope_sum_lagged(slope_arr, n):
 COMMON_CONFIG = {
     'scrollZoom': True,       # 핀치줌(두 손가락 확대/축소) 가능
     'displayModeBar': True,
-    'doubleClick': 'reset'    # 더블 클릭 시 원상복구
+    'doubleClick': 'reset+autosize' # 더블 클릭 시 기간 선택된 기본값과 전체 기간(Autosize)을 토글함
 }
 COMMON_LAYOUT = dict(
     template="plotly_dark",
@@ -436,8 +433,8 @@ with tabs[0]:
     # 최근 30개 날짜 추출
     all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:30]
 
-    TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;"
-    TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;"
+    TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+    TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
     if all_detected_sorted:
         date_cells = "".join([
             f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>"
@@ -547,8 +544,8 @@ with tabs[0]:
         
         rows_html = ""
         for idx, row in news_df.iterrows():
-            rows_html += f"<tr><td style='border:1px solid #555;padding:2px;text-align:center;'>{row['사건 내용']}</td><td style='border:1px solid #555;padding:2px;text-align:center;'>{row['날짜']}</td></tr>"
-        st.markdown(f"<div style='margin-right: 100px;'><table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:2px;text-align:center;'>사건 내용</th><th style='border:1px solid #555;padding:2px;text-align:center;'>날짜</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
+            rows_html += f"<tr><td style='border:1px solid #555;padding:2px;text-align:center;white-space:nowrap;'>{row['사건 내용']}</td><td style='border:1px solid #555;padding:2px;text-align:center;white-space:nowrap;'>{row['날짜']}</td></tr>"
+        st.markdown(f"<div style='margin-right: 100px;'><table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:2px;text-align:center;white-space:nowrap;'>사건 내용</th><th style='border:1px solid #555;padding:2px;text-align:center;white-space:nowrap;'>날짜</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
 # ── Tab 2 ──
 with tabs[1]:
@@ -568,7 +565,7 @@ with tabs[1]:
             cnt = dc_top.get(dt, 1)
             bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
             fg = "#FFF" if cnt>=3 else "#000"
-            dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;'>{fmt_date_kor(dt)}</td>")
+            dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
             
             # 이탈된 그래프 지표 감지 및 해당 지표의 감지 색상 추출 (수평 정렬을 위한 4줄 고정 공간 구성)
             detected = []
@@ -591,7 +588,7 @@ with tabs[1]:
                     detected.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
             
             val_str = "<br>".join(detected)
-            counts_row.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;'>{val_str}</td>")
+            counts_row.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
         
         # 종합 최근 이탈 신호 (최근 30개) 표 행열 전환
         top_html_transposed = f"""
@@ -599,11 +596,11 @@ with tabs[1]:
         <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 30개)</span>
         <table style='border-collapse:collapse;margin-top:3px;'>
             <tr>
-                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>날짜</th>
+                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
                 {"".join(dates_row)}
             </tr>
             <tr>
-                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;'>이탈</th>
+                <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>이탈</th>
                 {"".join(counts_row)}
             </tr>
         </table>
