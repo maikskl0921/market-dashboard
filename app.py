@@ -108,11 +108,9 @@ st.markdown("""
             overflow-x: auto !important; /* 화면보다 길면 가로 스크롤 허용 */
         }
         div[data-testid="column"] {
-            width: auto !important;
-            min-width: min-content !important;
-            flex: 1 1 auto !important;
-            padding: 0.1rem !important;
             display: block !important;
+            padding: 0.1rem !important;
+            /* 파이썬에서 지정한 [1.5, 0.4, 0.4...] 비율을 그대로 유지하게 하여 횡스크롤 방지 */
         }
     }
     
