@@ -56,6 +56,14 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
+    /* 터치 호버(부드러운 추적)을 위한 커스텀 CSS */
+    .stPlotlyChart, .js-plotly-plot .plotly, .js-plotly-plot .plotly .nsewdrag, .js-plotly-plot .plotly .cursor-crosshair {
+        touch-action: pan-y !important; /* 좌우 스와이프를 막고 터치를 호버 이벤트로 전달 */
+    }
+    .hoverlayer {
+        transition: transform 0.05s ease-out !important; /* 호버 이동 시 부드러운 애니메이션 적용 */
+    }
+    
     /* 모든 표의 크기를 원래의 4/5(80%)로 변경하고 여백/자간/장평 축소 */
     table {
         width: 80% !important;
