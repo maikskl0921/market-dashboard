@@ -56,19 +56,36 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
-    /* 모든 표의 크기를 원래의 4/5(80%)에서 1/6만큼 더 키움 (약 93%) */
+    /* 모든 표의 크기를 1/6만큼 더 키움 (width 100%, 폰트 0.51rem) */
     table {
-        width: 93% !important;
-        max-width: 93% !important;
+        width: 100% !important;
+        max-width: 100% !important;
         border-collapse: collapse;
         margin: 0 !important;
     }
     table, th, td {
-        font-size: 0.44rem !important;
+        font-size: 0.51rem !important;
         padding: 1px 2px !important;
         letter-spacing: -0.06em !important;
         font-stretch: ultra-condensed !important;
         line-height: 1.1 !important;
+    }
+    
+    /* 토글과 버튼 크기 1/2로 축소 및 간격 최소화 */
+    div[data-testid="stToggle"] {
+        transform: scale(0.65);
+        transform-origin: center right;
+        margin-top: -0.3rem !important;
+    }
+    button[kind="secondary"] {
+        transform: scale(0.65);
+        transform-origin: center left;
+        margin-top: -0.3rem !important;
+    }
+    
+    /* 사이트 하단 50px 마진 부여 */
+    .block-container {
+        padding-bottom: 50px !important;
     }
     
     /* 모바일 터치 드래그 최적화: 차트 영역에서 터치 스크롤 충돌 방지 */
@@ -91,28 +108,26 @@ for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
         st.session_state[k] = (k == 't_1y')
 
 # ── 헤더, 토글 및 데이터 새로고침 버튼 배치 ──
-col_hdr, col_t1, col_t2, col_t3, col_t4, col_spacer, col_btn = st.columns([3.0, 0.8, 1.0, 1.0, 1.0, 1.5, 1.2])
-with col_hdr:
-    st.markdown('<p class="main-header">US Market Indicators Dashboard</p>', unsafe_allow_html=True)
-with col_t1:
-    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
-    st.toggle("1년", key="t_1y", on_change=update_toggles, args=("t_1y",))
-with col_t2:
-    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
-    st.toggle("6개월", key="t_6m", on_change=update_toggles, args=("t_6m",))
-with col_t3:
-    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
-    st.toggle("3개월", key="t_3m", on_change=update_toggles, args=("t_3m",))
-with col_t4:
-    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
-    st.toggle("1개월", key="t_1m", on_change=update_toggles, args=("t_1m",))
-with col_spacer:
-    st.write("") # 빈 스페이서
+col_btn, col_spacer, col_t1, col_t2, col_t3, col_t4 = st.columns([1.0, 3.5, 0.5, 0.5, 0.5, 0.5])
 with col_btn:
     st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
-    if st.button("🔄 데이터 새로고침", key="header_data_refresh"):
+    if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
+with col_spacer:
+    st.markdown('<p class="main-header" style="text-align:center;">US Market Indicators</p>', unsafe_allow_html=True)
+with col_t1:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("12m", key="t_1y", on_change=update_toggles, args=("t_1y",))
+with col_t2:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("6m", key="t_6m", on_change=update_toggles, args=("t_6m",))
+with col_t3:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("3m", key="t_3m", on_change=update_toggles, args=("t_3m",))
+with col_t4:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("1m", key="t_1m", on_change=update_toggles, args=("t_1m",))
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
@@ -810,13 +825,26 @@ with tabs[2]:
                     hovertemplate=f'{pname}: %{{y:.2f}}<extra></extra>'
                 ), secondary_y=True)
                 
+        if active_period_days:
+            target_date_3 = datetime.date.today() - datetime.timedelta(days=active_period_days)
+            detected_indices_3 = [i for i, d in enumerate(dfp.index) if d >= pd.to_datetime(target_date_3)]
+            if detected_indices_3:
+                initial_x_range_3 = [detected_indices_3[0], len(hd) - 1]
+            else:
+                initial_x_range_3 = None
+        else:
+            initial_x_range_3 = None
+
         fig.update_layout(
             **COMMON_LAYOUT,
             height=300, 
             margin=dict(l=0, r=50, t=30, b=10), # 오른쪽 50px 여백으로 변경
             showlegend=False # 범례 제거
         )
-        fig.update_xaxes(**crosshair_xaxis())
+        if initial_x_range_3:
+            fig.update_xaxes(range=initial_x_range_3, type='category', **crosshair_xaxis())
+        else:
+            fig.update_xaxes(type='category', **crosshair_xaxis())
         # Y축 제목 제거
         fig.update_yaxes(**crosshair_yaxis(), secondary_y=False)
         fig.update_yaxes(**crosshair_yaxis(), secondary_y=True)
