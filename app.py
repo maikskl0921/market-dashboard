@@ -70,6 +70,12 @@ st.markdown("""
         font-stretch: ultra-condensed !important;
         line-height: 1.1 !important;
     }
+    
+    /* 3번 탭 등에서 컬럼 간격 때문에 표 가로 스크롤이 생기는 현상 방지 */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0.1rem !important;
+    }
+    
     /* 사이트 하단 50px 마진 부여 */
     .block-container {
         padding-bottom: 50px !important;
@@ -80,43 +86,32 @@ st.markdown("""
         touch-action: pan-y !important;
     }
     
-    /* 핸드폰(모바일) 브라우저 특성을 무시하고, 모든 컬럼(가로 블록)을 무조건 일렬로 유지하는 궁극의 범용 코드 */
-    @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            overflow-x: auto !important; /* 화면보다 길면 가로 스크롤 허용 */
-        }
-        div[data-testid="column"] {
-            display: block !important;
-            padding: 0.1rem !important;
-            /* 파이썬에서 지정한 [1.5, 0.4, 0.4...] 비율을 그대로 유지하게 하여 횡스크롤 방지 */
-        }
+    /* 라디오 버튼(기간 선택)을 화면 우측으로 정렬하기 위한 CSS */
+    .radio-right-align + div[data-testid="element-container"] div[role="radiogroup"] {
+        justify-content: flex-end !important;
     }
+
+
 </style>
 """, unsafe_allow_html=True)
 
 # ── 헤더 타이틀을 버튼들 위로 분리 (단독 한 줄 차지) ──
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">US Market Indicators</p>', unsafe_allow_html=True)
 
-# ── 기간 선택 및 데이터 새로고침 버튼 배치 (st.radio 활용) ──
-# 가로형 라디오 버튼을 사용하여 4개의 옵션을 하나의 컴포넌트로 깔끔하게 렌더링
-col_btn, col_radio = st.columns([1.0, 5.0])
-with col_btn:
-    st.markdown("<div style='height: 0.1rem;'></div>", unsafe_allow_html=True)
-    if st.button("refresh", key="header_data_refresh"):
-        st.cache_data.clear()
-        st.rerun()
-with col_radio:
-    selected_period = st.radio(
-        "Period",
-        options=["12m", "6m", "3m", "1m"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="period_radio"
-    )
+# ── 데이터 새로고침 버튼 (첫 번째 줄, 좌측 정렬) ──
+if st.button("refresh", key="header_data_refresh"):
+    st.cache_data.clear()
+    st.rerun()
+
+# ── 기간 선택 라디오 버튼 (두 번째 줄, 우측 정렬) ──
+st.markdown('<div class="radio-right-align"></div>', unsafe_allow_html=True)
+selected_period = st.radio(
+    "Period",
+    options=["12m", "6m", "3m", "1m"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="period_radio"
+)
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
