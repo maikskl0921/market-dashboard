@@ -51,8 +51,8 @@ st.markdown("""
     }
     div[data-testid="stVerticalBlock"] > div:has(> .element-container) { padding-top: 0 !important; padding-bottom: 0 !important; }
     .main-header { font-size: 1.2rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.1; }
-    h3 { font-size: 0.85rem !important; margin: 0.1rem 0 !important; }
-    h4 { font-size: 0.75rem !important; margin: 0.05rem 0 !important; }
+    h3 { font-size: 0.85rem !important; margin: 0.4rem 0 0.2rem 0 !important; }
+    h4 { font-size: 0.75rem !important; margin: 0.3rem 0 0.2rem 0 !important; }
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
@@ -71,9 +71,9 @@ st.markdown("""
         line-height: 1.1 !important;
     }
     
-    /* 3번 탭 등에서 컬럼 간격 때문에 표 가로 스크롤이 생기는 현상 방지 */
+    /* 3번 탭 등에서 컬럼 간격 때문에 표 가로 스크롤이 생기는 현상 방지 (세로 간격은 건드리지 않음) */
     div[data-testid="stHorizontalBlock"] {
-        gap: 0.1rem !important;
+        column-gap: 0.1rem !important;
     }
     
     /* 사이트 하단 50px 마진 부여 */
@@ -85,12 +85,7 @@ st.markdown("""
     .stPlotlyChart {
         touch-action: pan-y !important;
     }
-    
-    /* 라디오 버튼(기간 선택)을 화면 최우측으로 강제 밀착 (DOM 구조 무관) */
-    div[data-testid="stRadio"] {
-        float: right !important;
-        clear: both !important;
-    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -103,14 +98,16 @@ if st.button("refresh", key="header_data_refresh"):
     st.rerun()
 
 # ── 기간 선택 라디오 버튼 (두 번째 줄, 우측 정렬) ──
-st.markdown('<div class="radio-right-align"></div>', unsafe_allow_html=True)
-selected_period = st.radio(
-    "Period",
-    options=["12m", "6m", "3m", "1m"],
-    horizontal=True,
-    label_visibility="collapsed",
-    key="period_radio"
-)
+# CSS 꼼수가 먹히지 않아, 빈 컬럼을 두어 라디오 버튼을 강제로 우측으로 밀어냅니다.
+col_empty, col_radio = st.columns([2.5, 1.0])
+with col_radio:
+    selected_period = st.radio(
+        "Period",
+        options=["12m", "6m", "3m", "1m"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="period_radio"
+    )
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
