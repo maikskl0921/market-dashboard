@@ -86,12 +86,11 @@ st.markdown("""
         touch-action: pan-y !important;
     }
     
-    /* 라디오 버튼(기간 선택)을 화면 우측으로 정렬하기 위한 CSS */
-    .radio-right-align + div[data-testid="element-container"] div[role="radiogroup"] {
-        justify-content: flex-end !important;
+    /* 라디오 버튼(기간 선택)을 화면 최우측으로 강제 밀착 (DOM 구조 무관) */
+    div[data-testid="stRadio"] {
+        float: right !important;
+        clear: both !important;
     }
-
-
 </style>
 """, unsafe_allow_html=True)
 
