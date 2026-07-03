@@ -70,30 +70,6 @@ st.markdown("""
         font-stretch: ultra-condensed !important;
         line-height: 1.1 !important;
     }
-    
-    /* 토글 스위치와 토글 제목 크기를 강제로 1/2 축소 및 유령 여백 상쇄 */
-    [data-testid="stToggle"], label[data-baseweb="checkbox"] {
-        transform: scale(0.5) !important;
-        transform-origin: center left !important; /* 왼쪽 기준으로 축소하여 좌측 밀착 */
-        margin-top: -0.1rem !important;
-        white-space: nowrap !important;
-        /* 핵심: scale(0.5)로 인해 남겨진 우측의 거대한 투명 유령 여백을 깎아내어 다음 요소를 끌어당김! */
-        margin-right: -45px !important; 
-        margin-left: -10px !important;
-    }
-    [data-testid="stToggle"] p, label[data-baseweb="checkbox"] p, div[data-testid="stWidgetLabel"] p {
-        font-size: 0.75rem !important;
-        font-weight: normal !important;
-    }
-    /* 새로고침 버튼 크기 축소 및 유령 여백 상쇄 */
-    button[kind="secondary"] {
-        transform: scale(0.65);
-        transform-origin: center left;
-        margin-top: -0.3rem !important;
-        margin-right: -20px !important; /* 버튼 우측 유령 여백 깎아냄 */
-        margin-left: -5px !important;
-    }
-    
     /* 사이트 하단 50px 마진 부여 */
     .block-container {
         padding-bottom: 50px !important;
@@ -119,59 +95,35 @@ st.markdown("""
             /* 파이썬에서 지정한 [1.5, 0.4, 0.4...] 비율을 그대로 유지하게 하여 횡스크롤 방지 */
         }
     }
-    
-    /* 가로 블록 간의 기본 간격(gap) 없애기 및 항상 왼쪽 밀착 정렬 */
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0px !important;
-        justify-content: flex-start !important;
-    }
-    
-    /* 각 컬럼이 화면 비율을 강제로 나누어 가지는 현상(flex-grow) 방지 */
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        flex: 0 1 auto !important; /* 빈 공간을 억지로 차지하지 않고 내용물 크기만큼만 차지 */
-        width: auto !important;
-        min-width: 0 !important;
-        margin-right: 0.2rem !important; /* 컴포넌트 간격 최소화 */
-    }
 </style>
 """, unsafe_allow_html=True)
-
-# 토글 배타적 선택을 위한 콜백 함수
-def update_toggles(changed_key):
-    if st.session_state[changed_key]:
-        for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
-            if k != changed_key:
-                st.session_state[k] = False
-
-# 초기 토글 상태 세팅
-for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
-    if k not in st.session_state:
-        st.session_state[k] = (k == 't_1y')
 
 # ── 헤더 타이틀을 버튼들 위로 분리 (단독 한 줄 차지) ──
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">US Market Indicators</p>', unsafe_allow_html=True)
 
-# ── 토글 및 데이터 새로고침 버튼 배치 (Flex 비율 할당 강제 무력화 적용) ──
-col_btn, col_t1, col_t2, col_t3, col_t4 = st.columns([1, 1, 1, 1, 1])
+# ── 기간 선택 및 데이터 새로고침 버튼 배치 (st.radio 활용) ──
+# 가로형 라디오 버튼을 사용하여 4개의 옵션을 하나의 컴포넌트로 깔끔하게 렌더링
+col_btn, col_radio = st.columns([1.0, 5.0])
 with col_btn:
+    st.markdown("<div style='height: 0.1rem;'></div>", unsafe_allow_html=True)
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
-with col_t1:
-    st.toggle("12m", key="t_1y", on_change=update_toggles, args=("t_1y",))
-with col_t2:
-    st.toggle("6m", key="t_6m", on_change=update_toggles, args=("t_6m",))
-with col_t3:
-    st.toggle("3m", key="t_3m", on_change=update_toggles, args=("t_3m",))
-with col_t4:
-    st.toggle("1m", key="t_1m", on_change=update_toggles, args=("t_1m",))
+with col_radio:
+    selected_period = st.radio(
+        "Period",
+        options=["12m", "6m", "3m", "1m"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="period_radio"
+    )
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
-if st.session_state['t_1y']: active_period_days = 365
-elif st.session_state['t_6m']: active_period_days = 182
-elif st.session_state['t_3m']: active_period_days = 91
-elif st.session_state['t_1m']: active_period_days = 30
+if selected_period == "12m": active_period_days = 365
+elif selected_period == "6m": active_period_days = 182
+elif selected_period == "3m": active_period_days = 91
+elif selected_period == "1m": active_period_days = 30
 
 # ── 2. 미국 주식 시장 하락에 매우 중요한 역사적/실시간 주요 시장 사건 데이터 ──
 static_historical_events = [
