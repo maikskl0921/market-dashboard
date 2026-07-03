@@ -115,6 +115,14 @@ st.markdown("""
             display: block !important;
         }
     }
+    
+    /* 인라인 꼼수를 사용하여 버튼과 토글들을 한 줄로, 간격 없이 바싹 붙이기 */
+    #header-inline-marker ~ div[data-testid="element-container"] {
+        display: inline-block !important;
+        width: auto !important;
+        margin-right: -0.3rem !important; /* 토글 사이의 간격을 극도로 최소화 */
+        vertical-align: middle !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -133,22 +141,15 @@ for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
 # ── 헤더 타이틀을 버튼들 위로 분리 (단독 한 줄 차지) ──
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">US Market Indicators</p>', unsafe_allow_html=True)
 
-# ── 토글 및 데이터 새로고침 버튼 배치 ──
-# refresh는 왼쪽, 빈 공간, 4개 토글은 오른쪽으로 쏠리도록 비율과 간격(gap="small") 조절
-col_btn, col_spacer, col_t1, col_t2, col_t3, col_t4 = st.columns([1.5, 4.0, 0.5, 0.5, 0.5, 0.5], gap="small")
-with col_btn:
+# ── 토글 및 데이터 새로고침 버튼 배치 (컬럼 간격 제약을 벗어난 인라인 꼼수 적용) ──
+with st.container():
+    st.markdown('<div id="header-inline-marker" style="display:none;"></div>', unsafe_allow_html=True)
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
-with col_spacer:
-    st.write("") # 빈 스페이서 유지
-with col_t1:
     st.toggle("12m", key="t_1y", on_change=update_toggles, args=("t_1y",))
-with col_t2:
     st.toggle("6m", key="t_6m", on_change=update_toggles, args=("t_6m",))
-with col_t3:
     st.toggle("3m", key="t_3m", on_change=update_toggles, args=("t_3m",))
-with col_t4:
     st.toggle("1m", key="t_1m", on_change=update_toggles, args=("t_1m",))
 
 # 선택된 기간 설정 (일수)
