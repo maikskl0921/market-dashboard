@@ -98,18 +98,19 @@ st.markdown("""
         touch-action: pan-y !important;
     }
     
-    /* 모바일 환경에서 상단 헤더 버튼과 토글이 가로 일렬(수평)을 유지하도록 반응형 스택 강제 방지 */
+    /* 모바일 환경에서 헤더 버튼과 토글이 가로 일렬을 유지하도록 강제 (DOM 구조 무관) */
     @media (max-width: 768px) {
-        div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"]:first-of-type {
+        /* 토글을 포함하는 가로 블록(헤더)만을 정확히 타겟팅하여 세로 스택 방지 */
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stToggle"]) {
+            display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            justify-content: space-between !important;
+            align-items: center !important;
         }
-        div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="column"] {
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stToggle"]) > div {
             width: auto !important;
-            min-width: min-content !important;
-            flex: 1 1 auto !important;
-            padding: 0 !important;
+            flex: 0 1 auto !important;
+            min-width: 0 !important;
         }
     }
 </style>
