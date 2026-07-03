@@ -71,21 +71,27 @@ st.markdown("""
         line-height: 1.1 !important;
     }
     
-    /* 토글 스위치와 토글 제목 크기를 강제로 1/2 축소 (DOM 타겟팅 확장) */
+    /* 토글 스위치와 토글 제목 크기를 강제로 1/2 축소 및 유령 여백 상쇄 */
     [data-testid="stToggle"], label[data-baseweb="checkbox"] {
         transform: scale(0.5) !important;
-        transform-origin: center right !important;
+        transform-origin: center left !important; /* 왼쪽 기준으로 축소하여 좌측 밀착 */
         margin-top: -0.1rem !important;
         white-space: nowrap !important;
+        /* 핵심: scale(0.5)로 인해 남겨진 우측의 거대한 투명 유령 여백을 깎아내어 다음 요소를 끌어당김! */
+        margin-right: -45px !important; 
+        margin-left: -10px !important;
     }
     [data-testid="stToggle"] p, label[data-baseweb="checkbox"] p, div[data-testid="stWidgetLabel"] p {
-        font-size: 0.75rem !important; /* 스케일 0.5가 먹히면 실제 0.375rem 수준 */
+        font-size: 0.75rem !important;
         font-weight: normal !important;
     }
+    /* 새로고침 버튼 크기 축소 및 유령 여백 상쇄 */
     button[kind="secondary"] {
         transform: scale(0.65);
         transform-origin: center left;
         margin-top: -0.3rem !important;
+        margin-right: -20px !important; /* 버튼 우측 유령 여백 깎아냄 */
+        margin-left: -5px !important;
     }
     
     /* 사이트 하단 50px 마진 부여 */
