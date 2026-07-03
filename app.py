@@ -485,7 +485,7 @@ with tabs[0]:
     one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
     if show_1y_only:
         detected_indices = [i for i, d in enumerate(df1.index) if d >= pd.to_datetime(one_year_ago)]
-        initial_x_range = [hd1[detected_indices[0]], hd1[detected_indices[-1]]] if detected_indices else None
+        initial_x_range = [detected_indices[0], len(hd1) - 1] if detected_indices else None
         if detected_indices:
             qqq_1y = df1['QQQ'].iloc[detected_indices[0]:]
             q_min, q_max = float(qqq_1y.min()), float(qqq_1y.max())
@@ -504,9 +504,9 @@ with tabs[0]:
         showlegend=False # 범례 제거
     )
     if initial_x_range:
-        fig.update_xaxes(range=initial_x_range, **crosshair_xaxis())
+        fig.update_xaxes(range=initial_x_range, type='category', **crosshair_xaxis())
     else:
-        fig.update_xaxes(**crosshair_xaxis())
+        fig.update_xaxes(type='category', **crosshair_xaxis())
         
     fig.update_yaxes(range=qqq_y_range, **crosshair_yaxis(), secondary_y=False)
     fig.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
@@ -611,7 +611,7 @@ with tabs[1]:
     one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
     if show_1y_only:
         detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(one_year_ago)]
-        initial_x_range_dsi = [hd_df[detected_indices_dsi[0]], hd_df[detected_indices_dsi[-1]]] if detected_indices_dsi else None
+        initial_x_range_dsi = [detected_indices_dsi[0], len(hd_df) - 1] if detected_indices_dsi else None
         if detected_indices_dsi:
             qqq_1y_dsi = df['QQQ'].iloc[detected_indices_dsi[0]:]
             qmin_dsi, qmax_dsi = float(qqq_1y_dsi.min()), float(qqq_1y_dsi.max())
@@ -632,9 +632,9 @@ with tabs[1]:
         fig_dsi.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
     
     if initial_x_range_dsi:
-        fig_dsi.update_xaxes(range=initial_x_range_dsi, **crosshair_xaxis())
+        fig_dsi.update_xaxes(range=initial_x_range_dsi, type='category', **crosshair_xaxis())
     else:
-        fig_dsi.update_xaxes(**crosshair_xaxis())
+        fig_dsi.update_xaxes(type='category', **crosshair_xaxis())
     fig_dsi.update_annotations(font_size=10)
 
     st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG)
