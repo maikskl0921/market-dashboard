@@ -71,15 +71,15 @@ st.markdown("""
         line-height: 1.1 !important;
     }
     
-    /* 토글 스위치와 토글 제목 크기를 강제로 1/2 축소 */
-    div[data-testid="stToggle"] {
-        zoom: 0.5 !important;
+    /* 토글 스위치와 토글 제목 크기를 강제로 1/2 축소 (DOM 타겟팅 확장) */
+    [data-testid="stToggle"], label[data-baseweb="checkbox"] {
         transform: scale(0.5) !important;
         transform-origin: center right !important;
-        margin-top: -0.3rem !important;
+        margin-top: -0.1rem !important;
+        white-space: nowrap !important;
     }
-    div[data-testid="stToggle"] label p, div[data-testid="stToggle"] p {
-        font-size: 1rem !important; /* zoom 속성 적용 시 실제 표출은 0.5rem 수준 */
+    [data-testid="stToggle"] p, label[data-baseweb="checkbox"] p, div[data-testid="stWidgetLabel"] p {
+        font-size: 0.75rem !important; /* 스케일 0.5가 먹히면 실제 0.375rem 수준 */
         font-weight: normal !important;
     }
     button[kind="secondary"] {
