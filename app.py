@@ -56,10 +56,10 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
-    /* 모든 표의 크기를 원래의 1/5(20%)로 변경하고 여백/자간/장평 축소 */
+    /* 모든 표의 크기를 원래의 4/5(80%)로 변경하고 여백/자간/장평 축소 */
     table {
-        width: 20% !important;
-        max-width: 20% !important;
+        width: 80% !important;
+        max-width: 80% !important;
         border-collapse: collapse;
         margin: 0 !important;
     }
@@ -78,10 +78,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── 헤더와 데이터 새로고침 버튼 배치 (가려짐 방지를 위해 마진용 빈 div 배치) ──
-col_hdr, col_btn = st.columns([6, 1])
+# ── 헤더, 토글 및 데이터 새로고침 버튼 배치 ──
+col_hdr, col_tog, col_spacer, col_btn = st.columns([3.5, 2.0, 3.5, 1.2])
 with col_hdr:
     st.markdown('<p class="main-header">US Market Indicators Dashboard</p>', unsafe_allow_html=True)
+with col_tog:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    show_1y_only = st.toggle("최근 1년만 보기", value=True, key="toggle_show_1y")
+with col_spacer:
+    st.write("") # 빈 스페이서
 with col_btn:
     st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
     if st.button("🔄 데이터 새로고침", key="header_data_refresh"):
@@ -173,7 +178,7 @@ def slope_sum_lagged(slope_arr, n):
 COMMON_CONFIG = {
     'scrollZoom': True,       # 핀치줌(두 손가락 확대/축소) 가능
     'displayModeBar': True,
-    'doubleClick': 'autosize' # 대안 A: 더블 클릭 시 전체 범위(autorange)로 원상복구
+    'doubleClick': 'reset'    # 더블 클릭 시 원상복구
 }
 COMMON_LAYOUT = dict(
     template="plotly_dark",
@@ -436,7 +441,7 @@ with tabs[0]:
             f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr>"
             f"<tr><th style='{TH_SIG}'>VIX</th>{vix_cells}</tr>"
             f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells}</tr>"
-            f"<tr><th style='{TH_SIG}'>(F-V)/5</th>{fv5_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells}</tr>"
             f"</tbody>"
             f"</table></div></div>",
             unsafe_allow_html=True
@@ -478,26 +483,32 @@ with tabs[0]:
         fig.add_trace(go.Scatter(x=hd1, y=cond.astype(int)*200, fill='tozeroy', line=dict(width=0), fillcolor=fc, showlegend=False, hoverinfo='skip'), secondary_y=True)
     
     one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
-    detected_indices = [i for i, d in enumerate(df1.index) if d >= pd.to_datetime(one_year_ago)]
-    initial_x_range = [hd1[detected_indices[0]], hd1[detected_indices[-1]]] if detected_indices else None
+    if show_1y_only:
+        detected_indices = [i for i, d in enumerate(df1.index) if d >= pd.to_datetime(one_year_ago)]
+        initial_x_range = [hd1[detected_indices[0]], hd1[detected_indices[-1]]] if detected_indices else None
+        if detected_indices:
+            qqq_1y = df1['QQQ'].iloc[detected_indices[0]:]
+            q_min, q_max = float(qqq_1y.min()), float(qqq_1y.max())
+            qqq_y_range = [q_min * 0.95, q_max * 1.05]
+        else:
+            qqq_y_range = [float(df1['QQQ'].min()) * 0.95, float(df1['QQQ'].max()) * 1.05]
+    else:
+        initial_x_range = None
+        q_min, q_max = float(df1['QQQ'].min()), float(df1['QQQ'].max())
+        qqq_y_range = [q_min * 0.95, q_max * 1.05]
 
     fig.update_layout(
         **COMMON_LAYOUT, 
         height=320, 
-        margin=dict(l=0,r=100,t=30,b=10), 
-        legend=dict(
-            orientation="h",
-            yanchor="top",y=-0.15,
-            xanchor="center",x=0.5,
-            font=dict(size=4.5)
-        )
+        margin=dict(l=0,r=50,t=30,b=10), # 오른쪽 50px 여백으로 변경
+        showlegend=False # 범례 제거
     )
     if initial_x_range:
         fig.update_xaxes(range=initial_x_range, **crosshair_xaxis())
     else:
         fig.update_xaxes(**crosshair_xaxis())
         
-    fig.update_yaxes(**crosshair_yaxis(), secondary_y=False)
+    fig.update_yaxes(range=qqq_y_range, **crosshair_yaxis(), secondary_y=False)
     fig.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
 
     st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG)
@@ -536,7 +547,7 @@ with tabs[1]:
             fg = "#FFF" if cnt>=3 else "#000"
             dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;'>{fmt_date_kor(dt)}</td>")
             
-            # 이탈된 그래프 지표 감지 및 해당 지표의 감지 색상 추출
+            # 이탈된 그래프 지표 감지 및 해당 지표의 감지 색상 추출 (수평 정렬을 위한 4줄 고정 공간 구성)
             detected = []
             for days in [5, 10, 20, 40]:
                 dc_col = f'{days}일하한'
@@ -552,8 +563,11 @@ with tabs[1]:
                     else:
                         color = '#595959'
                     detected.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                else:
+                    # 자리를 비워두지 않고 투명하게 유지하여 수평 정렬 일치시킴
+                    detected.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
             
-            val_str = "<br>".join(detected) if detected else "-"
+            val_str = "<br>".join(detected)
             counts_row.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;'>{val_str}</td>")
         
         # 종합 최근 이탈 신호 (최근 30개) 표 행열 전환
@@ -594,23 +608,27 @@ with tabs[1]:
         for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.35)'),(rc,'rgba(220,30,30,0.4)'),(bc,'rgba(0,0,0,0.55)')]:
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[cn],fill='tozeroy',line=dict(width=0),fillcolor=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
     
-    detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(one_year_ago)]
-    initial_x_range_dsi = [hd_df[detected_indices_dsi[0]], hd_df[detected_indices_dsi[-1]]] if detected_indices_dsi else None
+    one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
+    if show_1y_only:
+        detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(one_year_ago)]
+        initial_x_range_dsi = [hd_df[detected_indices_dsi[0]], hd_df[detected_indices_dsi[-1]]] if detected_indices_dsi else None
+        if detected_indices_dsi:
+            qqq_1y_dsi = df['QQQ'].iloc[detected_indices_dsi[0]:]
+            qmin_dsi, qmax_dsi = float(qqq_1y_dsi.min()), float(qqq_1y_dsi.max())
+        else:
+            qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
+    else:
+        initial_x_range_dsi = None
+        qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
 
     fig_dsi.update_layout(
         **COMMON_LAYOUT, 
         height=1200, 
-        margin=dict(l=0,r=100,t=30,b=10), 
-        legend=dict(
-            orientation="h",
-            yanchor="top",y=-0.04,
-            xanchor="center",x=0.5,
-            font=dict(size=4.5)
-        )
+        margin=dict(l=0,r=50,t=30,b=10), # 오른쪽 50px 여백으로 변경
+        showlegend=False # 범례 제거
     )
-    qmin, qmax = float(df['QQQ'].min()), float(df['QQQ'].max())
     for i in range(1, 5):
-        fig_dsi.update_yaxes(range=[qmin*0.95,qmax*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
+        fig_dsi.update_yaxes(range=[qmin_dsi*0.95,qmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
         fig_dsi.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
     
     if initial_x_range_dsi:
@@ -648,7 +666,7 @@ with tabs[1]:
             for dt in uds:
                 cnt = dcnt.get(dt, 1); bg, fg = color_bg(cnt)
                 rh += f"<tr><td style='background:{bg};color:{fg};font-weight:bold;{TD}'>{fmt_date_kor(dt)}</td><td style='background:{bg};color:{fg};{TD}'></td><td style='background:{bg};color:{fg};{TD}'></td></tr>"
-            st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;margin-right:100px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
         else:
             st.info("하한을 하회하는 이탈 신호 데이터가 없습니다.")
     else:
@@ -663,7 +681,7 @@ with tabs[1]:
                 cn, bh, fh = ('초록','#A9D08E','#000') if 0<=dv<10 else ('노랑','#FFD700','#000') if 10<=dv<20 else ('빨강','#E06666','#FFF') if 20<=dv<30 else ('검정','#595959','#FFF')
                 cnt = dcnt.get(dt, 1); bg, fg = color_bg(cnt)
                 rh += f"<tr><td style='background:{bg};color:{fg};font-weight:bold;{TD}'>{fmt_date_kor(dt)}</td><td style='background:{bh};color:{fh};font-weight:bold;{TD}'>{cn}</td><td style='{TD}'>{dv:.1f}</td></tr>"
-            st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;margin-right:100px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
         else:
             st.info("하한을 하회하는 이탈 신호 데이터가 없습니다.")
 
@@ -766,14 +784,9 @@ with tabs[2]:
                 
         fig.update_layout(
             **COMMON_LAYOUT,
-            height=300, # 간격 축소를 위해 높이 축소
-            margin=dict(l=0, r=100, t=30, b=10), # 그래프 위치 왼쪽으로 붙이고 오른쪽 100px 여백 적용
-            legend=dict(
-                orientation="h",
-                yanchor="top", y=-0.15, # 도구창과 안겹치게 하단 배치
-                xanchor="center", x=0.5,
-                font=dict(size=4.5) # 범례 크기 축소 (기존의 약 1/3)
-            )
+            height=300, 
+            margin=dict(l=0, r=50, t=30, b=10), # 오른쪽 50px 여백으로 변경
+            showlegend=False # 범례 제거
         )
         fig.update_xaxes(**crosshair_xaxis())
         # Y축 제목 제거
