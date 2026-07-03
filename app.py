@@ -101,12 +101,15 @@ st.markdown("""
     /* 모바일 환경에서 상단 헤더 버튼과 토글이 가로 일렬(수평)을 유지하도록 반응형 스택 강제 방지 */
     @media (max-width: 768px) {
         div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"]:first-of-type {
+            flex-direction: row !important;
             flex-wrap: nowrap !important;
+            justify-content: space-between !important;
         }
         div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="column"] {
             width: auto !important;
-            flex: 1 1 0% !important;
-            min-width: 0 !important;
+            min-width: min-content !important;
+            flex: 1 1 auto !important;
+            padding: 0 !important;
         }
     }
 </style>
