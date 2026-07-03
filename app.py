@@ -56,23 +56,15 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
-    /* 터치 호버(부드러운 추적)을 위한 커스텀 CSS */
-    .stPlotlyChart, .js-plotly-plot .plotly, .js-plotly-plot .plotly .nsewdrag, .js-plotly-plot .plotly .cursor-crosshair {
-        touch-action: pan-y !important; /* 좌우 스와이프를 막고 터치를 호버 이벤트로 전달 */
-    }
-    .hoverlayer {
-        transition: transform 0.05s ease-out !important; /* 호버 이동 시 부드러운 애니메이션 적용 */
-    }
-    
-    /* 모든 표의 크기를 원래의 4/5(80%)로 변경하고 여백/자간/장평 축소 */
+    /* 모든 표의 크기를 원래의 4/5(80%)에서 1/6만큼 더 키움 (약 93%) */
     table {
-        width: 80% !important;
-        max-width: 80% !important;
+        width: 93% !important;
+        max-width: 93% !important;
         border-collapse: collapse;
         margin: 0 !important;
     }
     table, th, td {
-        font-size: 0.38rem !important;
+        font-size: 0.44rem !important;
         padding: 1px 2px !important;
         letter-spacing: -0.06em !important;
         font-stretch: ultra-condensed !important;
@@ -86,13 +78,34 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# 토글 배타적 선택을 위한 콜백 함수
+def update_toggles(changed_key):
+    if st.session_state[changed_key]:
+        for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
+            if k != changed_key:
+                st.session_state[k] = False
+
+# 초기 토글 상태 세팅
+for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
+    if k not in st.session_state:
+        st.session_state[k] = (k == 't_1y')
+
 # ── 헤더, 토글 및 데이터 새로고침 버튼 배치 ──
-col_hdr, col_tog, col_spacer, col_btn = st.columns([3.5, 2.0, 3.5, 1.2])
+col_hdr, col_t1, col_t2, col_t3, col_t4, col_spacer, col_btn = st.columns([3.0, 0.8, 1.0, 1.0, 1.0, 1.5, 1.2])
 with col_hdr:
     st.markdown('<p class="main-header">US Market Indicators Dashboard</p>', unsafe_allow_html=True)
-with col_tog:
+with col_t1:
     st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
-    show_1y_only = st.toggle("최근 1년만 보기", value=True, key="toggle_show_1y")
+    st.toggle("1년", key="t_1y", on_change=update_toggles, args=("t_1y",))
+with col_t2:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("6개월", key="t_6m", on_change=update_toggles, args=("t_6m",))
+with col_t3:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("3개월", key="t_3m", on_change=update_toggles, args=("t_3m",))
+with col_t4:
+    st.markdown("<div style='height: 0.2rem;'></div>", unsafe_allow_html=True)
+    st.toggle("1개월", key="t_1m", on_change=update_toggles, args=("t_1m",))
 with col_spacer:
     st.write("") # 빈 스페이서
 with col_btn:
@@ -100,6 +113,13 @@ with col_btn:
     if st.button("🔄 데이터 새로고침", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
+
+# 선택된 기간 설정 (일수)
+active_period_days = None
+if st.session_state['t_1y']: active_period_days = 365
+elif st.session_state['t_6m']: active_period_days = 182
+elif st.session_state['t_3m']: active_period_days = 91
+elif st.session_state['t_1m']: active_period_days = 30
 
 # ── 2. 미국 주식 시장 하락에 매우 중요한 역사적/실시간 주요 시장 사건 데이터 ──
 static_historical_events = [
@@ -490,9 +510,9 @@ with tabs[0]:
     for cond, _bg, _fg, fc in color_cond_map:
         fig.add_trace(go.Scatter(x=hd1, y=cond.astype(int)*200, fill='tozeroy', line=dict(width=0), fillcolor=fc, showlegend=False, hoverinfo='skip'), secondary_y=True)
     
-    one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
-    if show_1y_only:
-        detected_indices = [i for i, d in enumerate(df1.index) if d >= pd.to_datetime(one_year_ago)]
+    if active_period_days:
+        target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
+        detected_indices = [i for i, d in enumerate(df1.index) if d >= pd.to_datetime(target_date)]
         initial_x_range = [detected_indices[0], len(hd1) - 1] if detected_indices else None
         if detected_indices:
             qqq_1y = df1['QQQ'].iloc[detected_indices[0]:]
@@ -616,9 +636,9 @@ with tabs[1]:
         for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.35)'),(rc,'rgba(220,30,30,0.4)'),(bc,'rgba(0,0,0,0.55)')]:
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[cn],fill='tozeroy',line=dict(width=0),fillcolor=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
     
-    one_year_ago = datetime.date.today() - datetime.timedelta(days=365)
-    if show_1y_only:
-        detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(one_year_ago)]
+    if active_period_days:
+        target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
+        detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_dsi)]
         initial_x_range_dsi = [detected_indices_dsi[0], len(hd_df) - 1] if detected_indices_dsi else None
         if detected_indices_dsi:
             qqq_1y_dsi = df['QQQ'].iloc[detected_indices_dsi[0]:]
