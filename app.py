@@ -116,12 +116,9 @@ st.markdown("""
         }
     }
     
-    /* 인라인 꼼수를 사용하여 버튼과 토글들을 한 줄로, 간격 없이 바싹 붙이기 */
-    #header-inline-marker ~ div[data-testid="element-container"] {
-        display: inline-block !important;
-        width: auto !important;
-        margin-right: -0.3rem !important; /* 토글 사이의 간격을 극도로 최소화 */
-        vertical-align: middle !important;
+    /* 가로 블록 간의 기본 간격(gap)을 완전히 없애서 토글 간 간격 최소화 */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -141,16 +138,23 @@ for k in ['t_1y', 't_6m', 't_3m', 't_1m']:
 # ── 헤더 타이틀을 버튼들 위로 분리 (단독 한 줄 차지) ──
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">US Market Indicators</p>', unsafe_allow_html=True)
 
-# ── 토글 및 데이터 새로고침 버튼 배치 (컬럼 간격 제약을 벗어난 인라인 꼼수 적용) ──
-with st.container():
-    st.markdown('<div id="header-inline-marker" style="display:none;"></div>', unsafe_allow_html=True)
+# ── 토글 및 데이터 새로고침 버튼 배치 (st.columns 원상복구 및 배치 순서 변경) ──
+# refresh(왼쪽), 토글 4개(바로 그 옆), 빈 공간(스페이서를 맨 오른쪽으로)
+col_btn, col_t1, col_t2, col_t3, col_t4, col_spacer = st.columns([1.5, 0.4, 0.4, 0.4, 0.4, 4.5])
+with col_btn:
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
+with col_t1:
     st.toggle("12m", key="t_1y", on_change=update_toggles, args=("t_1y",))
+with col_t2:
     st.toggle("6m", key="t_6m", on_change=update_toggles, args=("t_6m",))
+with col_t3:
     st.toggle("3m", key="t_3m", on_change=update_toggles, args=("t_3m",))
+with col_t4:
     st.toggle("1m", key="t_1m", on_change=update_toggles, args=("t_1m",))
+with col_spacer:
+    st.write("") # 남은 공간을 스페이서가 흡수하여 토글들을 왼쪽으로 바짝 밀어줌
 
 # 선택된 기간 설정 (일수)
 active_period_days = None
