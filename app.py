@@ -198,13 +198,14 @@ def slope_sum_lagged(slope_arr, n):
 COMMON_CONFIG = {
     'scrollZoom': True,       # 핀치줌(두 손가락 확대/축소) 가능
     'displayModeBar': True,
-    'doubleClick': 'reset+autosize' # 더블 클릭 시 기간 선택된 기본값과 전체 기간(Autosize)을 토글함
+    'doubleClick': 'reset',   # 더블 클릭 시 파이썬 코드에서 지정한 기간으로 롤백됨
+    'modeBarButtonsToRemove': ['resetScale2d'] # 헷갈리는 Reset axes(집 아이콘) 제거
 }
 COMMON_LAYOUT = dict(
     template="plotly_dark",
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    dragmode=False,           # 드래그 시 줌 상자 대신 호버 추적이 부드럽게 되도록 드래그모드 비활성화
+    dragmode='pan',           # 모바일에서 한 번 터치 시 더블클릭(리셋)으로 오작동하는 현상 방지 및 부드러운 이동 지원
     hovermode="x unified",    # 터치 시 X축 기준 전체 지시선 표시 및 손가락 이동 추적 최적화
     hoverlabel=dict(
         bgcolor="rgba(20,20,20,0.5)",  # 팝업 투명도 50%
