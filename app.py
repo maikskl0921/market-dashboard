@@ -419,10 +419,10 @@ with tabs[0]:
     # ── 색깔 조건 정의 (탭2 color_bg 색상표와 동일하게 맞춤) ──
     # 검정(4개): #595959 / 빨강(3개): #E06666 / 노랑(2개): #FFD700 / 초록(1개): #A9D08E
     color_cond_map = [
-        ((df1['FearGreedIndex']<=9)&(df1['VIX']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.55)'),
-        ((df1['FearGreedIndex']>=10)&(df1['FearGreedIndex']<=19)&(df1['VIX']>=22)&(df1['VIX']<=25),            '#E06666', '#FFFFFF', 'rgba(220,30,30,0.4)'),
-        ((df1['FearGreedIndex']>=20)&(df1['FearGreedIndex']<=29)&(df1['VIX']>=18)&(df1['VIX']<=21),            '#FFD700', '#000000', 'rgba(255,220,0,0.3)'),
-        ((df1['FearGreedIndex']>=30)&(df1['FearGreedIndex']<=39)&(df1['VIX']>=14)&(df1['VIX']<=17),            '#A9D08E', '#000000', 'rgba(0,128,0,0.3)'),
+        ((df1['FearGreedIndex']<=9)&(df1['VIX']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.5)'),
+        ((df1['FearGreedIndex']>=10)&(df1['FearGreedIndex']<=19)&(df1['VIX']>=22)&(df1['VIX']<=25),            '#E06666', '#FFFFFF', 'rgba(220,30,30,0.5)'),
+        ((df1['FearGreedIndex']>=20)&(df1['FearGreedIndex']<=29)&(df1['VIX']>=18)&(df1['VIX']<=21),            '#FFD700', '#000000', 'rgba(255,220,0,0.5)'),
+        ((df1['FearGreedIndex']>=30)&(df1['FearGreedIndex']<=39)&(df1['VIX']>=14)&(df1['VIX']<=17),            '#A9D08E', '#000000', 'rgba(0,128,0,0.5)'),
     ]
 
     # ── 통합 색깔 감지 날짜표 (그래프 위) ──
@@ -478,7 +478,7 @@ with tabs[0]:
     
     fig.add_trace(go.Scatter(
         x=hd1, y=df1['QQQ'], name='QQQ', 
-        line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), 
+        line=dict(color='rgba(0, 100, 0, 0.3)', width=1.0), 
         hovertemplate='QQQ: %{y:.2f}<extra></extra>'
     ), secondary_y=False)
     
@@ -501,7 +501,10 @@ with tabs[0]:
     ), secondary_y=True)
     
     for cond, _bg, _fg, fc in color_cond_map:
-        fig.add_trace(go.Scatter(x=hd1, y=cond.astype(int)*200, fill='tozeroy', line=dict(width=0), fillcolor=fc, showlegend=False, hoverinfo='skip'), secondary_y=True)
+        fig.add_trace(go.Bar(
+            x=hd1, y=cond.astype(int)*200, 
+            marker_color=fc, showlegend=False, hoverinfo='skip'
+        ), secondary_y=True)
     
     if active_period_days:
         target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -522,7 +525,9 @@ with tabs[0]:
         **COMMON_LAYOUT, 
         height=320, 
         margin=dict(l=0,r=50,t=30,b=10), # 오른쪽 50px 여백으로 변경
-        showlegend=False # 범례 제거
+        showlegend=False, # 범례 제거
+        barmode='overlay',
+        bargap=0
     )
     if initial_x_range:
         fig.update_xaxes(range=initial_x_range, type='category', **crosshair_xaxis())
@@ -621,12 +626,12 @@ with tabs[1]:
     hd_df = [fmt_date_kor(d) for d in df.index]
     for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS:
         sf = (rn == 1)
-        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 1.0)',width=1.5),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
+        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 0.3)',width=1.0),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.15)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-        for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.35)'),(rc,'rgba(220,30,30,0.4)'),(bc,'rgba(0,0,0,0.55)')]:
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[cn],fill='tozeroy',line=dict(width=0),fillcolor=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
+        for cn, fc in [(gc,'rgba(76,175,80,0.5)'),(oc,'rgba(255,220,0,0.5)'),(rc,'rgba(220,30,30,0.5)'),(bc,'rgba(0,0,0,0.5)')]:
+            fig_dsi.add_trace(go.Bar(x=hd_df,y=df[cn],marker_color=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
     
     if active_period_days:
         target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -645,7 +650,9 @@ with tabs[1]:
         **COMMON_LAYOUT, 
         height=1200, 
         margin=dict(l=0,r=50,t=30,b=10), # 오른쪽 50px 여백으로 변경
-        showlegend=False # 범례 제거
+        showlegend=False, # 범례 제거
+        barmode='overlay',
+        bargap=0
     )
     for i in range(1, 5):
         fig_dsi.update_yaxes(range=[qmin_dsi*0.95,qmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
@@ -809,7 +816,7 @@ with tabs[2]:
                     y=pf.values,
                     mode='lines',
                     name=pname,
-                    line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),  
+                    line=dict(color='rgba(0, 100, 0, 0.3)', width=1.0),  
                     hovertemplate=f'{pname}: %{{y:.2f}}<extra></extra>'
                 ), secondary_y=True)
                 
