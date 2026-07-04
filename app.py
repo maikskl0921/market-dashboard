@@ -478,25 +478,25 @@ with tabs[0]:
     
     fig.add_trace(go.Scatter(
         x=hd1, y=df1['QQQ'], name='QQQ', 
-        line=dict(color='#00d2ff', width=2), 
+        line=dict(color='rgba(0, 100, 0, 1.0)', width=0.5), 
         hovertemplate='QQQ: %{y:.2f}<extra></extra>'
     ), secondary_y=False)
     
     fig.add_trace(go.Scatter(
         x=hd1, y=df1['VIX'], name='VIX', 
-        line=dict(color='#ff2a2a', width=1), 
+        line=dict(color='rgba(0, 0, 255, 0.3)', width=0.5), 
         hovertemplate='VIX: %{y:.2f}<extra></extra>'
     ), secondary_y=True)
     
     fig.add_trace(go.Scatter(
         x=hd1, y=df1['FearGreedIndex'], name='FGI', 
-        line=dict(color='#a64dff', width=1), 
+        line=dict(color='rgba(128, 0, 128, 0.3)', width=0.5), 
         hovertemplate='FGI: %{y:.1f}<extra></extra>'
     ), secondary_y=True)
     
     fig.add_trace(go.Scatter(
         x=hd1, y=df1['(FGI-VIX)/5'], name='(FGI-VIX)/5', 
-        line=dict(color='#ffb347', width=1), 
+        line=dict(color='rgba(255, 165, 0, 0.3)', width=0.5), 
         hovertemplate='(FGI-VIX)/5: %{y:.2f}<extra></extra>'
     ), secondary_y=True)
     
@@ -621,11 +621,10 @@ with tabs[1]:
     hd_df = [fmt_date_kor(d) for d in df.index]
     for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS:
         sf = (rn == 1)
-        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='#1F4E79',width=1.5),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-        # 슬로프합계 그래프를 하늘색(#87CEEB)에서 빨강, 50% 투명도(rgba(220,30,30,0.5))로 변경
-        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(220,30,30,0.5)',width=1.2),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
-        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='#FFEB3B',width=1,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='#FFEB3B',width=1,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 1.0)',width=0.5),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
+        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.3)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
+        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.3)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.3)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
         for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.35)'),(rc,'rgba(220,30,30,0.4)'),(bc,'rgba(0,0,0,0.55)')]:
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[cn],fill='tozeroy',line=dict(width=0),fillcolor=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
     
@@ -774,9 +773,19 @@ with tabs[2]:
             
             # 6. 미국 나스닥 100은 상한/하한가 제외
             if is_us:
-                configs = [('상승','#FF6B9D','상승'),('보합','#AAAAAA','보합'),('하락','#87CEEB','하락')]
+                configs = [
+                    ('상승','rgba(255, 107, 157, 0.7)','상승'),
+                    ('보합','rgba(170, 170, 170, 0.4)','보합'),
+                    ('하락','rgba(135, 206, 235, 0.7)','하락')
+                ]
             else:
-                configs = [('상한가','#CC0000','상한가'),('상승','#FF6B9D','상승'),('보합','#AAAAAA','보합'),('하락','#87CEEB','하락'),('하한가','#3399FF','하한가')]
+                configs = [
+                    ('상한가','rgba(204, 0, 0, 1.0)','상한가'),
+                    ('상승','rgba(255, 107, 157, 0.7)','상승'),
+                    ('보합','rgba(170, 170, 170, 0.4)','보합'),
+                    ('하락','rgba(135, 206, 235, 0.7)','하락'),
+                    ('하한가','rgba(51, 153, 255, 1.0)','하한가')
+                ]
                 
             for cn, color, ln in configs:
                 if cn in dfp.columns:
@@ -786,7 +795,7 @@ with tabs[2]:
                         y=dfp[cn],
                         mode='lines',
                         name=ln,
-                        line=dict(color=color, width=1.5),
+                        line=dict(color=color, width=0.5),
                         fill='tozeroy',  
                         hovertemplate=f'{ln}: %{{y}}<extra></extra>'
                     ), secondary_y=False)
@@ -799,7 +808,7 @@ with tabs[2]:
                     y=pf.values,
                     mode='lines',
                     name=pname,
-                    line=dict(color='#00C851', width=2.5),  
+                    line=dict(color='rgba(0, 100, 0, 1.0)', width=0.5),  
                     hovertemplate=f'{pname}: %{{y:.2f}}<extra></extra>'
                 ), secondary_y=True)
                 
