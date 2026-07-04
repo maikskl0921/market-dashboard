@@ -503,7 +503,8 @@ with tabs[0]:
     for cond, _bg, _fg, fc in color_cond_map:
         fig.add_trace(go.Bar(
             x=hd1, y=cond.astype(int)*200, 
-            marker_color=fc, showlegend=False, hoverinfo='skip'
+            marker_color=fc, showlegend=False, hoverinfo='skip',
+            marker_line_width=0
         ), secondary_y=True)
     
     if active_period_days:
@@ -631,7 +632,7 @@ with tabs[1]:
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
         fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
         for cn, fc in [(gc,'rgba(76,175,80,0.5)'),(oc,'rgba(255,220,0,0.5)'),(rc,'rgba(220,30,30,0.5)'),(bc,'rgba(0,0,0,0.5)')]:
-            fig_dsi.add_trace(go.Bar(x=hd_df,y=df[cn],marker_color=fc,showlegend=False,hoverinfo='skip'),row=rn,col=1,secondary_y=False)
+            fig_dsi.add_trace(go.Bar(x=hd_df,y=df[cn],marker_color=fc,showlegend=False,hoverinfo='skip',marker_line_width=0),row=rn,col=1,secondary_y=False)
     
     if active_period_days:
         target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
