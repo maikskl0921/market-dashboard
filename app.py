@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 import urllib.request
 import os
 import json
+import re
 
 # Page configuration
 st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_sidebar_state="collapsed")
@@ -413,7 +414,7 @@ def fetch_korean_market_data_v2():
     except Exception:
         pass
         
-    # 2-2. feargreed.co.kr 메인 HTML에서 COMMENTS 시황코멘트 파싱하여 누락된 2026년 3~7월 상세 데이터 복원
+    # 2-2. feargreed.co.kr 메인 HTML에서 COMMENTS 시황코멘트 파싱하여 상세 한국 FGI 데이터 복원
     try:
         res_web = requests.get('http://feargreed.co.kr', headers=headers, timeout=8)
         if res_web.status_code == 200:
@@ -424,16 +425,18 @@ def fetch_korean_market_data_v2():
                 blocks = part.split('date:')
                 for b in blocks[1:]:
                     try:
-                        # 첫 싱글쿼트 쌍 사이에서 date 문자열 추출
-                        date_str = b.split("'")[1]
+                        # 날짜 추출: 싱글쿼트 안의 날짜 문자열 (예: '2026년 7월 5일 (토) ...')
+                        date_match = re.search(r"'([^']+)'", b)
+                        if not date_match:
+                            continue
+                        date_str = date_match.group(1)
                         
-                        # kr: { score: ... } 블록 추출
-                        kr_part = b.split("kr:")[1].split("}")[0]
-                        score_match = re.search(r"score:\s*(\d+)", kr_part)
+                        # kr: { score: XX, ... } 에서 score 바로 추출 (정확한 정규식)
+                        score_match = re.search(r"kr:\s*\{\s*score:\s*(\d+)", b)
                         if score_match:
                             kr_score = int(score_match.group(1))
                             
-                            # 숫자 sequence 추출 (년, 월, 일 파싱용)
+                            # 날짜 문자열에서 숫자 추출 (년, 월, 일)
                             digits = re.findall(r"\d+", date_str)
                             if len(digits) >= 3:
                                 year = int(digits[0])
@@ -460,14 +463,20 @@ def fetch_korean_market_data_v2():
     rolling_vol = returns.rolling(20).std() * np.sqrt(252) * 100
     rolling_vol = rolling_vol.ffill().bfill()
     
-    # 5. 통합 인덱스 기준으로 공포탐욕지수 시계열 빌드 (기본값은 50)
+    # 5. 통합 인덱스 기준으로 공포탐욕지수 시계열 빌드
+    # NaN으로 초기화 후 실제 데이터만 삽입 (보간법 제거 - 실제 데이터만 표시)
     fg_series = pd.Series(np.nan, index=union_index, dtype=float)
     for dt_norm, val in history_records.items():
         if dt_norm in fg_series.index:
             fg_series[dt_norm] = val
-            
-    # 날짜 시간 가중 인터폴레이션 및 ffill/bfill로 미싱 데이터 방지
-    fg_series = fg_series.interpolate(method='time').ffill().bfill().fillna(50.0)
+    
+    # 실제 데이터가 있는 날짜 이전은 50.0으로 채우고, 이후는 forward fill (보간 없음)
+    # 첫 데이터 날짜 이전은 기본값 50으로 채움
+    first_valid = fg_series.first_valid_index()
+    if first_valid is not None:
+        fg_series.loc[:first_valid] = fg_series.loc[:first_valid].fillna(50.0)
+    # 실제 데이터 사이의 빈 날짜는 forward fill (직전 값 유지)
+    fg_series = fg_series.ffill().fillna(50.0)
     
     # 통합 DataFrame 빌드
     df_kr = pd.DataFrame(index=union_index)
@@ -691,9 +700,9 @@ with tabs[0]:
         
         color_cond_map_kr = [
             ((df1_kr['FearGreedIndex']<=9)&(df1_kr['VKOSPI']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.5)'),
-            ((df1_kr['FearGreedIndex']>=10)&(df1_kr['FearGreedIndex']<=19)&(df1_kr['VKOSPI']>=22)&(df1_kr['VKOSPI']<=25),    '#E06666', '#FFFFFF', 'rgba(220,30,30,0.5)'),
-            ((df1_kr['FearGreedIndex']>=20)&(df1_kr['FearGreedIndex']<=29)&(df1_kr['VKOSPI']>=18)&(df1_kr['VKOSPI']<=21),    '#FFD700', '#000000', 'rgba(255,220,0,0.5)'),
-            ((df1_kr['FearGreedIndex']>=30)&(df1_kr['FearGreedIndex']<=39)&(df1_kr['VKOSPI']>=14)&(df1_kr['VKOSPI']<=17),    '#A9D08E', '#000000', 'rgba(0,128,0,0.5)'),
+            ((df1_kr['FearGreedIndex']>=10)&(df1_kr['FearGreedIndex']<=19)&(df1_kr['VKOSPI']>=22),                          '#E06666', '#FFFFFF', 'rgba(220,30,30,0.5)'),
+            ((df1_kr['FearGreedIndex']>=20)&(df1_kr['FearGreedIndex']<=29)&(df1_kr['VKOSPI']>=18),                          '#FFD700', '#000000', 'rgba(255,220,0,0.5)'),
+            ((df1_kr['FearGreedIndex']>=30)&(df1_kr['FearGreedIndex']<=39)&(df1_kr['VKOSPI']>=14),                          '#A9D08E', '#000000', 'rgba(0,128,0,0.5)'),
         ]
 
         date_color_map_kr = {}
