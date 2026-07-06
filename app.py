@@ -90,8 +90,26 @@ st.markdown("""
 
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">Market Indicators Dashboard</p>', unsafe_allow_html=True)
 
+# Refresh Button Placement (Aligned Right above selector, ensuring mobile responsiveness)
+col_top_left, col_top_right = st.columns([5, 1])
+with col_top_right:
+    st.markdown(
+        """
+        <style>
+        div[data-testid="column"]:has(button[key="header_data_refresh"]) {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+        }
+        </style>
+        """, unsafe_allow_html=True
+    )
+    if st.button("refresh", key="header_data_refresh"):
+        st.cache_data.clear()
+        st.rerun()
+
 # Global Selectors (Sync Country and Period)
-c_sel1, c_sel2, c_sel3 = st.columns([1, 1, 1])
+c_sel1, c_sel2 = st.columns([1, 1])
 
 with c_sel1:
     # Country Selection
@@ -119,12 +137,6 @@ with c_sel2:
         label_visibility="collapsed",
         key="period_radio"
     )
-
-with c_sel3:
-    # Refresh Button
-    if st.button("refresh", key="header_data_refresh"):
-        st.cache_data.clear()
-        st.rerun()
 
 active_period_days = None
 if selected_period == "12m": active_period_days = 365
@@ -263,12 +275,19 @@ def fetch_nasdaq100_status():
         df_tickers = next((t for t in tables if 'Ticker' in t.columns or 'Symbol' in t.columns), None)
         col = 'Ticker' if 'Ticker' in df_tickers.columns else 'Symbol'
         tickers = [t.replace('.', '-') for t in df_tickers[col].tolist()]
-        data = yf.download(tickers, period='5d', progress=False)['Close']
+        data = yf.download(tickers, period='10d', progress=False)['Close']
         if isinstance(data.columns, pd.MultiIndex): data.columns = data.columns.get_level_values(0)
         data = data.ffill().bfill()
-        last_two = data.tail(2)
-        if len(last_two) == 2:
-            diff = last_two.iloc[1] - last_two.iloc[0]
+        # Find the most recent active trading day (where values changed compared to the previous day)
+        diff_all = data.diff()
+        valid_days = diff_all.index[(diff_all != 0).any(axis=1)]
+        if len(valid_days) >= 1:
+            latest_valid_day = valid_days[-1]
+            diff = diff_all.loc[latest_valid_day]
+            return {'상승': str(int((diff > 0).sum())), '보합': str(int((diff == 0).sum())), '하락': str(int((diff < 0).sum()))}
+        # Fallback if no diff found (e.g. data hasn't loaded properly) but we have at least 2 rows
+        if len(data) >= 2:
+            diff = data.iloc[-1] - data.iloc[-2]
             return {'상승': str(int((diff > 0).sum())), '보합': str(int((diff == 0).sum())), '하락': str(int((diff < 0).sum()))}
         return {'상승': 'N/A', '보합': 'N/A', '하락': 'N/A'}
     except Exception:
@@ -605,29 +624,30 @@ with tabs[0]:
         for cond, bg, fg, _ in reversed(color_cond_map):
             for d in df1[cond].index:
                 date_color_map[d] = (bg, fg)
-        all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:30]
+        all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:50]
 
         TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
         TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
-        if all_detected_sorted:
-            date_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted])
-            vix_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, 'VIX']:.2f}</td>" for d in all_detected_sorted])
-            fgi_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted])
-            fv5_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, '(FGI-VIX)/5']:.2f}</td>" for d in all_detected_sorted])
-            st.markdown(
-                f"<div style='margin-bottom:0.2rem;'>"
-                f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 30개)</span>"
-                f"<div style='overflow-x:auto;margin-top:3px;'>"
-                f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
-                f"<tbody>"
-                f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr>"
-                f"<tr><th style='{TH_SIG}'>VIX</th>{vix_cells}</tr>"
-                f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells}</tr>"
-                f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells}</tr>"
-                f"</tbody>"
-                f"</table></div></div>",
-                unsafe_allow_html=True
-            )
+        
+        date_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted]) if all_detected_sorted else ""
+        vix_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, 'VIX']:.2f}</td>" for d in all_detected_sorted]) if all_detected_sorted else ""
+        fgi_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted]) if all_detected_sorted else ""
+        fv5_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{df1.loc[d, '(FGI-VIX)/5']:.2f}</td>" for d in all_detected_sorted]) if all_detected_sorted else ""
+        
+        st.markdown(
+            f"<div style='margin-bottom:0.2rem;'>"
+            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 50개)</span>"
+            f"<div style='overflow-x:auto;margin-top:3px;'>"
+            f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
+            f"<tbody>"
+            f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>VIX</th>{vix_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells}</tr>"
+            f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells}</tr>"
+            f"</tbody>"
+            f"</table></div></div>",
+            unsafe_allow_html=True
+        )
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         for ev in static_historical_events:
@@ -637,10 +657,10 @@ with tabs[0]:
         
         hd1 = [fmt_date_kor(d) for d in df1.index]
         
-        fig.add_trace(go.Scatter(x=hd1, y=df1['QQQ'], name='QQQ', line=dict(color='rgba(0, 100, 0, 0.3)', width=1.0), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
-        fig.add_trace(go.Scatter(x=hd1, y=df1['VIX'], name='VIX', line=dict(color='rgba(0, 0, 255, 0.15)', width=0.5), hovertemplate='VIX: %{y:.2f}<extra></extra>'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=hd1, y=df1['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.15)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=hd1, y=df1['(FGI-VIX)/5'], name='(FGI-VIX)/5', line=dict(color='rgba(255, 165, 0, 0.15)', width=0.5), hovertemplate='(FGI-VIX)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=hd1, y=df1['QQQ'], name='QQQ', line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
+        fig.add_trace(go.Scatter(x=hd1, y=df1['VIX'], name='VIX', line=dict(color='rgba(0, 0, 255, 0.75)', width=0.5), hovertemplate='VIX: %{y:.2f}<extra></extra>'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=hd1, y=df1['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.75)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=hd1, y=df1['(FGI-VIX)/5'], name='(FGI-VIX)/5', line=dict(color='rgba(255, 165, 0, 0.75)', width=0.5), hovertemplate='(FGI-VIX)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
         
         # 색깔 감지 그래프 윤곽선 추가: 두께 0.25, 색깔 흰색
         for cond, _bg, _fg, fc in color_cond_map:
@@ -709,37 +729,38 @@ with tabs[0]:
         for cond, bg, fg, _ in reversed(color_cond_map_kr):
             for d in df1_kr[cond].index:
                 date_color_map_kr[d] = (bg, fg)
-        all_detected_sorted_kr = sorted(date_color_map_kr.keys(), reverse=True)[:30]
+        all_detected_sorted_kr = sorted(date_color_map_kr.keys(), reverse=True)[:50]
 
         TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
         TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
-        if all_detected_sorted_kr:
-            date_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted_kr])
-            vix_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{df1_kr.loc[d, 'VKOSPI']:.2f}</td>" for d in all_detected_sorted_kr])
-            fgi_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{df1_kr.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted_kr])
-            fv5_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{df1_kr.loc[d, '(FGI-VIX)/5']:.2f}</td>" for d in all_detected_sorted_kr])
-            st.markdown(
-                f"<div style='margin-bottom:0.2rem;'>"
-                f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 30개)</span>"
-                f"<div style='overflow-x:auto;margin-top:3px;'>"
-                f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
-                f"<tbody>"
-                f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells_kr}</tr>"
-                f"<tr><th style='{TH_SIG}'>VKOSPI</th>{vix_cells_kr}</tr>"
-                f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells_kr}</tr>"
-                f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells_kr}</tr>"
-                f"</tbody>"
-                f"</table></div></div>",
-                unsafe_allow_html=True
-            )
+        
+        date_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted_kr]) if all_detected_sorted_kr else ""
+        vix_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{df1_kr.loc[d, 'VKOSPI']:.2f}</td>" for d in all_detected_sorted_kr]) if all_detected_sorted_kr else ""
+        fgi_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{df1_kr.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted_kr]) if all_detected_sorted_kr else ""
+        fv5_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{df1_kr.loc[d, '(FGI-VIX)/5']:.2f}</td>" for d in all_detected_sorted_kr]) if all_detected_sorted_kr else ""
+        
+        st.markdown(
+            f"<div style='margin-bottom:0.2rem;'>"
+            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 50개)</span>"
+            f"<div style='overflow-x:auto;margin-top:3px;'>"
+            f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
+            f"<tbody>"
+            f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells_kr}</tr>"
+            f"<tr><th style='{TH_SIG}'>VKOSPI</th>{vix_cells_kr}</tr>"
+            f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells_kr}</tr>"
+            f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells_kr}</tr>"
+            f"</tbody>"
+            f"</table></div></div>",
+            unsafe_allow_html=True
+        )
 
         fig_kr = make_subplots(specs=[[{"secondary_y": True}]])
         hd1_kr = [fmt_date_kor(d) for d in df1_kr.index]
         
-        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['KOSPI'], name='KOSPI', line=dict(color='rgba(0, 100, 0, 0.3)', width=1.0), hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
-        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['VKOSPI'], name='VKOSPI', line=dict(color='rgba(0, 0, 255, 0.15)', width=0.5), hovertemplate='VKOSPI: %{y:.2f}<extra></extra>'), secondary_y=True)
-        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.15)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
-        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['(FGI-VIX)/5'], name='(FGI-VKOSPI)/5', line=dict(color='rgba(255, 165, 0, 0.15)', width=0.5), hovertemplate='(FGI-VKOSPI)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
+        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['KOSPI'], name='KOSPI', line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0), hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
+        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['VKOSPI'], name='VKOSPI', line=dict(color='rgba(0, 0, 255, 0.75)', width=0.5), hovertemplate='VKOSPI: %{y:.2f}<extra></extra>'), secondary_y=True)
+        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.75)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
+        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['(FGI-VIX)/5'], name='(FGI-VKOSPI)/5', line=dict(color='rgba(255, 165, 0, 0.75)', width=0.5), hovertemplate='(FGI-VKOSPI)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
         
         # 한국 색상바 추가 (미국과 동일 양식 설정)
         for cond, _bg, _fg, fc in color_cond_map_kr:
@@ -797,7 +818,7 @@ with tabs[0]:
             # 코스피 가격: 전체 공탐변동 지수 데이터 적용 (기타 차트와 일치하도록 width: 1.0, color opacity 0.3 적용)
             dram_fig.add_trace(go.Scatter(
                 x=dram_hd, y=df1_kr['KOSPI'], name='KOSPI 지수',
-                line=dict(color='rgba(0, 100, 0, 0.3)', width=1.0),
+                line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0),
                 hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
             ), secondary_y=False)
             
@@ -914,10 +935,10 @@ with tabs[1]:
         hd_df = [fmt_date_kor(d) for d in df.index]
         for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS:
             sf = (rn == 1)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 0.3)',width=1.0),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.15)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 1.0)',width=2.0),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
+            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
+            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             
             for cn, fc in [(gc,'rgba(76,175,80,0.15)'),(oc,'rgba(255,220,0,0.15)'),(rc,'rgba(220,30,30,0.15)'),(bc,'rgba(0,0,0,0.15)')]:
                 fig_dsi.add_trace(go.Bar(
@@ -1072,10 +1093,10 @@ with tabs[1]:
         hd_df_kr = [fmt_date_kor(d) for d in df_kr.index]
         for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS_KR:
             sf = (rn == 1)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',line=dict(color='rgba(0, 100, 0, 0.3)',width=1.0),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.15)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',line=dict(color='rgba(0, 100, 0, 1.0)',width=2.0),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
+            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
+            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             
             for cn, fc in [(gc,'rgba(76,175,80,0.15)'),(oc,'rgba(255,220,0,0.15)'),(rc,'rgba(220,30,30,0.15)'),(bc,'rgba(0,0,0,0.15)')]:
                 fig_dsi_kr.add_trace(go.Bar(
@@ -1225,17 +1246,17 @@ with tabs[2]:
             
             if is_us:
                 configs = [
-                    ('상승','rgba(255, 107, 157, 0.5)','상승'),
-                    ('보합','rgba(170, 170, 170, 0.15)','보합'),
-                    ('하락','rgba(135, 206, 235, 0.5)','하락')
+                    ('상승','rgba(255, 107, 157, 0.25)','상승'),
+                    ('보합','rgba(170, 170, 170, 0.5)','보합'),
+                    ('하락','rgba(135, 206, 235, 0.25)','하락')
                 ]
             else:
                 configs = [
-                    ('상한가','rgba(204, 0, 0, 1.0)','상한가'),
-                    ('상승','rgba(255, 107, 157, 0.5)','상승'),
-                    ('보합','rgba(170, 170, 170, 0.15)','보합'),
-                    ('하락','rgba(135, 206, 235, 0.5)','하락'),
-                    ('하한가','rgba(51, 153, 255, 1.0)','하한가')
+                    ('상한가','rgba(204, 0, 0, 0.75)','상한가'),
+                    ('상승','rgba(255, 107, 157, 0.25)','상승'),
+                    ('보합','rgba(170, 170, 170, 0.5)','보합'),
+                    ('하락','rgba(135, 206, 235, 0.25)','하락'),
+                    ('하한가','rgba(51, 153, 255, 0.75)','하한가')
                 ]
                 
             for cn, color, ln in configs:
@@ -1257,7 +1278,7 @@ with tabs[2]:
                     y=pf.values,
                     mode='lines',
                     name=pname,
-                    line=dict(color='rgba(0, 100, 0, 0.3)', width=1.0),  
+                    line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0),  
                     hovertemplate=f'{pname}: %{{y:.2f}}<extra></extra>'
                 ), secondary_y=True)
                 
