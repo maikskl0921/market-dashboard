@@ -657,7 +657,7 @@ with tabs[0]:
         
         hd1 = [fmt_date_kor(d) for d in df1.index]
         
-        fig.add_trace(go.Scatter(x=hd1, y=df1['QQQ'], name='QQQ', line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
+        fig.add_trace(go.Scatter(x=hd1, y=df1['QQQ'], name='QQQ', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
         fig.add_trace(go.Scatter(x=hd1, y=df1['VIX'], name='VIX', line=dict(color='rgba(0, 0, 255, 0.75)', width=0.5), hovertemplate='VIX: %{y:.2f}<extra></extra>'), secondary_y=True)
         fig.add_trace(go.Scatter(x=hd1, y=df1['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.75)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
         fig.add_trace(go.Scatter(x=hd1, y=df1['(FGI-VIX)/5'], name='(FGI-VIX)/5', line=dict(color='rgba(255, 165, 0, 0.75)', width=0.5), hovertemplate='(FGI-VIX)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
@@ -757,7 +757,7 @@ with tabs[0]:
         fig_kr = make_subplots(specs=[[{"secondary_y": True}]])
         hd1_kr = [fmt_date_kor(d) for d in df1_kr.index]
         
-        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['KOSPI'], name='KOSPI', line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0), hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
+        fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['KOSPI'], name='KOSPI', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
         fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['VKOSPI'], name='VKOSPI', line=dict(color='rgba(0, 0, 255, 0.75)', width=0.5), hovertemplate='VKOSPI: %{y:.2f}<extra></extra>'), secondary_y=True)
         fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.75)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
         fig_kr.add_trace(go.Scatter(x=hd1_kr, y=df1_kr['(FGI-VIX)/5'], name='(FGI-VKOSPI)/5', line=dict(color='rgba(255, 165, 0, 0.75)', width=0.5), hovertemplate='(FGI-VKOSPI)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
@@ -818,7 +818,7 @@ with tabs[0]:
             # 코스피 가격: 전체 공탐변동 지수 데이터 적용 (기타 차트와 일치하도록 width: 1.0, color opacity 0.3 적용)
             dram_fig.add_trace(go.Scatter(
                 x=dram_hd, y=df1_kr['KOSPI'], name='KOSPI 지수',
-                line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0),
+                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
                 hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
             ), secondary_y=False)
             
@@ -935,7 +935,7 @@ with tabs[1]:
         hd_df = [fmt_date_kor(d) for d in df.index]
         for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS:
             sf = (rn == 1)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 1.0)',width=2.0),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
+            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
@@ -1093,7 +1093,7 @@ with tabs[1]:
         hd_df_kr = [fmt_date_kor(d) for d in df_kr.index]
         for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS_KR:
             sf = (rn == 1)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',line=dict(color='rgba(0, 100, 0, 1.0)',width=2.0),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
+            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
             fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
             fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
@@ -1246,17 +1246,17 @@ with tabs[2]:
             
             if is_us:
                 configs = [
-                    ('상승','rgba(255, 107, 157, 0.25)','상승'),
-                    ('보합','rgba(170, 170, 170, 0.5)','보합'),
-                    ('하락','rgba(135, 206, 235, 0.25)','하락')
+                    ('상승','rgba(255, 107, 157, 0.1)','상승'),
+                    ('보합','rgba(170, 170, 170, 0.3)','보합'),
+                    ('하락','rgba(135, 206, 235, 0.1)','하락')
                 ]
             else:
                 configs = [
-                    ('상한가','rgba(204, 0, 0, 0.75)','상한가'),
-                    ('상승','rgba(255, 107, 157, 0.25)','상승'),
-                    ('보합','rgba(170, 170, 170, 0.5)','보합'),
-                    ('하락','rgba(135, 206, 235, 0.25)','하락'),
-                    ('하한가','rgba(51, 153, 255, 0.75)','하한가')
+                    ('상한가','rgba(204, 0, 0, 0.5)','상한가'),
+                    ('상승','rgba(255, 107, 157, 0.1)','상승'),
+                    ('보합','rgba(170, 170, 170, 0.3)','보합'),
+                    ('하락','rgba(135, 206, 235, 0.1)','하락'),
+                    ('하한가','rgba(51, 153, 255, 0.5)','하한가')
                 ]
                 
             for cn, color, ln in configs:
@@ -1278,7 +1278,7 @@ with tabs[2]:
                     y=pf.values,
                     mode='lines',
                     name=pname,
-                    line=dict(color='rgba(0, 100, 0, 1.0)', width=2.0),  
+                    line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),  
                     hovertemplate=f'{pname}: %{{y:.2f}}<extra></extra>'
                 ), secondary_y=True)
                 
