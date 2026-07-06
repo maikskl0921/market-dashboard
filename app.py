@@ -191,7 +191,7 @@ COMMON_LAYOUT = dict(
     dragmode=False,
     hovermode="x unified",
     hoverlabel=dict(
-        bgcolor="rgba(20,20,20,0.75)",
+        bgcolor="rgba(20,20,20,0.15)",
         font_size=10,
         font_family="sans-serif",
         font_color="white"
@@ -595,10 +595,10 @@ with tabs[0]:
         df1 = df[df.index >= five_years_ago]
 
         color_cond_map = [
-            ((df1['FearGreedIndex']<=9)&(df1['VIX']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.5)'),
-            ((df1['FearGreedIndex']>=10)&(df1['FearGreedIndex']<=19)&(df1['VIX']>=22)&(df1['VIX']<=25),            '#E06666', '#FFFFFF', 'rgba(220,30,30,0.5)'),
-            ((df1['FearGreedIndex']>=20)&(df1['FearGreedIndex']<=29)&(df1['VIX']>=18)&(df1['VIX']<=21),            '#FFD700', '#000000', 'rgba(255,220,0,0.5)'),
-            ((df1['FearGreedIndex']>=30)&(df1['FearGreedIndex']<=39)&(df1['VIX']>=14)&(df1['VIX']<=17),            '#A9D08E', '#000000', 'rgba(0,128,0,0.5)'),
+            ((df1['FearGreedIndex']<=9)&(df1['VIX']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.15)'),
+            ((df1['FearGreedIndex']>=10)&(df1['FearGreedIndex']<=19)&(df1['VIX']>=22)&(df1['VIX']<=25),            '#E06666', '#FFFFFF', 'rgba(220,30,30,0.15)'),
+            ((df1['FearGreedIndex']>=20)&(df1['FearGreedIndex']<=29)&(df1['VIX']>=18)&(df1['VIX']<=21),            '#FFD700', '#000000', 'rgba(255,220,0,0.15)'),
+            ((df1['FearGreedIndex']>=30)&(df1['FearGreedIndex']<=39)&(df1['VIX']>=14)&(df1['VIX']<=17),            '#A9D08E', '#000000', 'rgba(0,128,0,0.15)'),
         ]
 
         date_color_map = {}
@@ -699,10 +699,10 @@ with tabs[0]:
         df1_kr = df_kr[df_kr.index >= five_years_ago]
         
         color_cond_map_kr = [
-            ((df1_kr['FearGreedIndex']<=9)&(df1_kr['VKOSPI']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.5)'),
-            ((df1_kr['FearGreedIndex']>=10)&(df1_kr['FearGreedIndex']<=19)&(df1_kr['VKOSPI']>=22),                          '#E06666', '#FFFFFF', 'rgba(220,30,30,0.5)'),
-            ((df1_kr['FearGreedIndex']>=20)&(df1_kr['FearGreedIndex']<=29)&(df1_kr['VKOSPI']>=18),                          '#FFD700', '#000000', 'rgba(255,220,0,0.5)'),
-            ((df1_kr['FearGreedIndex']>=30)&(df1_kr['FearGreedIndex']<=39)&(df1_kr['VKOSPI']>=14),                          '#A9D08E', '#000000', 'rgba(0,128,0,0.5)'),
+            ((df1_kr['FearGreedIndex']<=9)&(df1_kr['VKOSPI']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.15)'),
+            ((df1_kr['FearGreedIndex']>=10)&(df1_kr['FearGreedIndex']<=19)&(df1_kr['VKOSPI']>=22),                          '#E06666', '#FFFFFF', 'rgba(220,30,30,0.15)'),
+            ((df1_kr['FearGreedIndex']>=20)&(df1_kr['FearGreedIndex']<=29)&(df1_kr['VKOSPI']>=18),                          '#FFD700', '#000000', 'rgba(255,220,0,0.15)'),
+            ((df1_kr['FearGreedIndex']>=30)&(df1_kr['FearGreedIndex']<=39)&(df1_kr['VKOSPI']>=14),                          '#A9D08E', '#000000', 'rgba(0,128,0,0.15)'),
         ]
 
         date_color_map_kr = {}
@@ -919,7 +919,7 @@ with tabs[1]:
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             
-            for cn, fc in [(gc,'rgba(76,175,80,0.5)'),(oc,'rgba(255,220,0,0.5)'),(rc,'rgba(220,30,30,0.5)'),(bc,'rgba(0,0,0,0.5)')]:
+            for cn, fc in [(gc,'rgba(76,175,80,0.15)'),(oc,'rgba(255,220,0,0.15)'),(rc,'rgba(220,30,30,0.15)'),(bc,'rgba(0,0,0,0.15)')]:
                 fig_dsi.add_trace(go.Bar(
                     x=hd_df, y=df[cn], marker_color=fc, showlegend=False, hoverinfo='skip',
                     marker_line_width=0.25,
@@ -949,10 +949,10 @@ with tabs[1]:
             barmode='overlay',
             bargap=0,
             shapes=[
-                dict(type="rect", xref="paper", yref="y1", x0=0, y0=df['QQQ'].min()*0.9, x1=1, y1=df['QQQ'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y2", x0=0, y0=df['QQQ'].min()*0.9, x1=1, y1=df['QQQ'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y3", x0=0, y0=df['QQQ'].min()*0.9, x1=1, y1=df['QQQ'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y4", x0=0, y0=df['QQQ'].min()*0.9, x1=1, y1=df['QQQ'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
+                dict(type="rect", xref="paper", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
+                dict(type="rect", xref="paper", yref="y3 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
+                dict(type="rect", xref="paper", yref="y5 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
+                dict(type="rect", xref="paper", yref="y7 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
             ]
         )
         for i in range(1, 5):
@@ -1077,7 +1077,7 @@ with tabs[1]:
             fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.15)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
             
-            for cn, fc in [(gc,'rgba(76,175,80,0.5)'),(oc,'rgba(255,220,0,0.5)'),(rc,'rgba(220,30,30,0.5)'),(bc,'rgba(0,0,0,0.5)')]:
+            for cn, fc in [(gc,'rgba(76,175,80,0.15)'),(oc,'rgba(255,220,0,0.15)'),(rc,'rgba(220,30,30,0.15)'),(bc,'rgba(0,0,0,0.15)')]:
                 fig_dsi_kr.add_trace(go.Bar(
                     x=hd_df_kr, y=df_kr[cn], marker_color=fc, showlegend=False, hoverinfo='skip',
                     marker_line_width=0.25,
@@ -1107,10 +1107,10 @@ with tabs[1]:
             barmode='overlay',
             bargap=0,
             shapes=[
-                dict(type="rect", xref="paper", yref="y1", x0=0, y0=df_kr['KOSPI'].min()*0.9, x1=1, y1=df_kr['KOSPI'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y2", x0=0, y0=df_kr['KOSPI'].min()*0.9, x1=1, y1=df_kr['KOSPI'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y3", x0=0, y0=df_kr['KOSPI'].min()*0.9, x1=1, y1=df_kr['KOSPI'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y4", x0=0, y0=df_kr['KOSPI'].min()*0.9, x1=1, y1=df_kr['KOSPI'].max()*1.1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
+                dict(type="rect", xref="paper", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
+                dict(type="rect", xref="paper", yref="y3 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
+                dict(type="rect", xref="paper", yref="y5 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
+                dict(type="rect", xref="paper", yref="y7 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
             ]
         )
         for i in range(1, 5):
