@@ -1378,40 +1378,33 @@ with tabs[3]:
             bg = "rgba(255,91,91,.12)" if chg >= 0 else "rgba(59,130,246,.12)"
             return f"<span style='color:{color};background:{bg};padding:1px 5px;border-radius:4px;font-weight:600;'>{arrow} {abs(chg):.2f}%</span>"
             
-        # 4열 KPI 카드 디자인
-        kpi_cols = st.columns(4)
-        with kpi_cols[0]:
-            st.markdown(
-                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>DXI 지수</div>"
-                f"<div style='font-size:1.3rem;font-weight:700;'>{int(round(dxi.get('value', 0))):,}</div>"
-                f"<div style='font-size:0.75rem;margin-top:4px;'>{get_chg_badge(dxi.get('chg', 0))}</div>"
-                f"</div>", unsafe_allow_html=True
-            )
-        with kpi_cols[1]:
-            st.markdown(
-                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>DDR4 8Gb</div>"
-                f"<div style='font-size:1.3rem;font-weight:700;'>{format_price(ddr4[1])}</div>"
-                f"<div style='font-size:0.75rem;margin-top:4px;'>{get_chg_badge(ddr4[2])}</div>"
-                f"</div>", unsafe_allow_html=True
-            )
-        with kpi_cols[2]:
-            st.markdown(
-                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>DDR5 16Gb</div>"
-                f"<div style='font-size:1.3rem;font-weight:700;'>{format_price(ddr5[1])}</div>"
-                f"<div style='font-size:0.75rem;margin-top:4px;'>{get_chg_badge(ddr5[2])}</div>"
-                f"</div>", unsafe_allow_html=True
-            )
-        with kpi_cols[3]:
-            st.markdown(
-                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>월 평균 현물</div>"
-                f"<div style='font-size:1.3rem;font-weight:700;'>${monthly_avg:.2f}</div>"
-                f"<div style='color:#8b93a3;font-size:0.72rem;margin-top:4px;'>{monthly_month}</div>"
-                f"</div>", unsafe_allow_html=True
-            )
+        # KPI 가로 정렬 리스트 (한 칸에 가로로 정렬하여 최소한의 높이로 렌더링)
+        st.markdown(
+            f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
+            f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;'>"
+            f"<tr style='background:transparent !important;border:none !important;'>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>DXI 지수</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{int(round(dxi.get('value', 0))):,}</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(dxi.get('chg', 0))}</td>"
+            f"</tr>"
+            f"<tr style='background:transparent !important;border:none !important;'>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>DDR4 8Gb</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{format_price(ddr4[1])}</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(ddr4[2])}</td>"
+            f"</tr>"
+            f"<tr style='background:transparent !important;border:none !important;'>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>DDR5 16Gb</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{format_price(ddr5[1])}</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(ddr5[2])}</td>"
+            f"</tr>"
+            f"<tr style='background:transparent !important;border:none !important;'>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>월 평균 현물</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>${monthly_avg:.2f}</td>"
+            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>{monthly_month}</td>"
+            f"</tr>"
+            f"</table>"
+            f"</div>", unsafe_allow_html=True
+        )
             
         # 2. 현물가 장기 추이 (차트) & 선택 셀렉터
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1457,26 +1450,26 @@ with tabs[3]:
         fig_c1.update_yaxes(**crosshair_yaxis())
         st.plotly_chart(fig_c1, width='stretch', config=COMMON_CONFIG)
         
-        # 3. 현물가 상세 표
+        # 3. 현물가 상세 표 (칸 높이 조절을 위해 패딩을 4px/6px에서 2px/3px로 변경)
         st.markdown("#### 현물가 상세")
         tbl_html = """
         <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;">
             <thead>
                 <tr style="background:#1F4E79;color:white;">
-                    <th style="padding:4px;border:1px solid #444;">품목명</th>
-                    <th style="padding:4px;border:1px solid #444;text-align:right;">가격</th>
-                    <th style="padding:4px;border:1px solid #444;text-align:right;">변동률</th>
+                    <th style="padding:2px;border:1px solid #444;">품목명</th>
+                    <th style="padding:2px;border:1px solid #444;text-align:right;">가격</th>
+                    <th style="padding:2px;border:1px solid #444;text-align:right;">변동률</th>
                 </tr>
             </thead>
             <tbody>
         """
         for grp in spot_groups:
-            tbl_html += f"<tr><td colspan='3' style='background:#171a21;font-weight:bold;padding:6px;border:1px solid #444;font-size:0.65rem !important;'>{grp[1]}</td></tr>"
+            tbl_html += f"<tr><td colspan='3' style='background:#171a21;font-weight:bold;padding:3px;border:1px solid #444;font-size:0.65rem !important;'>{grp[1]}</td></tr>"
             for row in grp[2]:
                 tbl_html += f"<tr>"
-                tbl_html += f"<td style='padding:4px;border:1px solid #444;'>{row[0]}</td>"
-                tbl_html += f"<td style='padding:4px;border:1px solid #444;text-align:right;font-weight:bold;'>{format_price(row[1])}</td>"
-                tbl_html += f"<td style='padding:4px;border:1px solid #444;text-align:right;'>{get_chg_badge(row[2])}</td>"
+                tbl_html += f"<td style='padding:2px;border:1px solid #444;'>{row[0]}</td>"
+                tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;font-weight:bold;'>{format_price(row[1])}</td>"
+                tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;'>{get_chg_badge(row[2])}</td>"
                 tbl_html += f"</tr>"
         tbl_html += "</tbody></table>"
         st.markdown(tbl_html, unsafe_allow_html=True)
@@ -1511,52 +1504,36 @@ with tabs[3]:
         if etf:
             st.markdown(f"#### Roundhill Memory ETF <span style='font-size:0.75rem;color:#8b93a3;'>({etf.get('meta', {}).get('ticker', 'DRAM')})</span>", unsafe_allow_html=True)
             
-            etf_kpis = st.columns(4)
-            with etf_kpis[0]:
-                st.markdown(
-                    f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                    f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>AUM</div>"
-                    f"<div style='font-size:1.2rem;font-weight:700;'>${(etf.get('aum', 0)/1e9):.2f}B</div>"
-                    f"<div style='color:#8b93a3;font-size:0.7rem;margin-top:4px;'>NAV ${float(etf.get('nav', 0)):.2f}</div>"
-                    f"</div>", unsafe_allow_html=True
-                )
-            with etf_kpis[1]:
-                net_flow = etf.get('net_flow', 0)
-                flow_color = "#ff5b5b" if net_flow >= 0 else "#3b82f6"
-                flow_arrow = "+" if net_flow >= 0 else ""
-                st.markdown(
-                    f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                    f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>순유입(주)</div>"
-                    f"<div style='font-size:1.2rem;font-weight:700;color:{flow_color};'>{flow_arrow}{(net_flow/1e6):.2f}M</div>"
-                    f"<div style='color:#8b93a3;font-size:0.7rem;margin-top:4px;'>발행 {(etf.get('shares', 0)/1e6):.1f}M</div>"
-                    f"</div>", unsafe_allow_html=True
-                )
-            with etf_kpis[2]:
-                price = etf.get('price', 0)
-                nav = etf.get('nav', 1)
-                premium = ((price - nav) / nav) * 100
-                st.markdown(
-                    f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                    f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>시장 종가</div>"
-                    f"<div style='font-size:1.2rem;font-weight:700;'>${float(price):.2f}</div>"
-                    f"<div style='color:#8b93a3;font-size:0.7rem;margin-top:4px;'>괴리 {premium:.2f}%</div>"
-                    f"</div>", unsafe_allow_html=True
-                )
-            with etf_kpis[3]:
-                holdings = etf.get('holdings', [])
-                st.markdown(
-                    f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:10px 14px;'>"
-                    f"<div style='color:#8b93a3;font-size:0.75rem;margin-bottom:4px;'>보유종목</div>"
-                    f"<div style='font-size:1.2rem;font-weight:700;'>{len(holdings)}종</div>"
-                    f"<div style='color:#8b93a3;font-size:0.7rem;margin-top:4px;'>{etf.get('as_of', '')}</div>"
-                    f"</div>", unsafe_allow_html=True
-                )
+            # ETF KPI 가로 정렬 리스트 (AUM, 보유종목 제거)
+            net_flow = etf.get('net_flow', 0)
+            flow_color = "#ff5b5b" if net_flow >= 0 else "#3b82f6"
+            flow_arrow = "+" if net_flow >= 0 else ""
+            price = etf.get('price', 0)
+            nav = etf.get('nav', 1)
+            premium = ((price - nav) / nav) * 100
+            
+            st.markdown(
+                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
+                f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;'>"
+                f"<tr style='background:transparent !important;border:none !important;'>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>순유입(주)</td>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;color:{flow_color};text-align:right;'>{flow_arrow}{(net_flow/1e6):.2f}M</td>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>발행 {(etf.get('shares', 0)/1e6):.1f}M</td>"
+                f"</tr>"
+                f"<tr style='background:transparent !important;border:none !important;'>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>시장 종가</td>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>${float(price):.2f}</td>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>괴리 {premium:.2f}%</td>"
+                f"</tr>"
+                f"</table>"
+                f"</div>", unsafe_allow_html=True
+            )
                 
-            # ETF 차트
+            # ETF 차트 (AUM 초록색 막대그래프 투명도를 0.5로 변경)
             etf_series = etf.get('series', {})
             if etf_series:
                 fig_c2 = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_c2.add_trace(go.Bar(x=etf_series.get('d'), y=etf_series.get('aum'), name='AUM ($B)', marker_color='rgba(30, 169, 124, 0.45)'), secondary_y=False)
+                fig_c2.add_trace(go.Bar(x=etf_series.get('d'), y=etf_series.get('aum'), name='AUM ($B)', marker_color='rgba(30, 169, 124, 0.5)'), secondary_y=False)
                 fig_c2.add_trace(go.Scatter(x=etf_series.get('d'), y=etf_series.get('px'), name='종가 ($)', line=dict(color='#ff5b5b', width=2), hovertemplate='종가: %{y:.2f}<extra></extra>'), secondary_y=True)
                 
                 fig_c2.update_layout(
@@ -1571,33 +1548,6 @@ with tabs[3]:
                 fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=False)
                 fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=True)
                 st.plotly_chart(fig_c2, width='stretch', config=COMMON_CONFIG)
-                
-            # 구성 종목 가중치 바
-            st.markdown("<br><b>구성종목 · 비중순</b>", unsafe_allow_html=True)
-            valid_holdings = [h for h in holdings if h[2] > 0]
-            max_weight = max([h[2] for h in valid_holdings]) if valid_holdings else 1
-            
-            for h in valid_holdings:
-                name = h[0]
-                ticker = h[1]
-                weight = h[2]
-                is_swap = "TRS" in (ticker or "")
-                is_cash = h[3] == 1
-                
-                color = "#8b7ff0" if is_swap else "#6b7280" if is_cash else "#1ea97c"
-                tag = "스왑" if is_swap else "현금성" if is_cash else "주식"
-                
-                st.markdown(
-                    f"<div style='margin-bottom:8px;'>"
-                    f"<div style='display:flex;justify-content:space-between;font-size:0.75rem;margin-bottom:2px;'>"
-                    f"<span>{name} <span style='font-size:0.65rem;color:#8b93a3;'>({tag})</span></span>"
-                    f"<span style='font-weight:600;'>{weight:.2f}%</span>"
-                    f"</div>"
-                    f"<div style='height:7px;border-radius:4px;background:#222732;overflow:hidden;'>"
-                    f"<div style='width:{weight/max_weight*100}%;height:100%;border-radius:4px;background:{color};'></div>"
-                    f"</div>"
-                    f"</div>", unsafe_allow_html=True
-                )
     else:
         st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
 
