@@ -789,8 +789,8 @@ with st.spinner('데이터 로딩 중...'):
     df_kr = fetch_korean_market_data_v2()
     df_dram = update_and_get_dram_history()
 
-# 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발
-tab_names = ['공탐변동', '슬로프합', '등락현황', '메모리', '지표개발']
+# 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발 / 골든지표
+tab_names = ['공탐변동', '슬로프합', '등락현황', '메모리', '지표개발', '골든지표']
 tabs = st.tabs(tab_names)
 
 # ── Tab 1: 공탐변동 ──
@@ -2042,6 +2042,142 @@ with tabs[4]:
         st.markdown(
             f"<div style='display:flex;gap:12px;margin:4px 0 8px 0;flex-wrap:wrap;'>"
             f"<span style='font-size:0.62rem;color:#8b93a3;'>후보 번호&nbsp;<b style='color:#ddd;'>후보 {item['id']}</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>발생 횟수&nbsp;<b style='color:#ddd;'>{total_triggered}회</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{hr_color};'>{hit_rate:.1f}%</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:{rec_color};'>{recall:.1f}%</b></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        
+        st.markdown("<hr style='margin: 0.5rem 0; border: 0.5px solid #222;'>", unsafe_allow_html=True)
+
+# ── Tab 6: 골든지표 ──
+with tabs[5]:
+    st.markdown("### 🏆 적중률 60% & 포착률 10% 돌파 골든 지표 연구")
+    st.markdown("수학적 비선형 변환식과 다변량 옵션/매크로 변수를 튜닝하여 백테스트 성과 기준(Hit Rate >= 60%, Recall >= 10%)을 동시에 만족하는 10대 최적 복합 지표입니다. (실시간 자동 업데이트)")
+    
+    df_gold = df.copy()
+    rolling_max_gold = df_gold['QQQ'].rolling(252, min_periods=1).max()
+    drawdown_gold = (rolling_max_gold - df_gold['QQQ']) / rolling_max_gold
+    local_min_gold = df_gold['QQQ'].rolling(41, center=True, min_periods=1).min()
+    is_bottom_gold = (df_gold['QQQ'] <= local_min_gold * 1.03) & (drawdown_gold >= 0.05)
+    total_bottoms_gold = is_bottom_gold.sum()
+    
+    gold_indicators = [
+        {
+            "id": 1,
+            "name": "비대칭 공포 가속도 지수 (Asymmetric Fear Acceleration)",
+            "formula": "(30 - FearGreedIndex) * (1 - QQQ_%B) >= 18 & VVIX_Pct >= 0.70",
+            "cond": ((30 - df_gold['FearGreedIndex']) * (1 - df_gold['QQQ_%B']) >= 18) & (df_gold['VVIX_Pct'] >= 0.70)
+        },
+        {
+            "id": 2,
+            "name": "비대칭 공포 가속도 지수 (완화형)",
+            "formula": "(25 - FearGreedIndex) * (1 - QQQ_%B) >= 12 & VVIX_Pct >= 0.70",
+            "cond": ((25 - df_gold['FearGreedIndex']) * (1 - df_gold['QQQ_%B']) >= 12) & (df_gold['VVIX_Pct'] >= 0.70)
+        },
+        {
+            "id": 3,
+            "name": "파생 극값 변동성 스퀴즈형 지수 (VVIX/RSI7)",
+            "formula": "(VVIX / QQQ_RSI7) >= 5.0 & FGI <= 18 & QQQ_DD >= 0.05",
+            "cond": ((df_gold['VVIX'] / (df_gold['QQQ_RSI7'] + 1e-5)) >= 5.0) & (df_gold['FearGreedIndex'] <= 18) & (df_gold['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 4,
+            "name": "스케일링 변동성 패닉 지수 (Scaled Volatility Panic)",
+            "formula": "VIX * VVIX / 1000 >= 2.5 & FGI <= 10 & QQQ_DD >= 0.04",
+            "cond": ((df_gold['VIX'] * df_gold['VVIX'] / 1000) >= 2.5) & (df_gold['FearGreedIndex'] <= 10) & (df_gold['QQQ_DD'] >= 0.04)
+        },
+        {
+            "id": 5,
+            "name": "스케일링 변동성 패닉 지수 (낙폭강화형)",
+            "formula": "VIX * VVIX / 1000 >= 2.5 & FGI <= 10 & QQQ_DD >= 0.05",
+            "cond": ((df_gold['VIX'] * df_gold['VVIX'] / 1000) >= 2.5) & (df_gold['FearGreedIndex'] <= 10) & (df_gold['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 6,
+            "name": "비대칭 공포 가속도 지수 (성과강화형)",
+            "formula": "(25 - FearGreedIndex) * (1 - QQQ_%B) >= 15 & VVIX_Pct >= 0.70",
+            "cond": ((25 - df_gold['FearGreedIndex']) * (1 - df_gold['QQQ_%B']) >= 15) & (df_gold['VVIX_Pct'] >= 0.70)
+        },
+        {
+            "id": 7,
+            "name": "비대칭 공포 가속도 지수 (극단형)",
+            "formula": "(20 - FearGreedIndex) * (1 - QQQ_%B) >= 10 & VVIX_Pct >= 0.70",
+            "cond": ((20 - df_gold['FearGreedIndex']) * (1 - df_gold['QQQ_%B']) >= 10) & (df_gold['VVIX_Pct'] >= 0.70)
+        },
+        {
+            "id": 8,
+            "name": "비대칭 공포 가속도 지수 (VVIX 가중형)",
+            "formula": "(30 - FearGreedIndex) * (1 - QQQ_%B) >= 18 & VVIX_Pct >= 0.80",
+            "cond": ((30 - df_gold['FearGreedIndex']) * (1 - df_gold['QQQ_%B']) >= 18) & (df_gold['VVIX_Pct'] >= 0.80)
+        },
+        {
+            "id": 9,
+            "name": "볼라틸리티 붕괴 예측 지수 (VVIX Z-score & VIX Pct 곱)",
+            "formula": "log(VVIX_Z + 5.0) * VIX_Pct >= 1.0 & FGI <= 12 & QQQ_%B <= 0.15",
+            "cond": (np.log(np.maximum(df_gold['VVIX_Z'] + 5.0, 1e-5)) * df_gold['VIX_Pct'] >= 1.0) & (df_gold['FearGreedIndex'] <= 12) & (df_gold['QQQ_%B'] <= 0.15)
+        },
+        {
+            "id": 10,
+            "name": "거시 금리 쇼크 완화 매수 지수 (Macro Yield Shock Index)",
+            "formula": "FGI * exp(TNX_ROC * 3) <= 15 & QQQ_RSI7 <= 28 & VIX_Pct >= 0.80",
+            "cond": (df_gold['FearGreedIndex'] * np.exp(df_gold['TNX_ROC'] * 3) <= 15) & (df_gold['QQQ_RSI7'] <= 28) & (df_gold['VIX_Pct'] >= 0.80)
+        }
+    ]
+    
+    st.markdown("---")
+    
+    # 각 지표별로 QQQ선과 적중 영역 막대 렌더링
+    for item in gold_indicators:
+        cond_series = item['cond']
+        total_triggered = int(cond_series.sum())
+        hit_triggered = int((cond_series & is_bottom_gold).sum())
+        
+        hit_rate = (hit_triggered / total_triggered * 100) if total_triggered > 0 else 0.0
+        recall = (hit_triggered / total_bottoms_gold * 100) if total_bottoms_gold > 0 else 0.0
+        
+        st.markdown(f"#### 🏷️ 골든 {item['id']}: {item['name']}")
+        st.markdown(f"📝 **조건식**: `{item['formula']}`")
+        
+        # Plotly 차트 렌더링
+        fig_gold = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # 1) QQQ 가격선
+        fig_gold.add_trace(go.Scatter(
+            x=df_gold.index, y=df_gold['QQQ'], name='QQQ 종가',
+            line=dict(color='rgba(0, 120, 255, 1.0)', width=1.5),
+            hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
+        ), secondary_y=False)
+        
+        # 2) 적중 시그널 막대 (투명도 1.0 노란색)
+        fig_gold.add_trace(go.Bar(
+            x=df_gold.index, y=cond_series.astype(int), name='바닥 감지 신호',
+            marker_color='rgba(255, 220, 0, 1.0)',
+            marker_line_width=0,
+            hovertemplate='신호 감지<extra></extra>'
+        ), secondary_y=True)
+        
+        fig_gold.update_layout(
+            **COMMON_LAYOUT,
+            height=280,
+            margin=dict(l=0, r=50, t=10, b=10),
+            showlegend=False,
+            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
+        )
+        fig_gold.update_xaxes(type='date', **crosshair_xaxis())
+        fig_gold.update_yaxes(title_text="QQQ 가격 ($)", **crosshair_yaxis(), secondary_y=False)
+        fig_gold.update_yaxes(range=[0, 1], showticklabels=False, showgrid=False, secondary_y=True)
+        
+        st.plotly_chart(fig_gold, width='stretch', config=COMMON_CONFIG, key=f"gold_chart_{item['id']}")
+        
+        # 지표 메타 정보 표시 (소형 HTML 테이블) - 신규 목표치(적중률 60% 이상 및 포착률 10% 이상) 기준으로 색상 하이라이트 조정
+        hr_color = '#ffd700' if hit_rate >= 60 else '#ddd'
+        rec_color = '#ffd700' if recall >= 10 else '#ddd'
+        
+        st.markdown(
+            f"<div style='display:flex;gap:12px;margin:4px 0 8px 0;flex-wrap:wrap;'>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>후보 번호&nbsp;<b style='color:#ddd;'>골든 {item['id']}</b></span>"
             f"<span style='font-size:0.62rem;color:#8b93a3;'>발생 횟수&nbsp;<b style='color:#ddd;'>{total_triggered}회</b></span>"
             f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{hr_color};'>{hit_rate:.1f}%</b></span>"
             f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:{rec_color};'>{recall:.1f}%</b></span>"
