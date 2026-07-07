@@ -445,6 +445,20 @@ def fetch_and_process_data():
     hyg = yf.download('HYG', start=start_date_str, progress=False)
     if isinstance(hyg.columns, pd.MultiIndex): hyg.columns = hyg.columns.get_level_values(0)
     hyg_df = hyg[['Close']].rename(columns={'Close': 'HYG'})
+    
+    # 2차 탐색을 위한 SKEW 및 VVIX 데이터 추가 다운로드
+    skew = yf.download('^SKEW', start=start_date_str, progress=False)
+    if isinstance(skew.columns, pd.MultiIndex): skew.columns = skew.columns.get_level_values(0)
+    skew_df = skew[['Close']].rename(columns={'Close': 'SKEW'})
+    
+    vvix = yf.download('^VVIX', start=start_date_str, progress=False)
+    if isinstance(vvix.columns, pd.MultiIndex): vvix.columns = vvix.columns.get_level_values(0)
+    vvix_df = vvix[['Close']].rename(columns={'Close': 'VVIX'})
+    
+    # 2차 탐색 안전자산 대피 계산을 위한 TLT 다운로드 추가
+    tlt = yf.download('TLT', start=start_date_str, progress=False)
+    if isinstance(tlt.columns, pd.MultiIndex): tlt.columns = tlt.columns.get_level_values(0)
+    tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'})
 
     url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2018-10-01"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -481,6 +495,9 @@ def fetch_and_process_data():
     df = qqq_df.join(vix_df, how='outer')\
                .join(tnx_df, how='outer')\
                .join(hyg_df, how='outer')\
+               .join(tlt_df, how='outer')\
+               .join(skew_df, how='outer')\
+               .join(vvix_df, how='outer')\
                .join(fg_df, how='outer')\
                .ffill().bfill()
     df = df.reindex(qqq_df.index)
@@ -493,6 +510,12 @@ def fetch_and_process_data():
     rs = gain / (loss + 1e-10)
     df['QQQ_RSI'] = 100 - (100 / (1 + rs))
     
+    # QQQ RSI (7일)
+    gain7 = (delta.where(delta > 0, 0)).rolling(window=7).mean()
+    loss7 = (-delta.where(delta < 0, 0)).rolling(window=7).mean()
+    rs7 = gain7 / (loss7 + 1e-10)
+    df['QQQ_RSI7'] = 100 - (100 / (1 + rs7))
+    
     # 2) QQQ 볼린저 밴드 %B (20일)
     ma20 = df['QQQ'].rolling(20).mean()
     std20 = df['QQQ'].rolling(20).std()
@@ -503,6 +526,17 @@ def fetch_and_process_data():
     vix_std200 = df['VIX'].rolling(200).std()
     df['VIX_Z'] = (df['VIX'] - vix_ma200) / (vix_std200 + 1e-10)
     
+    # VIX 퍼센타일 (252일 롤링)
+    df['VIX_Pct'] = df['VIX'].rolling(252, min_periods=60).rank(pct=True)
+    
+    # FGI 퍼센타일
+    df['FGI_Pct'] = df['FearGreedIndex'].rolling(252, min_periods=60).rank(pct=True)
+    
+    # QQQ 낙폭 및 드로우다운 퍼센타일
+    df['QQQ_Peak'] = df['QQQ'].rolling(252, min_periods=1).max()
+    df['QQQ_DD'] = (df['QQQ_Peak'] - df['QQQ']) / df['QQQ_Peak']
+    df['DD_Pct'] = df['QQQ_DD'].rolling(252, min_periods=60).rank(pct=True)
+    
     # 4) 금리 변화율 (10일 국채 금리 모멘텀)
     df['TNX_ROC'] = df['TNX'].pct_change(10)
     
@@ -512,6 +546,20 @@ def fetch_and_process_data():
     loss_hyg = (-delta_hyg.where(delta_hyg < 0, 0)).rolling(window=14).mean()
     rs_hyg = gain_hyg / (loss_hyg + 1e-10)
     df['HYG_RSI'] = 100 - (100 / (1 + rs_hyg))
+    
+    # 2차 탐색용 추가 보조지표 계산
+    df['SKEW_Low'] = df['SKEW'] < 110
+    
+    # VVIX 60일 Z-score 및 퍼센타일
+    vvix_ma = df['VVIX'].rolling(60).mean()
+    vvix_std = df['VVIX'].rolling(60).std()
+    df['VVIX_Z'] = (df['VVIX'] - vvix_ma) / (vvix_std + 1e-10)
+    df['VVIX_Pct'] = df['VVIX'].rolling(252, min_periods=60).rank(pct=True)
+    
+    # 안전자산 대피 (TLT 5일 수익률 - HYG 5일 수익률)
+    tlt_delta = df['TLT'].pct_change(5)
+    hyg_delta = df['HYG'].pct_change(5)
+    df['Flight'] = tlt_delta - hyg_delta
 
     df['(FGI-VIX)/5'] = (df['FearGreedIndex'] - df['VIX']) / 5
     df['(FGI-VIX)/5 2MA'] = df['(FGI-VIX)/5'].rolling(window=2).mean().bfill()
@@ -1884,6 +1932,62 @@ with tabs[4]:
             "formula": "5일슬로프합 <= -35 & QQQ_RSI <= 22 & VIX >= 28",
             "cond": (df_eval['슬로프5일합'] <= -35) & (df_eval['QQQ_RSI'] <= 22) & (df_eval['VIX'] >= 28)
         },
+        # 1차 탐색 추가 후보 (후보 11 ~ 14)
+        {
+            "id": 11,
+            "name": "단기 RSI7 <= 15 + FGI <= 15 (단기 극과매도+공포 이중극값)",
+            "formula": "QQQ_RSI7 <= 15 & FGI <= 15",
+            "cond": (df_eval['QQQ_RSI7'] <= 15) & (df_eval['FearGreedIndex'] <= 15)
+        },
+        {
+            "id": 12,
+            "name": "단기 RSI7 <= 18 + FGI <= 12 (RSI7 극과매도+극단공포)",
+            "formula": "QQQ_RSI7 <= 18 & FGI <= 12",
+            "cond": (df_eval['QQQ_RSI7'] <= 18) & (df_eval['FearGreedIndex'] <= 12)
+        },
+        {
+            "id": 13,
+            "name": "단기 RSI7 <= 20 + FGI <= 12 (RSI7 과매도+극단공포)",
+            "formula": "QQQ_RSI7 <= 20 & FGI <= 12",
+            "cond": (df_eval['QQQ_RSI7'] <= 20) & (df_eval['FearGreedIndex'] <= 12)
+        },
+        {
+            "id": 14,
+            "name": "단기 RSI7 <= 22 + FGI <= 12 (RSI7 완화+극단공포 기준)",
+            "formula": "QQQ_RSI7 <= 22 & FGI <= 12",
+            "cond": (df_eval['QQQ_RSI7'] <= 22) & (df_eval['FearGreedIndex'] <= 12)
+        },
+        # 2차 탐색 신규 후보 (VVIX, SKEW 등 새로운 접근법 5선, 후보 15 ~ 19)
+        {
+            "id": 15,
+            "name": "VVIX Z-score 극대 + FGI 초극단 공포 (옵션 변동성 폭발)",
+            "formula": "VVIX_Z >= 3.0 & FGI <= 15",
+            "cond": (df_eval['VVIX_Z'] >= 3.0) & (df_eval['FearGreedIndex'] <= 15)
+        },
+        {
+            "id": 16,
+            "name": "VVIX Z-score 극대 + FGI 주의/공포 (옵션 변동성 스파이크)",
+            "formula": "VVIX_Z >= 2.5 & FGI <= 20",
+            "cond": (df_eval['VVIX_Z'] >= 2.5) & (df_eval['FearGreedIndex'] <= 20)
+        },
+        {
+            "id": 17,
+            "name": "VVIX 롤링 퍼센타일 극단 + FGI 초극단 공포",
+            "formula": "VVIX_Pct >= 0.90 & FGI <= 10",
+            "cond": (df_eval['VVIX_Pct'] >= 0.90) & (df_eval['FearGreedIndex'] <= 10)
+        },
+        {
+            "id": 18,
+            "name": "VVIX 롤링 퍼센타일 극단 + QQQ RSI7 과매도",
+            "formula": "VVIX_Pct >= 0.90 & QQQ_RSI7 <= 22",
+            "cond": (df_eval['VVIX_Pct'] >= 0.90) & (df_eval['QQQ_RSI7'] <= 22)
+        },
+        {
+            "id": 19,
+            "name": "FGI 7일 공포 낙폭 속도 급증 + VIX 상위 퍼센타일",
+            "formula": "FGI_Speed <= -20 & VIX_Pct >= 0.85",
+            "cond": (df_eval['FearGreedIndex'].diff(7) <= -20) & (df_eval['VIX_Pct'] >= 0.85)
+        }
     ]
     
     st.markdown("---")
@@ -1910,10 +2014,10 @@ with tabs[4]:
             hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
         ), secondary_y=False)
         
-        # 2) 적중 시그널 막대 (투명도 0.25 빨간색)
+        # 2) 적중 시그널 막대 (투명도 1.0 노란색)
         fig_eval.add_trace(go.Bar(
             x=df_eval.index, y=cond_series.astype(int), name='바닥 감지 신호',
-            marker_color='rgba(255, 220, 0, 0.25)',
+            marker_color='rgba(255, 220, 0, 1.0)',
             marker_line_width=0,
             hovertemplate='신호 감지<extra></extra>'
         ), secondary_y=True)
@@ -1931,13 +2035,16 @@ with tabs[4]:
         
         st.plotly_chart(fig_eval, width='stretch', config=COMMON_CONFIG, key=f"eval_chart_{item['id']}")
         
-        # 지표 메타 정보 표시 (소형 HTML 테이블)
+        # 지표 메타 정보 표시 (소형 HTML 테이블) - 신규 목표치(적중률 60% 이상 및 포착률 10% 이상) 기준으로 색상 하이라이트 조정
+        hr_color = '#ffd700' if hit_rate >= 60 else '#ddd'
+        rec_color = '#ffd700' if recall >= 10 else '#ddd'
+        
         st.markdown(
             f"<div style='display:flex;gap:12px;margin:4px 0 8px 0;flex-wrap:wrap;'>"
             f"<span style='font-size:0.62rem;color:#8b93a3;'>후보 번호&nbsp;<b style='color:#ddd;'>후보 {item['id']}</b></span>"
             f"<span style='font-size:0.62rem;color:#8b93a3;'>발생 횟수&nbsp;<b style='color:#ddd;'>{total_triggered}회</b></span>"
-            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{'#ffd700' if hit_rate >= 70 else '#ddd'};'>{hit_rate:.1f}%</b></span>"
-            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:#ddd;'>{recall:.1f}%</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{hr_color};'>{hit_rate:.1f}%</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:{rec_color};'>{recall:.1f}%</b></span>"
             f"</div>",
             unsafe_allow_html=True
         )
