@@ -436,6 +436,16 @@ def fetch_and_process_data():
     vix = yf.download('^VIX', start=start_date_str, progress=False)
     if isinstance(vix.columns, pd.MultiIndex): vix.columns = vix.columns.get_level_values(0)
     vix_df = vix[['Close']].rename(columns={'Close': 'VIX'})
+    
+    # 신규 추가: TNX (10년물 국채 금리), HYG (하이일드 채권 ETF)
+    tnx = yf.download('^TNX', start=start_date_str, progress=False)
+    if isinstance(tnx.columns, pd.MultiIndex): tnx.columns = tnx.columns.get_level_values(0)
+    tnx_df = tnx[['Close']].rename(columns={'Close': 'TNX'})
+    
+    hyg = yf.download('HYG', start=start_date_str, progress=False)
+    if isinstance(hyg.columns, pd.MultiIndex): hyg.columns = hyg.columns.get_level_values(0)
+    hyg_df = hyg[['Close']].rename(columns={'Close': 'HYG'})
+
     url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2018-10-01"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     backup_file = "cnn_fgi_backup.json"
@@ -466,8 +476,43 @@ def fetch_and_process_data():
     fg_df['Date'] = pd.to_datetime(fg_df['x'], unit='ms').dt.normalize()
     fg_df = fg_df.set_index('Date').rename(columns={'y': 'FearGreedIndex'})[['FearGreedIndex']]
     fg_df = fg_df[~fg_df.index.duplicated(keep='last')]
-    df = qqq_df.join(vix_df, how='outer').join(fg_df, how='outer').ffill().bfill()
+    
+    # 조인
+    df = qqq_df.join(vix_df, how='outer')\
+               .join(tnx_df, how='outer')\
+               .join(hyg_df, how='outer')\
+               .join(fg_df, how='outer')\
+               .ffill().bfill()
     df = df.reindex(qqq_df.index)
+    
+    # 고급 보조지표 실시간 연산 추가
+    # 1) QQQ RSI (14일)
+    delta = df['QQQ'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / (loss + 1e-10)
+    df['QQQ_RSI'] = 100 - (100 / (1 + rs))
+    
+    # 2) QQQ 볼린저 밴드 %B (20일)
+    ma20 = df['QQQ'].rolling(20).mean()
+    std20 = df['QQQ'].rolling(20).std()
+    df['QQQ_%B'] = (df['QQQ'] - (ma20 - 2 * std20)) / (4 * std20 + 1e-10)
+    
+    # 3) VIX Z-score (200일 기준)
+    vix_ma200 = df['VIX'].rolling(200).mean()
+    vix_std200 = df['VIX'].rolling(200).std()
+    df['VIX_Z'] = (df['VIX'] - vix_ma200) / (vix_std200 + 1e-10)
+    
+    # 4) 금리 변화율 (10일 국채 금리 모멘텀)
+    df['TNX_ROC'] = df['TNX'].pct_change(10)
+    
+    # 5) HYG RSI (14일)
+    delta_hyg = df['HYG'].diff()
+    gain_hyg = (delta_hyg.where(delta_hyg > 0, 0)).rolling(window=14).mean()
+    loss_hyg = (-delta_hyg.where(delta_hyg < 0, 0)).rolling(window=14).mean()
+    rs_hyg = gain_hyg / (loss_hyg + 1e-10)
+    df['HYG_RSI'] = 100 - (100 / (1 + rs_hyg))
+
     df['(FGI-VIX)/5'] = (df['FearGreedIndex'] - df['VIX']) / 5
     df['(FGI-VIX)/5 2MA'] = df['(FGI-VIX)/5'].rolling(window=2).mean().bfill()
     df_s = df.copy().reset_index()
@@ -696,8 +741,8 @@ with st.spinner('데이터 로딩 중...'):
     df_kr = fetch_korean_market_data_v2()
     df_dram = update_and_get_dram_history()
 
-# 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리
-tab_names = ['공탐변동', '슬로프합', '등락현황', '메모리']
+# 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발
+tab_names = ['공탐변동', '슬로프합', '등락현황', '메모리', '지표개발']
 tabs = st.tabs(tab_names)
 
 # ── Tab 1: 공탐변동 ──
@@ -796,7 +841,7 @@ with tabs[0]:
         fig.update_yaxes(range=qqq_y_range, **crosshair_yaxis(), secondary_y=False)
         fig.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
 
-        st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG)
+        st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG, key="tab1_us_fgi_chart")
 
         # 실시간 지표검증결과 자동 계산 (QQQ 기준)
         fgi_conditions = {
@@ -914,7 +959,7 @@ with tabs[0]:
         fig_kr.update_yaxes(range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
         fig_kr.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
 
-        st.plotly_chart(fig_kr, width='stretch', config=COMMON_CONFIG)
+        st.plotly_chart(fig_kr, width='stretch', config=COMMON_CONFIG, key="tab1_kr_fgi_chart")
 
         # 실시간 지표검증결과 자동 계산 (KOSPI 기준)
         fgi_conditions_kr = {
@@ -933,8 +978,6 @@ with tabs[0]:
         stats_kr = calculate_indicator_stats(df_kr, 'KOSPI', fgi_conditions_kr)
         st.markdown("<br>", unsafe_allow_html=True)
         render_stats_table(stats_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
-
-
 
 # ── Tab 2: 슬로프합 ──
 with tabs[1]:
@@ -1058,7 +1101,7 @@ with tabs[1]:
             fig_dsi.update_xaxes(type='category', **crosshair_xaxis())
         fig_dsi.update_annotations(font_size=10)
 
-        st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG)
+        st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG, key="tab2_us_slope_chart")
 
         # 실시간 지표검증결과 자동 계산 (QQQ 슬로프합 기준)
         slope_conditions = {
@@ -1238,7 +1281,7 @@ with tabs[1]:
             fig_dsi_kr.update_xaxes(type='category', **crosshair_xaxis())
         fig_dsi_kr.update_annotations(font_size=10)
 
-        st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG)
+        st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG, key="tab2_kr_slope_chart")
 
         # 실시간 지표검증결과 자동 계산 (KOSPI 슬로프합 기준)
         slope_conditions_kr = {
@@ -1433,9 +1476,9 @@ with tabs[2]:
         fig.update_annotations(font_size=10)
         return fig
         
-    st.plotly_chart(make_line_fig(kp_b,"코스피 대표 종목 등락현황 추이 (꺾은선형)",kp_p,"코스피", is_us=False),width='stretch',config=COMMON_CONFIG)
-    st.plotly_chart(make_line_fig(kd_b,"코스닥 대표 종목 등락현황 추이 (꺾은선형)",kd_p,"코스닥", is_us=False),width='stretch',config=COMMON_CONFIG)
-    st.plotly_chart(make_line_fig(ndx_b,"나스닥 100 대표 종목 등락현황 추이 (꺾은선형 - 상하한 제외)",qqq_p,"QQQ", is_us=True),width='stretch',config=COMMON_CONFIG)
+    st.plotly_chart(make_line_fig(kp_b,"코스피 대표 종목 등락현황 추이 (꺾은선형)",kp_p,"코스피", is_us=False),width='stretch',config=COMMON_CONFIG, key="tab3_kospi_breadth")
+    st.plotly_chart(make_line_fig(kd_b,"코스닥 대표 종목 등락현황 추이 (꺾은선형)",kd_p,"코스닥", is_us=False),width='stretch',config=COMMON_CONFIG, key="tab3_kosdaq_breadth")
+    st.plotly_chart(make_line_fig(ndx_b,"나스닥 100 대표 종목 등락현황 추이 (꺾은선형 - 상하한 제외)",qqq_p,"QQQ", is_us=True),width='stretch',config=COMMON_CONFIG, key="tab3_ndx_breadth")
 
 # ── Tab 4: 메모리 ──
 with tabs[3]:
@@ -1640,7 +1683,7 @@ with tabs[3]:
                 fig_merged.update_yaxes(title_text="KOSPI", **crosshair_yaxis(), secondary_y=False)
             fig_merged.update_yaxes(title_text="$ / k$/kg", **crosshair_yaxis(), secondary_y=True)
             
-            st.plotly_chart(fig_merged, width='stretch', config=COMMON_CONFIG)
+            st.plotly_chart(fig_merged, width='stretch', config=COMMON_CONFIG, key="tab4_merged_chart")
             
         else:
             # 개별 품목 조회 시
@@ -1660,7 +1703,7 @@ with tabs[3]:
             )
             fig_c1.update_xaxes(type='category', **crosshair_xaxis())
             fig_c1.update_yaxes(**crosshair_yaxis())
-            st.plotly_chart(fig_c1, width='stretch', config=COMMON_CONFIG)
+            st.plotly_chart(fig_c1, width='stretch', config=COMMON_CONFIG, key="tab4_c1_chart")
             
         # 3. 현물가 상세 표
         st.markdown("#### 현물가 상세")
@@ -1707,7 +1750,7 @@ with tabs[3]:
                 )
                 fig_c3.update_xaxes(type='category', **crosshair_xaxis())
                 fig_c3.update_yaxes(**crosshair_yaxis())
-                st.plotly_chart(fig_c3, width='stretch', config=COMMON_CONFIG)
+                st.plotly_chart(fig_c3, width='stretch', config=COMMON_CONFIG, key="tab4_c3_chart")
                 
             # 5. ETF 영역
             st.markdown("<br>", unsafe_allow_html=True)
@@ -1763,7 +1806,141 @@ with tabs[3]:
                     else:
                         fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=False)
                     fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-                    st.plotly_chart(fig_c2, width='stretch', config=COMMON_CONFIG)
+                    st.plotly_chart(fig_c2, width='stretch', config=COMMON_CONFIG, key="tab4_c2_chart")
     else:
         st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
+
+# ── Tab 5: 지표개발 ──
+with tabs[4]:
+    st.markdown("### 🧪 고급 지표 연구 및 실시간 백테스트")
+    st.markdown("이 탭은 미국 QQQ 지수의 역사적 찐바닥을 가장 정교하게 예측하기 위해 개발된 15가지 고급 후보 지표의 실시간 성과를 그래프와 매칭 데이터로 시각화합니다. (데이터 및 성과 자동 갱신)")
+    
+    # QQQ 저점(바닥) 구간 정의 (과거 전체 기간 기준)
+    df_eval = df.copy()
+    rolling_max = df_eval['QQQ'].rolling(252, min_periods=1).max()
+    drawdown = (rolling_max - df_eval['QQQ']) / rolling_max
+    local_min = df_eval['QQQ'].rolling(41, center=True, min_periods=1).min()
+    is_bottom = (df_eval['QQQ'] <= local_min * 1.03) & (drawdown >= 0.05)
+    total_bottoms = is_bottom.sum()
+    
+    eval_indicators = [
+        {
+            "id": 1,
+            "name": "볼린저 %B 및 신용 채권 강도 곱 지표 (Overlay)",
+            "formula": "QQQ_%B * (HYG_RSI / 100) <= 0.010",
+            "cond": df_eval['QQQ_%B'] * (df_eval['HYG_RSI'] / 100) <= 0.010
+        },
+        {
+            "id": 2,
+            "name": "금리 급등 조정을 반영한 공포 감쇠 매수 지수",
+            "formula": "FGI * exp(TNX_ROC * 2) / VIX <= 0.35",
+            "cond": df_eval['FearGreedIndex'] * np.exp(df_eval['TNX_ROC'] * 2) / (df_eval['VIX'] + 1e-10) <= 0.35
+        },
+        {
+            "id": 3,
+            "name": "트리플 과매도 복합 Z-score",
+            "formula": "Z_FGI + Z_RSI + Z_%B - Z_VIX <= -5.0",
+            "cond": ((df_eval['FearGreedIndex'] - 50) / 20 + (df_eval['QQQ_RSI'] - 50) / 15 + (df_eval['QQQ_%B'] - 0.5) / 0.25 - df_eval['VIX_Z']) <= -5.0
+        },
+        {
+            "id": 4,
+            "name": "볼린저 %B 하한 이탈 + 초극단적 FGI 공포 조건",
+            "formula": "QQQ_%B <= 0.01 & FGI <= 6 & VIX >= 25",
+            "cond": (df_eval['QQQ_%B'] <= 0.01) & (df_eval['FearGreedIndex'] <= 6) & (df_eval['VIX'] >= 25)
+        },
+        {
+            "id": 5,
+            "name": "QQQ 볼린저 하단 대폭 이탈 및 FGI 극단 패닉",
+            "formula": "QQQ_%B <= -0.05 & FGI <= 7",
+            "cond": (df_eval['QQQ_%B'] <= -0.05) & (df_eval['FearGreedIndex'] <= 7)
+        },
+        {
+            "id": 6,
+            "name": "10일 슬로프 급락 + VIX 30 돌파 조건",
+            "formula": "10일슬로프합 <= -40 & VIX >= 30 & FGI <= 9",
+            "cond": (df_eval['슬로프10일합'] <= -40) & (df_eval['VIX'] >= 30) & (df_eval['FearGreedIndex'] <= 9)
+        },
+        {
+            "id": 7,
+            "name": "40일 슬로프 붕괴 + 트리플 바닥 만족 조건",
+            "formula": "40일슬로프합 <= -70 & FGI <= 8 & QQQ_%B <= 0.02",
+            "cond": (df_eval['슬로프40일합'] <= -70) & (df_eval['FearGreedIndex'] <= 8) & (df_eval['QQQ_%B'] <= 0.02)
+        },
+        {
+            "id": 8,
+            "name": "HYG 극단적 신용 경색 및 VIX 스파이크 조합",
+            "formula": "HYG_RSI <= 18 & VIX >= 32",
+            "cond": (df_eval['HYG_RSI'] <= 18) & (df_eval['VIX'] >= 32)
+        },
+        {
+            "id": 9,
+            "name": "극단적 패닉 및 채권 투매 동시 발생 조건",
+            "formula": "FGI <= 8 & VIX >= 28 & HYG_RSI <= 22",
+            "cond": (df_eval['FearGreedIndex'] <= 8) & (df_eval['VIX'] >= 28) & (df_eval['HYG_RSI'] <= 22)
+        },
+        {
+            "id": 10,
+            "name": "단기 5일 슬로프 붕괴 + 초과매도 결합 조건",
+            "formula": "5일슬로프합 <= -35 & QQQ_RSI <= 22 & VIX >= 28",
+            "cond": (df_eval['슬로프5일합'] <= -35) & (df_eval['QQQ_RSI'] <= 22) & (df_eval['VIX'] >= 28)
+        },
+    ]
+    
+    st.markdown("---")
+    
+    # 각 지표별로 QQQ선과 적중 영역 막대 렌더링
+    for item in eval_indicators:
+        cond_series = item['cond']
+        total_triggered = int(cond_series.sum())
+        hit_triggered = int((cond_series & is_bottom).sum())
+        
+        hit_rate = (hit_triggered / total_triggered * 100) if total_triggered > 0 else 0.0
+        recall = (hit_triggered / total_bottoms * 100) if total_bottoms > 0 else 0.0
+        
+        st.markdown(f"#### 🏷️ 후보 {item['id']}: {item['name']}")
+        st.markdown(f"📝 **조건식**: `{item['formula']}`")
+        
+        # Plotly 차트 렌더링
+        fig_eval = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # 1) QQQ 가격선
+        fig_eval.add_trace(go.Scatter(
+            x=df_eval.index, y=df_eval['QQQ'], name='QQQ 종가',
+            line=dict(color='rgba(0, 120, 255, 1.0)', width=1.5),
+            hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
+        ), secondary_y=False)
+        
+        # 2) 적중 시그널 막대 (투명도 0.25 빨간색)
+        fig_eval.add_trace(go.Bar(
+            x=df_eval.index, y=cond_series.astype(int), name='바닥 감지 신호',
+            marker_color='rgba(255, 220, 0, 0.25)',
+            marker_line_width=0,
+            hovertemplate='신호 감지<extra></extra>'
+        ), secondary_y=True)
+        
+        fig_eval.update_layout(
+            **COMMON_LAYOUT,
+            height=280,
+            margin=dict(l=0, r=50, t=10, b=10),
+            showlegend=False,
+            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
+        )
+        fig_eval.update_xaxes(type='date', **crosshair_xaxis())
+        fig_eval.update_yaxes(title_text="QQQ 가격 ($)", **crosshair_yaxis(), secondary_y=False)
+        fig_eval.update_yaxes(range=[0, 1], showticklabels=False, showgrid=False, secondary_y=True)
+        
+        st.plotly_chart(fig_eval, width='stretch', config=COMMON_CONFIG, key=f"eval_chart_{item['id']}")
+        
+        # 지표 메타 정보 표시 (소형 HTML 테이블)
+        st.markdown(
+            f"<div style='display:flex;gap:12px;margin:4px 0 8px 0;flex-wrap:wrap;'>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>후보 번호&nbsp;<b style='color:#ddd;'>후보 {item['id']}</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>발생 횟수&nbsp;<b style='color:#ddd;'>{total_triggered}회</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{'#ffd700' if hit_rate >= 70 else '#ddd'};'>{hit_rate:.1f}%</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:#ddd;'>{recall:.1f}%</b></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        
+        st.markdown("<hr style='margin: 0.5rem 0; border: 0.5px solid #222;'>", unsafe_allow_html=True)
 
