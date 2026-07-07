@@ -789,8 +789,8 @@ with st.spinner('데이터 로딩 중...'):
     df_kr = fetch_korean_market_data_v2()
     df_dram = update_and_get_dram_history()
 
-# 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발 / 골든지표
-tab_names = ['공탐변동', '슬로프합', '등락현황', '메모리', '지표개발', '골든지표']
+# 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발 / 적중집중 / 균형집중 / 포착집중
+tab_names = ['공탐변동', '슬로프합', '등락현황', '메모리', '지표개발', '적중집중', '균형집중', '포착집중']
 tabs = st.tabs(tab_names)
 
 # ── Tab 1: 공탐변동 ──
@@ -1863,13 +1863,17 @@ with tabs[4]:
     st.markdown("### 🧪 고급 지표 연구 및 실시간 백테스트")
     st.markdown("이 탭은 미국 QQQ 지수의 역사적 찐바닥을 가장 정교하게 예측하기 위해 개발된 15가지 고급 후보 지표의 실시간 성과를 그래프와 매칭 데이터로 시각화합니다. (데이터 및 성과 자동 갱신)")
     
-    # QQQ 저점(바닥) 구간 정의 (과거 전체 기간 기준)
+    # QQQ 저점(바닥) 구간 정의 (과거 전체 기간 기준 통계 계산)
     df_eval = df.copy()
     rolling_max = df_eval['QQQ'].rolling(252, min_periods=1).max()
     drawdown = (rolling_max - df_eval['QQQ']) / rolling_max
     local_min = df_eval['QQQ'].rolling(41, center=True, min_periods=1).min()
     is_bottom = (df_eval['QQQ'] <= local_min * 1.03) & (drawdown >= 0.05)
     total_bottoms = is_bottom.sum()
+    
+    # 그래프 시각화 용도로 기간 필터 적용
+    start_date_filter = df_eval.index.max() - datetime.timedelta(days=int(active_period_days))
+    df_eval_plot = df_eval[df_eval.index >= start_date_filter]
     
     eval_indicators = [
         {
@@ -2009,14 +2013,14 @@ with tabs[4]:
         
         # 1) QQQ 가격선
         fig_eval.add_trace(go.Scatter(
-            x=df_eval.index, y=df_eval['QQQ'], name='QQQ 종가',
+            x=df_eval_plot.index, y=df_eval_plot['QQQ'], name='QQQ 종가',
             line=dict(color='rgba(0, 120, 255, 1.0)', width=1.5),
             hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
         ), secondary_y=False)
         
         # 2) 적중 시그널 막대 (투명도 1.0 노란색)
         fig_eval.add_trace(go.Bar(
-            x=df_eval.index, y=cond_series.astype(int), name='바닥 감지 신호',
+            x=df_eval_plot.index, y=cond_series.reindex(df_eval_plot.index).astype(int), name='바닥 감지 신호',
             marker_color='rgba(255, 220, 0, 1.0)',
             marker_line_width=0,
             hovertemplate='신호 감지<extra></extra>'
@@ -2051,9 +2055,9 @@ with tabs[4]:
         
         st.markdown("<hr style='margin: 0.5rem 0; border: 0.5px solid #222;'>", unsafe_allow_html=True)
 
-# ── Tab 6: 골든지표 ──
+# ── Tab 6: 적중집중 ──
 with tabs[5]:
-    st.markdown("### 🏆 적중률 60% & 포착률 10% 돌파 골든 지표 연구")
+    st.markdown("### 🏆 적중률 60% & 포착률 10% 돌파 적중집중 지표 연구")
     st.markdown("수학적 비선형 변환식과 다변량 옵션/매크로 변수를 튜닝하여 백테스트 성과 기준(Hit Rate >= 60%, Recall >= 10%)을 동시에 만족하는 10대 최적 복합 지표입니다. (실시간 자동 업데이트)")
     
     df_gold = df.copy()
@@ -2062,6 +2066,10 @@ with tabs[5]:
     local_min_gold = df_gold['QQQ'].rolling(41, center=True, min_periods=1).min()
     is_bottom_gold = (df_gold['QQQ'] <= local_min_gold * 1.03) & (drawdown_gold >= 0.05)
     total_bottoms_gold = is_bottom_gold.sum()
+    
+    # 그래프 시각화 용도로 기간 필터 적용
+    start_date_filter_gold = df_gold.index.max() - datetime.timedelta(days=int(active_period_days))
+    df_gold_plot = df_gold[df_gold.index >= start_date_filter_gold]
     
     gold_indicators = [
         {
@@ -2145,14 +2153,14 @@ with tabs[5]:
         
         # 1) QQQ 가격선
         fig_gold.add_trace(go.Scatter(
-            x=df_gold.index, y=df_gold['QQQ'], name='QQQ 종가',
+            x=df_gold_plot.index, y=df_gold_plot['QQQ'], name='QQQ 종가',
             line=dict(color='rgba(0, 120, 255, 1.0)', width=1.5),
             hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
         ), secondary_y=False)
         
         # 2) 적중 시그널 막대 (투명도 1.0 노란색)
         fig_gold.add_trace(go.Bar(
-            x=df_gold.index, y=cond_series.astype(int), name='바닥 감지 신호',
+            x=df_gold_plot.index, y=cond_series.reindex(df_gold_plot.index).astype(int), name='바닥 감지 신호',
             marker_color='rgba(255, 220, 0, 1.0)',
             marker_line_width=0,
             hovertemplate='신호 감지<extra></extra>'
@@ -2185,5 +2193,272 @@ with tabs[5]:
             unsafe_allow_html=True
         )
         
+        st.markdown("<hr style='margin: 0.5rem 0; border: 0.5px solid #222;'>", unsafe_allow_html=True)
+
+# ── Tab 7: 균형집중 ──
+with tabs[6]:
+    st.markdown("### ⚖️ 적중률 50% & 포착률 극대화 균형집중 지표 연구")
+    st.markdown("적중 강도와 포착 범위의 최적 균형점(Hit Rate >= 50% 및 Recall 극대화)을 사수하도록 튜닝한 10대 복합 지표군입니다. (실시간 자동 업데이트)")
+    
+    df_bal = df.copy()
+    rolling_max_bal = df_bal['QQQ'].rolling(252, min_periods=1).max()
+    drawdown_bal = (rolling_max_bal - df_bal['QQQ']) / rolling_max_bal
+    local_min_bal = df_bal['QQQ'].rolling(41, center=True, min_periods=1).min()
+    is_bottom_bal = (df_bal['QQQ'] <= local_min_bal * 1.03) & (drawdown_bal >= 0.05)
+    total_bottoms_bal = is_bottom_bal.sum()
+    
+    # 그래프 시각화 용도로 기간 필터 적용
+    start_date_filter_bal = df_bal.index.max() - datetime.timedelta(days=int(active_period_days))
+    df_bal_plot = df_bal[df_bal.index >= start_date_filter_bal]
+    
+    bal_indicators = [
+        {
+            "id": 1,
+            "name": "비선형 VVIX/RSI7 비율 스퀴즈 지표",
+            "formula": "(VVIX / QQQ_RSI7) >= 4.5 & FGI <= 30 & QQQ_DD >= 0.05",
+            "cond": ((df_bal['VVIX'] / (df_bal['QQQ_RSI7'] + 1e-5)) >= 4.5) & (df_bal['FearGreedIndex'] <= 30) & (df_bal['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 2,
+            "name": "비선형 VVIX/RSI7 비율 스퀴즈 지표 (완화형)",
+            "formula": "(VVIX / QQQ_RSI7) >= 3.5 & FGI <= 22 & QQQ_DD >= 0.05",
+            "cond": ((df_bal['VVIX'] / (df_bal['QQQ_RSI7'] + 1e-5)) >= 3.5) & (df_bal['FearGreedIndex'] <= 22) & (df_bal['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 3,
+            "name": "다중 복합 논리 게이트 지표",
+            "formula": "QQQ_%B <= 0.10 & QQQ_RSI7 <= 40 & FGI <= 30 & VIX_Pct >= 0.60 & VVIX_Pct >= 0.50",
+            "cond": (df_bal['QQQ_%B'] <= 0.10) & (df_bal['QQQ_RSI7'] <= 40) & (df_bal['FearGreedIndex'] <= 30) & (df_bal['VIX_Pct'] >= 0.60) & (df_bal['VVIX_Pct'] >= 0.50)
+        },
+        {
+            "id": 4,
+            "name": "다이나믹 조화지수 지표",
+            "formula": "100 / (QQQ_RSI7) + DD_Pct * 3 >= 7.0 & FGI_Pct <= 0.30",
+            "cond": (100 / (df_bal['QQQ_RSI7'] + 1e-5) + df_bal['DD_Pct'] * 3 >= 7.0) & (df_bal['FGI_Pct'] <= 0.30)
+        },
+        {
+            "id": 5,
+            "name": "다이나믹 조화지수 지표 (낙폭강화형)",
+            "formula": "100 / (QQQ_RSI7) + DD_Pct * 4 >= 8.0 & FGI_Pct <= 0.30",
+            "cond": (100 / (df_bal['QQQ_RSI7'] + 1e-5) + df_bal['DD_Pct'] * 4 >= 8.0) & (df_bal['FGI_Pct'] <= 0.30)
+        },
+        {
+            "id": 6,
+            "name": "다중 복합 논리 게이트 지표 (공포조정형)",
+            "formula": "QQQ_%B <= 0.15 & QQQ_RSI7 <= 35 & FGI <= 20 & VIX_Pct >= 0.60 & VVIX_Pct >= 0.50",
+            "cond": (df_bal['QQQ_%B'] <= 0.15) & (df_bal['QQQ_RSI7'] <= 35) & (df_bal['FearGreedIndex'] <= 20) & (df_bal['VIX_Pct'] >= 0.60) & (df_bal['VVIX_Pct'] >= 0.50)
+        },
+        {
+            "id": 7,
+            "name": "비대칭 공포 스퀴즈 스코어 지표",
+            "formula": "(25 - FearGreedIndex) * (1.5 - QQQ_%B * 1.5) >= 18 & VVIX_Pct >= 0.50 & DD_Pct >= 0.70",
+            "cond": ((25 - df_bal['FearGreedIndex']) * (1.5 - df_bal['QQQ_%B'] * 1.5) >= 18) & (df_bal['VVIX_Pct'] >= 0.50) & (df_bal['DD_Pct'] >= 0.70)
+        },
+        {
+            "id": 8,
+            "name": "비대칭 공포 스퀴즈 스코어 지표 (완화형)",
+            "formula": "(30 - FearGreedIndex) * (1.5 - QQQ_%B * 1.5) >= 25 & VVIX_Pct >= 0.50 & DD_Pct >= 0.40",
+            "cond": ((30 - df_bal['FearGreedIndex']) * (1.5 - df_bal['QQQ_%B'] * 1.5) >= 25) & (df_bal['VVIX_Pct'] >= 0.50) & (df_bal['DD_Pct'] >= 0.40)
+        },
+        {
+            "id": 9,
+            "name": "VIX*VVIX 복합 변동성 Z-Score 지표",
+            "formula": "VIX_Z * VVIX_Z >= 1.2 & FGI <= 12 & QQQ_DD >= 0.05",
+            "cond": (df_bal['VIX_Z'] * df_bal['VVIX_Z'] >= 1.2) & (df_bal['FearGreedIndex'] <= 12) & (df_bal['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 10,
+            "name": "VIX*VVIX 복합 변동성 Z-Score 지표 (필터강화형)",
+            "formula": "VIX_Z * VVIX_Z >= 1.5 & FGI <= 12 & QQQ_DD >= 0.05",
+            "cond": (df_bal['VIX_Z'] * df_bal['VVIX_Z'] >= 1.5) & (df_bal['FearGreedIndex'] <= 12) & (df_bal['QQQ_DD'] >= 0.05)
+        }
+    ]
+    
+    st.markdown("---")
+    
+    for item in bal_indicators:
+        cond_series = item['cond']
+        total_triggered = int(cond_series.sum())
+        hit_triggered = int((cond_series & is_bottom_bal).sum())
+        
+        hit_rate = (hit_triggered / total_triggered * 100) if total_triggered > 0 else 0.0
+        recall = (hit_triggered / total_bottoms_bal * 100) if total_bottoms_bal > 0 else 0.0
+        
+        st.markdown(f"#### 🏷️ 균형 {item['id']}: {item['name']}")
+        st.markdown(f"📝 **조건식**: `{item['formula']}`")
+        
+        fig_bal = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_bal.add_trace(go.Scatter(
+            x=df_bal_plot.index, y=df_bal_plot['QQQ'], name='QQQ 종가',
+            line=dict(color='rgba(0, 120, 255, 1.0)', width=1.5),
+            hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
+        ), secondary_y=False)
+        
+        fig_bal.add_trace(go.Bar(
+            x=df_bal_plot.index, y=cond_series.reindex(df_bal_plot.index).astype(int), name='바닥 감지 신호',
+            marker_color='rgba(255, 220, 0, 1.0)',
+            marker_line_width=0,
+            hovertemplate='신호 감지<extra></extra>'
+        ), secondary_y=True)
+        
+        fig_bal.update_layout(
+            **COMMON_LAYOUT,
+            height=280,
+            margin=dict(l=0, r=50, t=10, b=10),
+            showlegend=False,
+            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
+        )
+        fig_bal.update_xaxes(type='date', **crosshair_xaxis())
+        fig_bal.update_yaxes(title_text="QQQ 가격 ($)", **crosshair_yaxis(), secondary_y=False)
+        fig_bal.update_yaxes(range=[0, 1], showticklabels=False, showgrid=False, secondary_y=True)
+        
+        st.plotly_chart(fig_bal, width='stretch', config=COMMON_CONFIG, key=f"bal_chart_{item['id']}")
+        
+        hr_color = '#ffd700' if hit_rate >= 50 else '#ddd'
+        rec_color = '#ffd700' if recall >= 20 else '#ddd'
+        
+        st.markdown(
+            f"<div style='display:flex;gap:12px;margin:4px 0 8px 0;flex-wrap:wrap;'>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>후보 번호&nbsp;<b style='color:#ddd;'>균형 {item['id']}</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>발생 횟수&nbsp;<b style='color:#ddd;'>{total_triggered}회</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{hr_color};'>{hit_rate:.1f}%</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:{rec_color};'>{recall:.1f}%</b></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        st.markdown("<hr style='margin: 0.5rem 0; border: 0.5px solid #222;'>", unsafe_allow_html=True)
+
+
+# ── Tab 8: 포착집중 ──
+with tabs[7]:
+    st.markdown("### 🎯 적중률 40% & 포착률 극대화 포착집중 지표 연구")
+    st.markdown("적중률 하한선 40% 이상을 든든하게 방어하면서 바닥 포착 범위(Recall)를 최대 52%대까지 최대로 확장한 10대 복합 지표군입니다. (실시간 자동 업데이트)")
+    
+    df_rec = df.copy()
+    rolling_max_rec = df_rec['QQQ'].rolling(252, min_periods=1).max()
+    drawdown_rec = (rolling_max_rec - df_rec['QQQ']) / rolling_max_rec
+    local_min_rec = df_rec['QQQ'].rolling(41, center=True, min_periods=1).min()
+    is_bottom_rec = (df_rec['QQQ'] <= local_min_rec * 1.03) & (drawdown_rec >= 0.05)
+    total_bottoms_rec = is_bottom_rec.sum()
+    
+    # 그래프 시각화 용도로 기간 필터 적용
+    start_date_filter_rec = df_rec.index.max() - datetime.timedelta(days=int(active_period_days))
+    df_rec_plot = df_rec[df_rec.index >= start_date_filter_rec]
+    
+    rec_indicators = [
+        {
+            "id": 1,
+            "name": "비선형 VVIX/RSI7 비율 스퀴즈 지표",
+            "formula": "(VVIX / QQQ_RSI7) >= 2.5 & FGI <= 40 & QQQ_DD >= 0.05",
+            "cond": ((df_rec['VVIX'] / (df_rec['QQQ_RSI7'] + 1e-5)) >= 2.5) & (df_rec['FearGreedIndex'] <= 40) & (df_rec['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 2,
+            "name": "비선형 VVIX/RSI7 비율 스퀴즈 지표 (가중형)",
+            "formula": "(VVIX / QQQ_RSI7) >= 3.0 & FGI <= 45 & QQQ_DD >= 0.05",
+            "cond": ((df_rec['VVIX'] / (df_rec['QQQ_RSI7'] + 1e-5)) >= 3.0) & (df_rec['FearGreedIndex'] <= 45) & (df_rec['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 3,
+            "name": "다중 복합 논리 게이트 지표",
+            "formula": "QQQ_%B <= 0.25 & QQQ_RSI7 <= 50 & FGI <= 40 & VIX_Pct >= 0.40 & VVIX_Pct >= 0.40",
+            "cond": (df_rec['QQQ_%B'] <= 0.25) & (df_rec['QQQ_RSI7'] <= 50) & (df_rec['FearGreedIndex'] <= 40) & (df_rec['VIX_Pct'] >= 0.40) & (df_rec['VVIX_Pct'] >= 0.40)
+        },
+        {
+            "id": 4,
+            "name": "다이나믹 조화지수 지표",
+            "formula": "140 / (QQQ_RSI7) + DD_Pct * 2 >= 6.0 & FGI_Pct <= 0.35",
+            "cond": (140 / (df_rec['QQQ_RSI7'] + 1e-5) + df_rec['DD_Pct'] * 2 >= 6.0) & (df_rec['FGI_Pct'] <= 0.35)
+        },
+        {
+            "id": 5,
+            "name": "다중 복합 논리 게이트 지표 (압축형)",
+            "formula": "QQQ_%B <= 0.20 & QQQ_RSI7 <= 50 & FGI <= 45 & VIX_Pct >= 0.40 & VVIX_Pct >= 0.40",
+            "cond": (df_rec['QQQ_%B'] <= 0.20) & (df_rec['QQQ_RSI7'] <= 50) & (df_rec['FearGreedIndex'] <= 45) & (df_rec['VIX_Pct'] >= 0.40) & (df_rec['VVIX_Pct'] >= 0.40)
+        },
+        {
+            "id": 6,
+            "name": "다이나믹 조화지수 지표 (완화형)",
+            "formula": "100 / (QQQ_RSI7) + DD_Pct * 2 >= 5.0 & FGI_Pct <= 0.35",
+            "cond": (100 / (df_rec['QQQ_RSI7'] + 1e-5) + df_rec['DD_Pct'] * 2 >= 5.0) & (df_rec['FGI_Pct'] <= 0.35)
+        },
+        {
+            "id": 7,
+            "name": "비대칭 공포 스퀴즈 스코어 지표",
+            "formula": "(40 - FearGreedIndex) * (1.5 - QQQ_%B * 1.5) >= 25 & VVIX_Pct >= 0.30 & DD_Pct >= 0.50",
+            "cond": ((40 - df_rec['FearGreedIndex']) * (1.5 - df_rec['QQQ_%B'] * 1.5) >= 25) & (df_rec['VVIX_Pct'] >= 0.30) & (df_rec['DD_Pct'] >= 0.50)
+        },
+        {
+            "id": 8,
+            "name": "비대칭 공포 스퀴즈 스코어 지표 (조정형)",
+            "formula": "(35 - FearGreedIndex) * (1.5 - QQQ_%B * 1.5) >= 20 & VVIX_Pct >= 0.30 & DD_Pct >= 0.50",
+            "cond": ((35 - df_rec['FearGreedIndex']) * (1.5 - df_rec['QQQ_%B'] * 1.5) >= 20) & (df_rec['VVIX_Pct'] >= 0.30) & (df_rec['DD_Pct'] >= 0.50)
+        },
+        {
+            "id": 9,
+            "name": "VIX*VVIX 복합 변동성 Z-Score 지표",
+            "formula": "VIX_Z * VVIX_Z >= 0.5 & FGI <= 18 & QQQ_DD >= 0.05",
+            "cond": (df_rec['VIX_Z'] * df_rec['VVIX_Z'] >= 0.5) & (df_rec['FearGreedIndex'] <= 18) & (df_rec['QQQ_DD'] >= 0.05)
+        },
+        {
+            "id": 10,
+            "name": "VIX*VVIX 복합 변동성 Z-Score 지표 (필터강화형)",
+            "formula": "VIX_Z * VVIX_Z >= 0.8 & FGI <= 18 & QQQ_DD >= 0.05",
+            "cond": (df_rec['VIX_Z'] * df_rec['VVIX_Z'] >= 0.8) & (df_rec['FearGreedIndex'] <= 18) & (df_rec['QQQ_DD'] >= 0.05)
+        }
+    ]
+    
+    st.markdown("---")
+    
+    for item in rec_indicators:
+        cond_series = item['cond']
+        total_triggered = int(cond_series.sum())
+        hit_triggered = int((cond_series & is_bottom_rec).sum())
+        
+        hit_rate = (hit_triggered / total_triggered * 100) if total_triggered > 0 else 0.0
+        recall = (hit_triggered / total_bottoms_rec * 100) if total_bottoms_rec > 0 else 0.0
+        
+        st.markdown(f"#### 🏷️ 포착 {item['id']}: {item['name']}")
+        st.markdown(f"📝 **조건식**: `{item['formula']}`")
+        
+        fig_rec = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_rec.add_trace(go.Scatter(
+            x=df_rec_plot.index, y=df_rec_plot['QQQ'], name='QQQ 종가',
+            line=dict(color='rgba(0, 120, 255, 1.0)', width=1.5),
+            hovertemplate='QQQ: $%{y:.2f}<extra></extra>'
+        ), secondary_y=False)
+        
+        fig_rec.add_trace(go.Bar(
+            x=df_rec_plot.index, y=cond_series.reindex(df_rec_plot.index).astype(int), name='바닥 감지 신호',
+            marker_color='rgba(255, 220, 0, 1.0)',
+            marker_line_width=0,
+            hovertemplate='신호 감지<extra></extra>'
+        ), secondary_y=True)
+        
+        fig_rec.update_layout(
+            **COMMON_LAYOUT,
+            height=280,
+            margin=dict(l=0, r=50, t=10, b=10),
+            showlegend=False,
+            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
+        )
+        fig_rec.update_xaxes(type='date', **crosshair_xaxis())
+        fig_rec.update_yaxes(title_text="QQQ 가격 ($)", **crosshair_yaxis(), secondary_y=False)
+        fig_rec.update_yaxes(range=[0, 1], showticklabels=False, showgrid=False, secondary_y=True)
+        
+        st.plotly_chart(fig_rec, width='stretch', config=COMMON_CONFIG, key=f"rec_chart_{item['id']}")
+        
+        hr_color = '#ffd700' if hit_rate >= 40 else '#ddd'
+        rec_color = '#ffd700' if recall >= 30 else '#ddd'
+        
+        st.markdown(
+            f"<div style='display:flex;gap:12px;margin:4px 0 8px 0;flex-wrap:wrap;'>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>후보 번호&nbsp;<b style='color:#ddd;'>포착 {item['id']}</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>발생 횟수&nbsp;<b style='color:#ddd;'>{total_triggered}회</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 적중률&nbsp;<b style='color:{hr_color};'>{hit_rate:.1f}%</b></span>"
+            f"<span style='font-size:0.62rem;color:#8b93a3;'>저점 포착률&nbsp;<b style='color:{rec_color};'>{recall:.1f}%</b></span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
         st.markdown("<hr style='margin: 0.5rem 0; border: 0.5px solid #222;'>", unsafe_allow_html=True)
 
