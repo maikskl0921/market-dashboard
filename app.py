@@ -22,6 +22,53 @@ st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_
 
 KOR_WEEKDAY = ['월', '화', '수', '목', '금', '토', '일']
 
+def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_threshold=0.05, local_min_factor=1.03):
+    """
+    지표의 역사적 저점 적중률, 포착률, 종합 점수를 실시간으로 계산하는 헬퍼 함수
+    """
+    if df_target.empty or price_col not in df_target.columns:
+        return []
+    
+    # 1) 252일 최고점 대비 낙폭이 dd_threshold 이상인 구간
+    rolling_max = df_target[price_col].rolling(252, min_periods=1).max()
+    drawdown = (rolling_max - df_target[price_col]) / rolling_max
+    
+    # 2) 로컬 최저점: 현재 가격이 전후 window일(center=True) 기준 최저가격의 local_min_factor 이내
+    local_min = df_target[price_col].rolling(window, center=True, min_periods=1).min()
+    is_bottom = (df_target[price_col] <= local_min * local_min_factor) & (drawdown >= dd_threshold)
+    
+    total_bottoms = is_bottom.sum()
+    
+    stats_list = []
+    for name, (cond, desc) in conditions.items():
+        cond_bool = cond.reindex(df_target.index).fillna(False).astype(bool)
+        total_triggered = int(cond_bool.sum())
+        hit_triggered = int((cond_bool & is_bottom).sum())
+        
+        hit_rate = (hit_triggered / total_triggered * 100) if total_triggered > 0 else 0.0
+        recall = (hit_triggered / total_bottoms * 100) if total_bottoms > 0 else 0.0
+        score = (2 * hit_rate * recall) / (hit_rate + recall) if (hit_rate + recall) > 0 else 0.0
+        
+        stats_list.append({
+            "name": name,
+            "desc": desc,
+            "triggered": f"{total_triggered}회",
+            "hit_rate": f"**{hit_rate:.1f}%**" if hit_rate >= 40 else f"{hit_rate:.1f}%",
+            "recall": f"{recall:.1f}%",
+            "score": f"{score:.1f}%"
+        })
+    return stats_list
+
+def render_stats_table(stats_list, title):
+    st.markdown(f"#### 📊 {title}")
+    tbl_md = """
+| 감지 조건 | 조건 세부 내용 | 발생 횟수 | 저점 적중 (Hit Rate) | 저점 포착 (Recall) | 종합 점수 |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+"""
+    for item in stats_list:
+        tbl_md += f"| {item['name']} | {item['desc']} | {item['triggered']} | {item['hit_rate']} | {item['recall']} | {item['score']} |\n"
+    st.markdown(tbl_md)
+
 def fmt_date_kor(dt):
     if isinstance(dt, str):
         try:
@@ -128,18 +175,37 @@ with c_sel1:
     st.session_state.selected_country = selected_country
 
 with c_sel2:
-    # Period Selection
+    # 모바일 환경 대응 라디오 버튼 크기/간격 축소 CSS 주입
+    st.markdown("""
+    <style>
+        div[data-testid="stRadio"] > div {
+            gap: 2px !important;
+        }
+        div[data-testid="stRadio"] label {
+            font-size: 0.75rem !important;
+            padding: 2px 6px !important;
+            margin-right: 2px !important;
+        }
+        div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
+            font-size: 0.75rem !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Period Selection (1m, 3m, 6m, 12m, 24m, 48m 순서 정렬)
     selected_period = st.radio(
         "Period",
-        options=["12m", "6m", "3m", "1m"],
-        index=2,
+        options=["1m", "3m", "6m", "12m", "24m", "48m"],
+        index=1, # "3m" 기본값 유지
         horizontal=True,
         label_visibility="collapsed",
         key="period_radio"
     )
 
 active_period_days = None
-if selected_period == "12m": active_period_days = 365
+if selected_period == "48m": active_period_days = 1460
+elif selected_period == "24m": active_period_days = 730
+elif selected_period == "12m": active_period_days = 365
 elif selected_period == "6m": active_period_days = 182
 elif selected_period == "3m": active_period_days = 91
 elif selected_period == "1m": active_period_days = 30
@@ -372,17 +438,30 @@ def fetch_and_process_data():
     vix_df = vix[['Close']].rename(columns={'Close': 'VIX'})
     url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2018-10-01"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    backup_file = "cnn_fgi_backup.json"
+    data = None
     try:
-        res = requests.get(url, headers=headers)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code != 200:
-            res = requests.get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2020-10-01", headers=headers)
+            res = requests.get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2020-10-01", headers=headers, timeout=5)
             res.raise_for_status()
-    except Exception:
-        res = requests.get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2020-10-01", headers=headers)
-        res.raise_for_status()
+        res_json = res.json()
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(res_json, f)
+        data = res_json['fear_and_greed_historical']['data']
+    except Exception as e:
+        if os.path.exists(backup_file):
+            try:
+                with open(backup_file, 'r', encoding='utf-8') as f:
+                    res_json = json.load(f)
+                data = res_json['fear_and_greed_historical']['data']
+            except Exception:
+                pass
+        if not data:
+            data = [{'x': int(datetime.datetime.now().timestamp()*1000), 'y': 50.0}]
+            
     qqq_df.index = qqq_df.index.normalize()
     vix_df.index = vix_df.index.normalize()
-    data = res.json()['fear_and_greed_historical']['data']
     fg_df = pd.DataFrame(data)
     fg_df['Date'] = pd.to_datetime(fg_df['x'], unit='ms').dt.normalize()
     fg_df = fg_df.set_index('Date').rename(columns={'y': 'FearGreedIndex'})[['FearGreedIndex']]
@@ -421,7 +500,7 @@ def fetch_and_process_data():
 @st.cache_data(ttl=60)
 def fetch_korean_market_data_v2():
     # 1. KOSPI 지수 다운로드
-    kospi = yf.download('^KS11', start="2018-10-01", progress=False)
+    kospi = yf.download('^KS11', start="2018-01-01", progress=False)
     if isinstance(kospi.columns, pd.MultiIndex): kospi.columns = kospi.columns.get_level_values(0)
     kospi_df = kospi[['Close']].rename(columns={'Close': 'KOSPI'})
     
@@ -719,6 +798,24 @@ with tabs[0]:
 
         st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG)
 
+        # 실시간 지표검증결과 자동 계산 (QQQ 기준)
+        fgi_conditions = {
+            "**[검정] 극단적 패닉**": ((df['FearGreedIndex'] <= 9) & (df['VIX'] >= 26), "FGI <= 9 & VIX >= 26"),
+            "**[빨강] 강한 패닉**": ((df['FearGreedIndex'] >= 10) & (df['FearGreedIndex'] <= 19) & (df['VIX'] >= 22) & (df['VIX'] <= 25), "FGI 10-19 & VIX 22-25"),
+            "**[노랑] 약세 패닉**": ((df['FearGreedIndex'] >= 20) & (df['FearGreedIndex'] <= 29) & (df['VIX'] >= 18) & (df['VIX'] <= 21), "FGI 20-29 & VIX 18-21"),
+            "**[초록] 주의 구간**": ((df['FearGreedIndex'] >= 30) & (df['FearGreedIndex'] <= 39) & (df['VIX'] >= 14) & (df['VIX'] <= 17), "FGI 30-39 & VIX 14-17"),
+            "**공탐변동 종합 감지**": (
+                ((df['FearGreedIndex'] <= 9) & (df['VIX'] >= 26)) |
+                ((df['FearGreedIndex'] >= 10) & (df['FearGreedIndex'] <= 19) & (df['VIX'] >= 22) & (df['VIX'] <= 25)) |
+                ((df['FearGreedIndex'] >= 20) & (df['FearGreedIndex'] <= 29) & (df['VIX'] >= 18) & (df['VIX'] <= 21)) |
+                ((df['FearGreedIndex'] >= 30) & (df['FearGreedIndex'] <= 39) & (df['VIX'] >= 14) & (df['VIX'] <= 17)),
+                "위 4가지 색 중 하나 이상 감지"
+            )
+        }
+        stats = calculate_indicator_stats(df, 'QQQ', fgi_conditions)
+        st.markdown("<br>", unsafe_allow_html=True)
+        render_stats_table(stats, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
+
         st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
         st.markdown("#### 📌 역사적 대폭락/하락장 주요 사건 및 하락률")
         
@@ -819,72 +916,25 @@ with tabs[0]:
 
         st.plotly_chart(fig_kr, width='stretch', config=COMMON_CONFIG)
 
-        st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
-        st.markdown("#### 📊 D램 Spot 가격 vs 코스피 지수 중첩 추이 (dramexchange.com 실측 데이터)")
-        
-        # [D램가격 vs 코스피지수] : 코스피 지수가 끊기지 않도록 전체 시계열 매핑 및 Y축 라벨 타이틀 공백 제거
-        if not df_dram.empty:
-            dram_fig = make_subplots(specs=[[{"secondary_y": True}]])
-            
-            # X축: 공탐변동 그래프와 완벽히 동일한 기간으로 동기화 (df1_kr의 날짜 인덱스 전체)
-            dram_hd = [fmt_date_kor(d) for d in df1_kr.index]
-            
-            # 코스피 가격: 전체 공탐변동 지수 데이터 적용 (기타 차트와 일치하도록 width: 1.0, color opacity 0.3 적용)
-            dram_fig.add_trace(go.Scatter(
-                x=dram_hd, y=df1_kr['KOSPI'], name='KOSPI 지수',
-                mode='lines+markers',
-                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
-                marker=dict(
-                    symbol='circle',
-                    color='white',
-                    size=1.3,
-                    opacity=0.5,
-                    line=dict(width=0)
-                ),
-                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
-            ), secondary_y=False)
-            
-            # D램 Spot 가격: 해당 날짜에 맞는 DRAM Spot 가격 데이터를 reindex하여 가져오고 ffill/bfill 보간
-            df_dram_reindexed = df_dram.reindex(df1_kr.index).ffill().bfill()
-            
-            dram_types = ['DDR4 8Gb (1Gx8) 3200', 'DDR4 16Gb (2Gx8) 3200', 'DDR5 16Gb (2Gx8) 4800/5600']
-            # 각 DRAM 가격선도 메인 차트의 보조 지표들처럼 연하고 가늘게 설정 (width: 0.5, 선명도 조절)
-            colors = ['rgba(255, 215, 0, 0.45)', 'rgba(255, 107, 157, 0.45)', 'rgba(51, 153, 255, 0.45)']
-            
-            for d_type, col in zip(dram_types, colors):
-                if d_type in df_dram_reindexed.columns:
-                    dram_fig.add_trace(go.Scatter(
-                        x=dram_hd, y=df_dram_reindexed[d_type], name=d_type,
-                        line=dict(color=col, width=0.5),
-                        hovertemplate=f'{d_type}: %{{y:.3f}}<extra></extra>'
-                    ), secondary_y=True)
-            
-            dram_fig.update_layout(
-                **COMMON_LAYOUT,
-                height=300,
-                margin=dict(l=0,r=50,t=30,b=10),
-                showlegend=True,
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="right",
-                    x=1
-                ),
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
+        # 실시간 지표검증결과 자동 계산 (KOSPI 기준)
+        fgi_conditions_kr = {
+            "**[검정] 극단적 패닉**": ((df_kr['FearGreedIndex'] <= 9) & (df_kr['VKOSPI'] >= 26), "FGI <= 9 & VKOSPI >= 26"),
+            "**[빨강] 강한 패닉**": ((df_kr['FearGreedIndex'] >= 10) & (df_kr['FearGreedIndex'] <= 19) & (df_kr['VKOSPI'] >= 22), "FGI 10-19 & VKOSPI >= 22"),
+            "**[노랑] 약세 패닉**": ((df_kr['FearGreedIndex'] >= 20) & (df_kr['FearGreedIndex'] <= 29) & (df_kr['VKOSPI'] >= 18), "FGI 20-29 & VKOSPI >= 18"),
+            "**[초록] 주의 구간**": ((df_kr['FearGreedIndex'] >= 30) & (df_kr['FearGreedIndex'] <= 39) & (df_kr['VKOSPI'] >= 14), "FGI 30-39 & VKOSPI >= 14"),
+            "**공탐변동 종합 감지**": (
+                ((df_kr['FearGreedIndex'] <= 9) & (df_kr['VKOSPI'] >= 26)) |
+                ((df_kr['FearGreedIndex'] >= 10) & (df_kr['FearGreedIndex'] <= 19) & (df_kr['VKOSPI'] >= 22)) |
+                ((df_kr['FearGreedIndex'] >= 20) & (df_kr['FearGreedIndex'] <= 29) & (df_kr['VKOSPI'] >= 18)) |
+                ((df_kr['FearGreedIndex'] >= 30) & (df_kr['FearGreedIndex'] <= 39) & (df_kr['VKOSPI'] >= 14)),
+                "위 4가지 색 중 하나 이상 감지"
             )
-            
-            # Y축 제목 공백 제거(기타 그래프들과 통일)
-            if initial_x_range_kr:
-                dram_fig.update_xaxes(range=initial_x_range_kr, type='category', **crosshair_xaxis())
-            else:
-                dram_fig.update_xaxes(type='category', **crosshair_xaxis())
-            dram_fig.update_yaxes(**crosshair_yaxis(), secondary_y=False)
-            dram_fig.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-            
-            st.plotly_chart(dram_fig, width='stretch', config=COMMON_CONFIG)
-        else:
-            st.info("수집된 D램 Spot 가격 데이터가 없습니다.")
+        }
+        stats_kr = calculate_indicator_stats(df_kr, 'KOSPI', fgi_conditions_kr)
+        st.markdown("<br>", unsafe_allow_html=True)
+        render_stats_table(stats_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
+
+
 
 # ── Tab 2: 슬로프합 ──
 with tabs[1]:
@@ -1009,6 +1059,28 @@ with tabs[1]:
         fig_dsi.update_annotations(font_size=10)
 
         st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG)
+
+        # 실시간 지표검증결과 자동 계산 (QQQ 슬로프합 기준)
+        slope_conditions = {
+            "**5일합 이탈**": (df['슬로프5일합'] <= -20, "5일슬로프합 <= -20"),
+            "**10일합 이탈**": (df['슬로프10일합'] <= -30, "10일슬로프합 <= -30"),
+            "**20일합 이탈**": (df['슬로프20일합'] <= -40, "20일슬로프합 <= -40"),
+            "**40일합 이탈**": (df['슬로프40일합'] <= -50, "40일슬로프합 <= -50"),
+            "**슬로프합 종합 감지**": (
+                (df['슬로프5일합'] <= -20) | (df['슬로프10일합'] <= -30) | (df['슬로프20일합'] <= -40) | (df['슬로프40일합'] <= -50),
+                "1개 이상 지표 이탈"
+            ),
+            "**슬로프합 강력 이탈**": (
+                ((df['슬로프5일합'] <= -20).astype(int) + 
+                 (df['슬로프10일합'] <= -30).astype(int) + 
+                 (df['슬로프20일합'] <= -40).astype(int) + 
+                 (df['슬로프40일합'] <= -50).astype(int)) >= 3,
+                "3개 이상 지표 동시 이탈"
+            )
+        }
+        stats_slope = calculate_indicator_stats(df, 'QQQ', slope_conditions)
+        st.markdown("<br>", unsafe_allow_html=True)
+        render_stats_table(stats_slope, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
 
         st.markdown("#### 하한 미만 세부 분석 표")
         all_fd2 = []
@@ -1167,6 +1239,28 @@ with tabs[1]:
         fig_dsi_kr.update_annotations(font_size=10)
 
         st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG)
+
+        # 실시간 지표검증결과 자동 계산 (KOSPI 슬로프합 기준)
+        slope_conditions_kr = {
+            "**5일합 이탈**": (df_kr['슬로프5일합'] <= -30, "5일슬로프합 <= -30"),
+            "**10일합 이탈**": (df_kr['슬로프10일합'] <= -50, "10일슬로프합 <= -50"),
+            "**20일합 이탈**": (df_kr['슬로프20일합'] <= -70, "20일슬로프합 <= -70"),
+            "**40일합 이탈**": (df_kr['슬로프40일합'] <= -100, "40일슬로프합 <= -100"),
+            "**슬로프합 종합 감지**": (
+                (df_kr['슬로프5일합'] <= -30) | (df_kr['슬로프10일합'] <= -50) | (df_kr['슬로프20일합'] <= -70) | (df_kr['슬로프40일합'] <= -100),
+                "1개 이상 지표 이탈"
+            ),
+            "**슬로프합 강력 이탈**": (
+                ((df_kr['슬로프5일합'] <= -30).astype(int) + 
+                 (df_kr['슬로프10일합'] <= -50).astype(int) + 
+                 (df_kr['슬로프20일합'] <= -70).astype(int) + 
+                 (df_kr['슬로프40일합'] <= -100).astype(int)) >= 3,
+                "3개 이상 지표 동시 이탈"
+            )
+        }
+        stats_slope_kr = calculate_indicator_stats(df_kr, 'KOSPI', slope_conditions_kr)
+        st.markdown("<br>", unsafe_allow_html=True)
+        render_stats_table(stats_slope_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
         st.markdown("#### 하한 미만 세부 분석 표")
         all_fd2_kr = []
@@ -1339,6 +1433,8 @@ with tabs[2]:
         fig.update_annotations(font_size=10)
         return fig
         
+    st.plotly_chart(make_line_fig(kp_b,"코스피 대표 종목 등락현황 추이 (꺾은선형)",kp_p,"코스피", is_us=False),width='stretch',config=COMMON_CONFIG)
+    st.plotly_chart(make_line_fig(kd_b,"코스닥 대표 종목 등락현황 추이 (꺾은선형)",kd_p,"코스닥", is_us=False),width='stretch',config=COMMON_CONFIG)
     st.plotly_chart(make_line_fig(ndx_b,"나스닥 100 대표 종목 등락현황 추이 (꺾은선형 - 상하한 제외)",qqq_p,"QQQ", is_us=True),width='stretch',config=COMMON_CONFIG)
 
 # ── Tab 4: 메모리 ──
@@ -1405,7 +1501,7 @@ with tabs[3]:
             f"</table>"
             f"</div>", unsafe_allow_html=True
         )
-            
+        
         # 2. 현물가 장기 추이 (차트) & 선택 셀렉터
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("#### 현물가 장기 추이")
@@ -1419,38 +1515,154 @@ with tabs[3]:
                 
         selected_chart = st.selectbox("차트 조회 품목 선택", chart_options, label_visibility="collapsed")
         
-        fig_c1 = go.Figure()
-        if selected_chart == "개요":
-            monthly_data = dram_data.get('monthly', {})
-            dr_m = monthly_data.get('dram', {}) or monthly_data.get('ddr4_8gb', {}) or {'m': [], 'v': []}
-            na_m = monthly_data.get('nand', {}) or {'m': [], 'v': []}
+        # ETF KPI 데이터 (개별 품목 조회 시에도 사용)
+        net_flow = 0
+        flow_color = "#ff5b5b"
+        flow_arrow = "+"
+        price = 0
+        premium = 0
+        etf_tmp = dram_data.get('etf', {})
+        if etf_tmp:
+            net_flow = etf_tmp.get('net_flow', 0)
+            flow_color = "#ff5b5b" if net_flow >= 0 else "#3b82f6"
+            flow_arrow = "+" if net_flow >= 0 else ""
+            price = etf_tmp.get('price', 0)
+            nav = etf_tmp.get('nav', 1)
+            premium = ((price - nav) / nav) * 100
+        
+        # 데이터 파싱
+        monthly_data = dram_data.get('monthly', {})
+        dr_m = monthly_data.get('dram', {}) or monthly_data.get('ddr4_8gb', {}) or {'m': [], 'v': []}
+        na_m = monthly_data.get('nand', {}) or {'m': [], 'v': []}
+        
+        customs = dram_data.get('customs', {})
+        dr_c = customs.get('dram', {}) if customs else {'m': [], 'v': []}
+        na_c = customs.get('nand', {}) if customs else {'m': [], 'v': []}
+        
+        etf = dram_data.get('etf', {})
+        etf_series = etf.get('series', {}) if etf else {'d': [], 'px': []}
+        
+        # df_kr에서 2018년 1월부터 KOSPI 데이터를 가져옵니다.
+        five_years_ago_kr = pd.to_datetime('2018-01-01')
+        df1_kr = df_kr[df_kr.index >= five_years_ago_kr]
+        
+        # etf_series['d'] 의 날짜는 "MM-DD" 형식이므로 as_of의 년도를 활용해 2026-MM-DD 형태로 변환 매핑
+        year_prefix = as_of[:4] if as_of else "2026"
+        kospi_prices_for_etf = []
+        for d_str in etf_series.get('d', []):
+            target_dt = pd.to_datetime(f"{year_prefix}-{d_str}")
+            if target_dt in df1_kr.index:
+                kospi_prices_for_etf.append(df1_kr.loc[target_dt, 'KOSPI'])
+            else:
+                # 영업일 매칭 실패 시 가장 가까운 이전 영업일 찾기
+                avail_dates = df1_kr.index[df1_kr.index <= target_dt]
+                if not avail_dates.empty:
+                    kospi_prices_for_etf.append(df1_kr.loc[avail_dates[-1], 'KOSPI'])
+                else:
+                    kospi_prices_for_etf.append(None)
+        
+        # 기간선택 라디오 단추 연동 범위 계산
+        if active_period_days:
+            start_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+            end_date = pd.to_datetime(datetime.date.today())
+            initial_x_range = [start_date, end_date]
             
-            fig_c1.add_trace(go.Scatter(x=dr_m.get('m'), y=dr_m.get('v'), name='DRAM 현물', line=dict(color='#ff5b5b', width=2), hovertemplate='DRAM: %{y:.2f}<extra></extra>'))
-            fig_c1.add_trace(go.Scatter(x=na_m.get('m'), y=na_m.get('v'), name='NAND 웨이퍼', line=dict(color='#d99a2b', width=1.8, dash='dash'), hovertemplate='NAND: %{y:.2f}<extra></extra>'))
-            title_text = "월별 DRAM · NAND 추이"
+            # KOSPI Y축 범위를 선택된 기간의 최솟값/최댓값으로 유동적 설정
+            df_filtered = df1_kr[df1_kr.index >= start_date]
+            if not df_filtered.empty:
+                k_min, k_max = df_filtered['KOSPI'].min(), df_filtered['KOSPI'].max()
+                kospi_y_range = [k_min * 0.95, k_max * 1.05]
+            else:
+                kospi_y_range = None
         else:
+            initial_x_range = [pd.to_datetime('2018-01-01'), pd.to_datetime(datetime.date.today())]
+            if not df1_kr.empty:
+                k_min, k_max = df1_kr['KOSPI'].min(), df1_kr['KOSPI'].max()
+                kospi_y_range = [k_min * 0.95, k_max * 1.05]
+            else:
+                kospi_y_range = None
+
+        if selected_chart == "개요":
+            # 모든 그래프를 하나의 차트에 중첩 (Y기본축: KOSPI, Y보조축: $)
+            monthly_dates = [pd.to_datetime(m + "-01") for m in dr_m.get('m', [])]
+            customs_dates = [pd.to_datetime(m + "-01") for m in dr_c.get('m', [])]
+            
+            fig_merged = make_subplots(specs=[[{"secondary_y": True}]])
+            
+            # Y기본축 (좌측): KOSPI 지수 (원래의 단순 실선 스타일로 복원)
+            fig_merged.add_trace(go.Scatter(
+                x=df1_kr.index, y=df1_kr['KOSPI'], name='KOSPI 지수',
+                mode='lines',
+                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.8),
+                hovertemplate='KOSPI: %{y:,.0f}<extra></extra>'
+            ), secondary_y=False)
+            
+            # Y보조축 (우측, $): DRAM 현물 (빨강 실선)
+            fig_merged.add_trace(go.Scatter(
+                x=monthly_dates, y=dr_m.get('v'), name='DRAM 현물 ($)',
+                line=dict(color='rgba(255, 91, 91, 0.75)', width=0.5),
+                hovertemplate='DRAM 현물: $%{y:.2f}<extra></extra>'
+            ), secondary_y=True)
+            
+            # Y보조축: NAND 웨이퍼 (노랑 실선)
+            fig_merged.add_trace(go.Scatter(
+                x=monthly_dates, y=na_m.get('v'), name='NAND 웨이퍼 ($)',
+                line=dict(color='rgba(217, 154, 43, 0.75)', width=0.5),
+                hovertemplate='NAND 웨이퍼: $%{y:.2f}<extra></extra>'
+            ), secondary_y=True)
+            
+            # Y보조축: 수출 DRAM (k$/kg) (빨강 점선)
+            fig_merged.add_trace(go.Scatter(
+                x=customs_dates, y=dr_c.get('v'), name='수출 DRAM (k$/kg)',
+                line=dict(color='rgba(255, 91, 91, 0.75)', width=0.5, dash='dot'),
+                hovertemplate='수출 DRAM: %{y:.2f}k/kg<extra></extra>'
+            ), secondary_y=True)
+            
+            # Y보조축: 수출 NAND (k$/kg) (노랑 점선)
+            fig_merged.add_trace(go.Scatter(
+                x=customs_dates, y=na_c.get('v'), name='수출 NAND (k$/kg)',
+                line=dict(color='rgba(217, 154, 43, 0.75)', width=0.5, dash='dot'),
+                hovertemplate='수출 NAND: %{y:.2f}k/kg<extra></extra>'
+            ), secondary_y=True)
+            
+            fig_merged.update_layout(
+                **COMMON_LAYOUT,
+                height=400,
+                margin=dict(l=0, r=50, t=30, b=10),
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
+            )
+            fig_merged.update_xaxes(range=initial_x_range, type='date', **crosshair_xaxis())
+            if kospi_y_range:
+                fig_merged.update_yaxes(title_text="KOSPI", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
+            else:
+                fig_merged.update_yaxes(title_text="KOSPI", **crosshair_yaxis(), secondary_y=False)
+            fig_merged.update_yaxes(title_text="$ / k$/kg", **crosshair_yaxis(), secondary_y=True)
+            
+            st.plotly_chart(fig_merged, width='stretch', config=COMMON_CONFIG)
+            
+        else:
+            # 개별 품목 조회 시
             tid = option_id_map[selected_chart]
             series_data = dram_data.get('series', {}).get(str(tid), {'d': [], 'v': []})
+            fig_c1 = go.Figure()
             fig_c1.add_trace(go.Scatter(x=series_data.get('d'), y=series_data.get('v'), name=selected_chart, line=dict(color='#ff5b5b', width=2), hovertemplate='%{x}: %{y:.3f}<extra></extra>'))
-            title_text = f"{selected_chart} 일별 현물가 추이"
             
-        fig_c1.update_layout(
-            title=dict(text=title_text, font=dict(size=11, color="white")),
-            **COMMON_LAYOUT,
-            height=300,
-            margin=dict(l=0, r=50, t=30, b=10),
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
-        )
-        if selected_chart == "개요":
+            fig_c1.update_layout(
+                title=dict(text=f"{selected_chart} 일별 현물가 추이", font=dict(size=11, color="white")),
+                **COMMON_LAYOUT,
+                height=300,
+                margin=dict(l=0, r=50, t=30, b=10),
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
+            )
             fig_c1.update_xaxes(type='category', **crosshair_xaxis())
-        else:
-            fig_c1.update_xaxes(type='category', **crosshair_xaxis())
-        fig_c1.update_yaxes(**crosshair_yaxis())
-        st.plotly_chart(fig_c1, width='stretch', config=COMMON_CONFIG)
-        
-        # 3. 현물가 상세 표 (칸 높이 조절을 위해 패딩을 4px/6px에서 2px/3px로 변경)
+            fig_c1.update_yaxes(**crosshair_yaxis())
+            st.plotly_chart(fig_c1, width='stretch', config=COMMON_CONFIG)
+            
+        # 3. 현물가 상세 표
         st.markdown("#### 현물가 상세")
         tbl_html = """
         <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;">
@@ -1474,69 +1686,18 @@ with tabs[3]:
         tbl_html += "</tbody></table>"
         st.markdown(tbl_html, unsafe_allow_html=True)
         
-        # 4. 수출단가 차트
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("#### 메모리 수출단가")
-        customs = dram_data.get('customs', {})
-        if customs and 'dram' in customs:
-            fig_c3 = go.Figure()
-            dr_c = customs.get('dram', {})
-            na_c = customs.get('nand', {})
-            fig_c3.add_trace(go.Scatter(x=dr_c.get('m'), y=dr_c.get('v'), name='DRAM(디램)', line=dict(color='#ff5b5b', width=2), hovertemplate='DRAM: %{y:.2f}k/kg<extra></extra>'))
-            if na_c:
-                fig_c3.add_trace(go.Scatter(x=na_c.get('m'), y=na_c.get('v'), name='NAND(플래시)', line=dict(color='#d99a2b', width=1.8, dash='dash'), hovertemplate='NAND: %{y:.2f}k/kg<extra></extra>'))
-                
-            fig_c3.update_layout(
-                **COMMON_LAYOUT,
-                height=250,
-                margin=dict(l=0, r=50, t=30, b=10),
-                showlegend=True,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
-            )
-            fig_c3.update_xaxes(type='category', **crosshair_xaxis())
-            fig_c3.update_yaxes(**crosshair_yaxis())
-            st.plotly_chart(fig_c3, width='stretch', config=COMMON_CONFIG)
-            
-        # 5. ETF 영역
-        st.markdown("<br>", unsafe_allow_html=True)
-        etf = dram_data.get('etf', {})
-        if etf:
-            st.markdown(f"#### Roundhill Memory ETF <span style='font-size:0.75rem;color:#8b93a3;'>({etf.get('meta', {}).get('ticker', 'DRAM')})</span>", unsafe_allow_html=True)
-            
-            # ETF KPI 가로 정렬 리스트 (AUM, 보유종목 제거)
-            net_flow = etf.get('net_flow', 0)
-            flow_color = "#ff5b5b" if net_flow >= 0 else "#3b82f6"
-            flow_arrow = "+" if net_flow >= 0 else ""
-            price = etf.get('price', 0)
-            nav = etf.get('nav', 1)
-            premium = ((price - nav) / nav) * 100
-            
-            st.markdown(
-                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
-                f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;'>"
-                f"<tr style='background:transparent !important;border:none !important;'>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>순유입(주)</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;color:{flow_color};text-align:right;'>{flow_arrow}{(net_flow/1e6):.2f}M</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>발행 {(etf.get('shares', 0)/1e6):.1f}M</td>"
-                f"</tr>"
-                f"<tr style='background:transparent !important;border:none !important;'>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>시장 종가</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>${float(price):.2f}</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>괴리 {premium:.2f}%</td>"
-                f"</tr>"
-                f"</table>"
-                f"</div>", unsafe_allow_html=True
-            )
-                
-            # ETF 차트 (AUM 초록색 막대그래프 투명도를 0.5로 변경)
-            etf_series = etf.get('series', {})
-            if etf_series:
-                fig_c2 = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_c2.add_trace(go.Bar(x=etf_series.get('d'), y=etf_series.get('aum'), name='AUM ($B)', marker_color='rgba(30, 169, 124, 0.5)'), secondary_y=False)
-                fig_c2.add_trace(go.Scatter(x=etf_series.get('d'), y=etf_series.get('px'), name='종가 ($)', line=dict(color='#ff5b5b', width=2), hovertemplate='종가: %{y:.2f}<extra></extra>'), secondary_y=True)
-                
-                fig_c2.update_layout(
+        # 개별 품목이 아닐 때만 하단에 별도 차트들을 출력(이미 개요에서 병합했으므로 개요 선택 시에는 미출력)
+        if selected_chart != "개요":
+            # 4. 수출단가 차트
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("#### 메모리 수출단가")
+            if customs and 'dram' in customs:
+                fig_c3 = go.Figure()
+                fig_c3.add_trace(go.Scatter(x=dr_c.get('m'), y=dr_c.get('v'), name='DRAM(디램)', line=dict(color='#ff5b5b', width=2), hovertemplate='DRAM: %{y:.2f}k/kg<extra></extra>'))
+                if na_c:
+                    fig_c3.add_trace(go.Scatter(x=na_c.get('m'), y=na_c.get('v'), name='NAND(플래시)', line=dict(color='#d99a2b', width=1.8, dash='dash'), hovertemplate='NAND: %{y:.2f}k/kg<extra></extra>'))
+                    
+                fig_c3.update_layout(
                     **COMMON_LAYOUT,
                     height=250,
                     margin=dict(l=0, r=50, t=30, b=10),
@@ -1544,10 +1705,65 @@ with tabs[3]:
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
                 )
-                fig_c2.update_xaxes(type='category', **crosshair_xaxis())
-                fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=False)
-                fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-                st.plotly_chart(fig_c2, width='stretch', config=COMMON_CONFIG)
+                fig_c3.update_xaxes(type='category', **crosshair_xaxis())
+                fig_c3.update_yaxes(**crosshair_yaxis())
+                st.plotly_chart(fig_c3, width='stretch', config=COMMON_CONFIG)
+                
+            # 5. ETF 영역
+            st.markdown("<br>", unsafe_allow_html=True)
+            if etf:
+                st.markdown(f"#### Roundhill Memory ETF <span style='font-size:0.75rem;color:#8b93a3;'>({etf.get('meta', {}).get('ticker', 'DRAM')})</span>", unsafe_allow_html=True)
+                
+                st.markdown(
+                    f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
+                    f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;'>"
+                    f"<tr style='background:transparent !important;border:none !important;'>"
+                    f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>순유입(주)</td>"
+                    f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;color:{flow_color};text-align:right;'>{flow_arrow}{(net_flow/1e6):.2f}M</td>"
+                    f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>발행 {(etf.get('shares', 0)/1e6):.1f}M</td>"
+                    f"</tr>"
+                    f"<tr style='background:transparent !important;border:none !important;'>"
+                    f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>시장 종가</td>"
+                    f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>${float(price):.2f}</td>"
+                    f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>괴리 {premium:.2f}%</td>"
+                    f"</tr>"
+                    f"</table>"
+                    f"</div>", unsafe_allow_html=True
+                )
+                    
+                # ETF 차트
+                if etf_series:
+                    fig_c2 = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_c2.add_trace(go.Scatter(
+                        x=etf_series.get('d'), y=kospi_prices_for_etf, name='KOSPI 지수',
+                        mode='lines+markers',
+                        line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+                        marker=dict(
+                            symbol='circle',
+                            color='white',
+                            size=1.3,
+                            opacity=0.5,
+                            line=dict(width=0)
+                        ),
+                        hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
+                    ), secondary_y=False)
+                    fig_c2.add_trace(go.Scatter(x=etf_series.get('d'), y=etf_series.get('px'), name='종가 ($)', line=dict(color='#ff5b5b', width=2), hovertemplate='종가: %{y:.2f}<extra></extra>'), secondary_y=True)
+                    
+                    fig_c2.update_layout(
+                        **COMMON_LAYOUT,
+                        height=250,
+                        margin=dict(l=0, r=50, t=30, b=10),
+                        showlegend=True,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
+                    )
+                    fig_c2.update_xaxes(type='category', **crosshair_xaxis())
+                    if kospi_y_range:
+                        fig_c2.update_yaxes(range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
+                    else:
+                        fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=False)
+                    fig_c2.update_yaxes(**crosshair_yaxis(), secondary_y=True)
+                    st.plotly_chart(fig_c2, width='stretch', config=COMMON_CONFIG)
     else:
         st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
 
