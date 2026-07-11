@@ -21,29 +21,6 @@ import re
 # Page configuration
 st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# Configure yfinance to use a custom requests session with a User-Agent header
-# This helps bypass Yahoo Finance rate limits and blockings in cloud hosting environments.
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-})
-# Ensure yfinance uses the custom session globally
-import yfinance as yf
-try:
-    import yfinance.shared as yf_shared
-    yf_shared.default_session = session
-except ImportError:
-    try:
-        yf.shared.default_session = session
-    except AttributeError:
-        pass
-
-# Custom helper for downloading with the session explicitly to be safe
-def yf_download_custom(tickers, **kwargs):
-    if 'session' not in kwargs:
-        kwargs['session'] = session
-    return yf.download(tickers, **kwargs)
-
 KOR_WEEKDAY = ['월', '화', '수', '목', '금', '토', '일']
 
 def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_threshold=0.05, local_min_factor=1.03):
@@ -372,8 +349,8 @@ def fetch_korean_market_status():
 @st.cache_data(ttl=300)
 def fetch_nasdaq100_status():
     try:
-        ndx_tickers = ['MSFT','AAPL','NVDA','AMZN','META','GOOGL','GOOG','TSLA','AVGO','PEP','COST','AZN','CSCO','AMD','TMUS','QCOM','INTC','TXN','AMGN','INTU','ISRG','HON','AMAT','BKNG','ADP','MDLZ','GILD','ADI','LRCX','REGN','VRTX','MU','PANW','SBUX','KLAC','SNPS','CDNS','MRVL','NFLX','ORLY','ABNB','CTAS','PYPL','ASML','KDP','ROST','MNST','PAYX','FTNT','MCHP','DXCM','EXC','BIIB','IDXX','CPRT','VRSK','PCAR','ODFL','CSGP','CHTR','CEG','TEAM','FAST','GEHC','ON','ILMN','EA','FANG','DLTR','NXPI','WDAY','MRNA','ALGN','DDOG','APP','CRWD','CDW','CTSH','ADSK','ROP','XEL','KHC','EBAY']
-        _df = yf_download_custom(ndx_tickers, period='10d', progress=False)
+        ndx_tickers = ['MSFT','AAPL','NVDA','AMZN','META','GOOGL','GOOG','TSLA','AVGO','PEP','COST','AZN','CSCO','AMD','TMUS','QCOM','INTC','TXN','AMGN','INTU','ISRG','HON','AMAT','BKNG','ADP','MDLZ','GILD','ADI','LRCX','REGN','VRTX','MU','PANW','SBUX','KLAC','SNPS','CDNS','MRVL','NFLX','ORLY','ABNB','CTAS','PYPL','ASML','KDP','ROST','MNST','PAYX','FTNT','MCHP','DXCM','EXC','BIIB','IDXX','CPRT','VRSK','PCAR','ODFL','CSGP','CHTR','CEG','ANSS','TEAM','FAST','GEHC','ON','ILMN','EA','FANG','DLTR','NXPI','WDAY','MRNA','ALGN','DDOG','APP','CRWD','CDW','CTSH','ADSK','ROP','XEL','KHC','EBAY']
+        _df = yf.download(ndx_tickers, period='10d', progress=False)
         data = _df['Close'] if not _df.empty and 'Close' in _df.columns else pd.DataFrame(columns=ndx_tickers)
         if isinstance(data.columns, pd.MultiIndex): data.columns = data.columns.get_level_values(0)
         data = data.ffill().bfill()
@@ -396,11 +373,11 @@ def fetch_nasdaq100_status():
 def fetch_historical_breadth():
     kospi_tickers = ['005930.KS','000660.KS','373220.KS','207940.KS','005490.KS','005380.KS','051910.KS','035420.KS','000270.KS','006400.KS','035720.KS','068270.KS','105560.KS','055550.KS','003550.KS','012330.KS','032830.KS','096770.KS','086790.KS','015760.KS','000810.KS','018260.KS','323410.KS','033780.KS','009150.KS','011780.KS','010950.KS','010130.KS','001040.KS','003490.KS','034730.KS','000120.KS','047810.KS','011200.KS','009830.KS','066570.KS','028050.KS','017670.KS','000100.KS','024110.KS','039490.KS','010140.KS','004020.KS','161390.KS','000080.KS','035250.KS','271560.KS','036460.KS','002790.KS']
     kosdaq_tickers = ['247540.KQ','086520.KQ','293490.KQ','253450.KQ','035900.KQ','058470.KQ','196170.KQ','028300.KQ','036570.KQ','095610.KQ','068760.KQ','039030.KQ','145020.KQ','041510.KQ','086900.KQ','067160.KQ','036830.KQ','214370.KQ','137400.KQ','098460.KQ','178920.KQ','078600.KQ','084370.KQ','046890.KQ','038540.KQ','064550.KQ','065350.KQ','263750.KQ','112040.KQ','357780.KQ','042700.KQ','122870.KQ','078340.KQ','054040.KQ','041960.KQ','032640.KQ','069080.KQ','060310.KQ','067630.KQ','108380.KQ','166090.KQ','117730.KQ','237690.KQ','052690.KQ','119850.KQ','352820.KQ','950130.KQ']
-    ndx_tickers = ['MSFT','AAPL','NVDA','AMZN','META','GOOGL','GOOG','TSLA','AVGO','PEP','COST','AZN','CSCO','AMD','TMUS','QCOM','INTC','TXN','AMGN','INTU','ISRG','HON','AMAT','BKNG','ADP','MDLZ','GILD','ADI','LRCX','REGN','VRTX','MU','PANW','SBUX','KLAC','SNPS','CDNS','MRVL','NFLX','ORLY','ABNB','CTAS','PYPL','ASML','KDP','ROST','MNST','PAYX','FTNT','MCHP','DXCM','EXC','BIIB','IDXX','CPRT','VRSK','PCAR','ODFL','CSGP','CHTR','CEG','TEAM','FAST','GEHC','ON','ILMN','EA','FANG','DLTR','NXPI','WDAY','MRNA','ALGN','DDOG','APP','CRWD','CDW','CTSH','ADSK','ROP','XEL','KHC','EBAY']
+    ndx_tickers = ['MSFT','AAPL','NVDA','AMZN','META','GOOGL','GOOG','TSLA','AVGO','PEP','COST','AZN','CSCO','AMD','TMUS','QCOM','INTC','TXN','AMGN','INTU','ISRG','HON','AMAT','BKNG','ADP','MDLZ','GILD','ADI','LRCX','REGN','VRTX','MU','PANW','SBUX','KLAC','SNPS','CDNS','MRVL','NFLX','ORLY','ABNB','CTAS','PYPL','ASML','KDP','ROST','MNST','PAYX','FTNT','MCHP','DXCM','EXC','BIIB','IDXX','CPRT','VRSK','PCAR','ODFL','CSGP','CHTR','CEG','ANSS','TEAM','FAST','GEHC','ON','ILMN','EA','FANG','DLTR','NXPI','WDAY','MRNA','ALGN','DDOG','APP','CRWD','CDW','CTSH','ADSK','ROP','XEL','KHC','EBAY']
     
     def calc_kr(tickers):
         try:
-            _df = yf_download_custom(tickers, period='130d', progress=False)
+            _df = yf.download(tickers, period='130d', progress=False)
             df_p = _df['Close'] if not _df.empty and 'Close' in _df.columns else pd.DataFrame(columns=tickers)
             if isinstance(df_p.columns, pd.MultiIndex): df_p.columns = df_p.columns.get_level_values(0)
             df_d = df_p.diff().dropna(how='all')
@@ -419,7 +396,7 @@ def fetch_historical_breadth():
             
     def calc_us(tickers):
         try:
-            _df = yf_download_custom(tickers, period='130d', progress=False)
+            _df = yf.download(tickers, period='130d', progress=False)
             df_p = _df['Close'] if not _df.empty and 'Close' in _df.columns else pd.DataFrame(columns=tickers)
             if isinstance(df_p.columns, pd.MultiIndex): df_p.columns = df_p.columns.get_level_values(0)
             df_d = df_p.diff().dropna(how='all')
@@ -439,7 +416,7 @@ def fetch_historical_breadth():
 def fetch_index_prices():
     try:
         def get_s(ticker):
-            df = yf_download_custom(ticker, period='130d', progress=False)
+            df = yf.download(ticker, period='130d', progress=False)
             s = df['Close'] if not df.empty and 'Close' in df.columns else pd.Series()
             if isinstance(s, pd.DataFrame): s = s.iloc[:,0]
             s.index = pd.to_datetime(s.index).normalize()
@@ -452,33 +429,33 @@ def fetch_index_prices():
 @st.cache_data(ttl=3600)
 def fetch_and_process_data():
     start_date_str = "2018-10-01"
-    qqq = yf_download_custom('QQQ', start=start_date_str, progress=False)
+    qqq = yf.download('QQQ', start=start_date_str, progress=False)
     if isinstance(qqq.columns, pd.MultiIndex): qqq.columns = qqq.columns.get_level_values(0)
     qqq_df = qqq[['Close']].rename(columns={'Close': 'QQQ'}) if not qqq.empty and 'Close' in qqq.columns else pd.DataFrame(columns=['QQQ'])
-    vix = yf_download_custom('^VIX', start=start_date_str, progress=False)
+    vix = yf.download('^VIX', start=start_date_str, progress=False)
     if isinstance(vix.columns, pd.MultiIndex): vix.columns = vix.columns.get_level_values(0)
     vix_df = vix[['Close']].rename(columns={'Close': 'VIX'}) if not vix.empty and 'Close' in vix.columns else pd.DataFrame(columns=['VIX'])
     
     # 신규 추가: TNX (10년물 국채 금리), HYG (하이일드 채권 ETF)
-    tnx = yf_download_custom('^TNX', start=start_date_str, progress=False)
+    tnx = yf.download('^TNX', start=start_date_str, progress=False)
     if isinstance(tnx.columns, pd.MultiIndex): tnx.columns = tnx.columns.get_level_values(0)
     tnx_df = tnx[['Close']].rename(columns={'Close': 'TNX'}) if not tnx.empty and 'Close' in tnx.columns else pd.DataFrame(columns=['TNX'])
     
-    hyg = yf_download_custom('HYG', start=start_date_str, progress=False)
+    hyg = yf.download('HYG', start=start_date_str, progress=False)
     if isinstance(hyg.columns, pd.MultiIndex): hyg.columns = hyg.columns.get_level_values(0)
     hyg_df = hyg[['Close']].rename(columns={'Close': 'HYG'}) if not hyg.empty and 'Close' in hyg.columns else pd.DataFrame(columns=['HYG'])
     
     # 2차 탐색을 위한 SKEW 및 VVIX 데이터 추가 다운로드
-    skew = yf_download_custom('^SKEW', start=start_date_str, progress=False)
+    skew = yf.download('^SKEW', start=start_date_str, progress=False)
     if isinstance(skew.columns, pd.MultiIndex): skew.columns = skew.columns.get_level_values(0)
     skew_df = skew[['Close']].rename(columns={'Close': 'SKEW'}) if not skew.empty and 'Close' in skew.columns else pd.DataFrame(columns=['SKEW'])
     
-    vvix = yf_download_custom('^VVIX', start=start_date_str, progress=False)
+    vvix = yf.download('^VVIX', start=start_date_str, progress=False)
     if isinstance(vvix.columns, pd.MultiIndex): vvix.columns = vvix.columns.get_level_values(0)
     vvix_df = vvix[['Close']].rename(columns={'Close': 'VVIX'}) if not vvix.empty and 'Close' in vvix.columns else pd.DataFrame(columns=['VVIX'])
     
     # 2차 탐색 안전자산 대피 계산을 위한 TLT 다운로드 추가
-    tlt = yf_download_custom('TLT', start=start_date_str, progress=False)
+    tlt = yf.download('TLT', start=start_date_str, progress=False)
     if isinstance(tlt.columns, pd.MultiIndex): tlt.columns = tlt.columns.get_level_values(0)
     tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'}) if not tlt.empty and 'Close' in tlt.columns else pd.DataFrame(columns=['TLT'])
 
@@ -615,7 +592,7 @@ def fetch_and_process_data():
 @st.cache_data(ttl=60)
 def fetch_korean_market_data_v2():
     # 1. KOSPI 지수 다운로드
-    kospi = yf_download_custom('^KS11', start="2018-01-01", progress=False)
+    kospi = yf.download('^KS11', start="2018-01-01", progress=False)
     if isinstance(kospi.columns, pd.MultiIndex): kospi.columns = kospi.columns.get_level_values(0)
     kospi_df = kospi[['Close']].rename(columns={'Close': 'KOSPI'}) if not kospi.empty and 'Close' in kospi.columns else pd.DataFrame(columns=['KOSPI'])
     
