@@ -473,7 +473,7 @@ def fetch_and_process_data():
     vvix_df = vvix[['Close']].rename(columns={'Close': 'VVIX'}) if not vvix.empty and 'Close' in vvix.columns else pd.DataFrame(columns=['VVIX'])
     
     # 2차 탐색 안전자산 대피 계산을 위한 TLT 다운로드 추가
-    tlt = yf.download('TLT', start=start_date_str, progress=False)
+    tlt = yf_download_custom('TLT', start=start_date_str, progress=False)
     if isinstance(tlt.columns, pd.MultiIndex): tlt.columns = tlt.columns.get_level_values(0)
     tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'}) if not tlt.empty and 'Close' in tlt.columns else pd.DataFrame(columns=['TLT'])
 
