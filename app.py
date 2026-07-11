@@ -784,7 +784,7 @@ with st.spinner('데이터 로딩 중...'):
     df_dram = update_and_get_dram_history()
 
 # 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발 / 적중집중 / 균형집중 / 포착집중
-tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표', '등락 현황', '메모리']
+tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표', '등락현황', '메모리']
 tabs = st.tabs(tab_names)
 
 # ── Tab 1: 공탐변동 ──
@@ -1957,143 +1957,152 @@ with tabs[5]:
         
         if active_period_days:
             start_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-            end_date = pd.to_datetime(datetime.date.today())
-            initial_x_range = [start_date, end_date]
-            
-            df_filtered = df1_kr[df1_kr.index >= start_date]
-            if not df_filtered.empty:
-                k_min, k_max = df_filtered['KOSPI'].min(), df_filtered['KOSPI'].max()
-                kospi_y_range = [k_min * 0.95, k_max * 1.05]
-            else:
-                kospi_y_range = None
         else:
-            initial_x_range = [pd.to_datetime('2018-01-01'), pd.to_datetime(datetime.date.today())]
-            if not df1_kr.empty:
-                k_min, k_max = df1_kr['KOSPI'].min(), df1_kr['KOSPI'].max()
-                kospi_y_range = [k_min * 0.95, k_max * 1.05]
-            else:
-                kospi_y_range = None
+            start_date = pd.to_datetime('2025-01-01')
+            
+        df_filtered = df1_kr[df1_kr.index >= start_date]
+        if not df_filtered.empty:
+            k_min, k_max = df_filtered['KOSPI'].min(), df_filtered['KOSPI'].max()
+            kospi_y_range = [k_min * 0.95, k_max * 1.05]
+        else:
+            kospi_y_range = None
 
         # 1) 개요 (Overview)
-        st.markdown("##### 개요")
+        st.markdown("##### 메모리 차트")
+        
+        # Collect all unique dates to form a sorted category array for x-axis
         monthly_dates = [pd.to_datetime(m + "-01") for m in dr_m.get('m', [])]
         customs_dates = [pd.to_datetime(m + "-01") for m in dr_c.get('m', [])]
         
-        fig_merged = make_subplots(specs=[[{"secondary_y": True}]])
+        all_dates = set(df1_kr.index)
+        all_dates.update(monthly_dates)
+        all_dates.update(customs_dates)
         
-        fig_merged.add_trace(go.Scatter(
-            x=df1_kr.index, y=df1_kr['KOSPI'], name='KOSPI 지수',
-            mode='lines+markers',
-            line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+        # Spot dates
+        parsed_spot_dict = {}
+        for grp in spot_groups:
+            for row in grp[2]:
+                tid = row[3]
+                series_data = dram_data.get('series', {}).get(str(tid), {'d': [], 'v': []})
+                spot_d = series_data.get('d', [])
+                parsed = []
+                for dt_str in spot_d:
+                    if len(dt_str) == 5:
+                        d_obj = pd.to_datetime(f"{datetime.date.today().year}-{dt_str}")
+                    else:
+                        d_obj = pd.to_datetime(dt_str)
+                    parsed.append(d_obj)
+                    all_dates.add(d_obj)
+                parsed_spot_dict[tid] = parsed
+                
+        sorted_dates = sorted(list(all_dates))
+        hd_mem = [fmt_date_kor(d) for d in sorted_dates]
+        
+        # Determine initial range indices based on active_period_days or 2025-01-01
+        if active_period_days:
+            target_start = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+        else:
+            target_start = pd.to_datetime('2025-01-01')
+            
+        detected_indices = [i for i, d in enumerate(sorted_dates) if d >= target_start]
+        initial_x_range_idx = [detected_indices[0], len(sorted_dates)-1] if detected_indices else [0, len(sorted_dates)-1]
+        
+        titles = ["개요"] + [grp[1] for grp in spot_groups]
+        fig_mem = make_subplots(
+            rows=1+len(spot_groups), cols=1, 
+            shared_xaxes=True, vertical_spacing=0.03,
+            subplot_titles=titles, 
+            specs=[[{"secondary_y": True}]] * (1+len(spot_groups))
+        )
+        
+        # 1) Overview Row
+        kospi_hd = [fmt_date_kor(d) for d in df1_kr.index]
+        fig_mem.add_trace(go.Scatter(
+            x=kospi_hd, y=df1_kr['KOSPI'], name='KOSPI 지수',
+            mode='lines+markers', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
             marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
             hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
-        ), secondary_y=False)
+        ), row=1, col=1, secondary_y=False)
         
-        fig_merged.add_trace(go.Scatter(
-            x=monthly_dates, y=dr_m.get('v'), name='DRAM 현물 ($)',
-            line=dict(color='rgba(255, 91, 91, 0.75)', width=0.5),
+        m_hd = [fmt_date_kor(d) for d in monthly_dates]
+        fig_mem.add_trace(go.Scatter(
+            x=m_hd, y=dr_m.get('v'), name='DRAM 현물 ($)', line=dict(color='rgba(255, 91, 91, 0.75)', width=0.5),
             hovertemplate='DRAM 현물: $%{y:.2f}<extra></extra>'
-        ), secondary_y=True)
-        
-        fig_merged.add_trace(go.Scatter(
-            x=monthly_dates, y=na_m.get('v'), name='NAND 웨이퍼 ($)',
-            line=dict(color='rgba(217, 154, 43, 0.75)', width=0.5),
+        ), row=1, col=1, secondary_y=True)
+        fig_mem.add_trace(go.Scatter(
+            x=m_hd, y=na_m.get('v'), name='NAND 웨이퍼 ($)', line=dict(color='rgba(217, 154, 43, 0.75)', width=0.5),
             hovertemplate='NAND 웨이퍼: $%{y:.2f}<extra></extra>'
-        ), secondary_y=True)
+        ), row=1, col=1, secondary_y=True)
         
-        fig_merged.add_trace(go.Scatter(
-            x=customs_dates, y=dr_c.get('v'), name='수출 DRAM (k$/kg)',
-            line=dict(color='rgba(255, 91, 91, 0.75)', width=0.5, dash='dot'),
+        c_hd = [fmt_date_kor(d) for d in customs_dates]
+        fig_mem.add_trace(go.Scatter(
+            x=c_hd, y=dr_c.get('v'), name='수출 DRAM (k$/kg)', line=dict(color='rgba(255, 91, 91, 0.75)', width=0.5, dash='dot'),
             hovertemplate='수출 DRAM: %{y:.2f}k/kg<extra></extra>'
-        ), secondary_y=True)
-        
-        fig_merged.add_trace(go.Scatter(
-            x=customs_dates, y=na_c.get('v'), name='수출 NAND (k$/kg)',
-            line=dict(color='rgba(217, 154, 43, 0.75)', width=0.5, dash='dot'),
+        ), row=1, col=1, secondary_y=True)
+        fig_mem.add_trace(go.Scatter(
+            x=c_hd, y=na_c.get('v'), name='수출 NAND (k$/kg)', line=dict(color='rgba(217, 154, 43, 0.75)', width=0.5, dash='dot'),
             hovertemplate='수출 NAND: %{y:.2f}k/kg<extra></extra>'
-        ), secondary_y=True)
+        ), row=1, col=1, secondary_y=True)
         
-        fig_merged.update_layout(
-            **COMMON_LAYOUT,
-            height=300,
-            margin=dict(l=0, r=0, t=10, b=10),
-            showlegend=False,
-            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
-        )
-        fig_merged.update_layout(hoverlabel_bgcolor='rgba(0,0,0,0.2)')
-        fig_merged.update_xaxes(range=initial_x_range, type='date', **crosshair_xaxis())
-        if kospi_y_range:
-            fig_merged.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
-        else:
-            fig_merged.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False)
-        fig_merged.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True)
-        
-        st.plotly_chart(fig_merged, width='stretch', config=COMMON_CONFIG, key="tab4_merged_chart")
-        
-        # 2) 6개의 개별 품목 그룹 차트 (DRAM, Module, GDDR, NAND Flash, NAND Wafer, Memory Card)
+        # 2) 6 Spot Group Rows
         colors = ['#ff5b5b', '#3b82f6', '#d99a2b', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4', '#6366f1']
         for idx, grp in enumerate(spot_groups):
-            grp_name = grp[1]
-            st.markdown(f"##### {grp_name}")
-            fig_c = make_subplots(specs=[[{"secondary_y": True}]])
+            row_idx = idx + 2
             
-            # KOSPI on left (secondary_y=False)
-            fig_c.add_trace(go.Scatter(
-                x=df1_kr.index, y=df1_kr['KOSPI'], name='KOSPI 지수',
-                mode='lines+markers',
-                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+            # KOSPI on left
+            fig_mem.add_trace(go.Scatter(
+                x=kospi_hd, y=df1_kr['KOSPI'], name=f'KOSPI ({grp[1]})',
+                mode='lines+markers', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
                 marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
-                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
-            ), secondary_y=False)
+                hovertemplate='KOSPI: %{y:.2f}<extra></extra>', showlegend=False
+            ), row=row_idx, col=1, secondary_y=False)
             
-            # Series items on right (secondary_y=True)
+            # Series items on right
             for c_idx, row in enumerate(grp[2]):
                 item_name = row[0]
                 tid = row[3]
-                series_data = dram_data.get('series', {}).get(str(tid), {'d': [], 'v': []})
+                series_data = dram_data.get('series', {}).get(str(tid), {'v': []})
+                spot_v = series_data.get('v', [])
+                parsed_dates = parsed_spot_dict[tid]
+                s_hd = [fmt_date_kor(d) for d in parsed_dates]
                 c = colors[c_idx % len(colors)]
                 
-                # Make series_data x-axis compatible with df1_kr.index (which is datetime)
-                # series_data['d'] looks like "MM-DD" or similar? Let's check original logic.
-                # Original logic for individual item: x=series_data.get('d'), update_xaxes(type='category').
-                # BUT if we want KOSPI (datetime) on the same chart, we MUST parse dates!
-                # Wait, originally it used type='category' for spot individual items because dates were just strings.
-                # But ETF used MM-DD mapping to year. Let's write a robust mapping for spot dates.
-                
-                spot_d = series_data.get('d', [])
-                spot_v = series_data.get('v', [])
-                
-                fig_c.add_trace(go.Scatter(
-                    x=spot_d, y=spot_v, name=item_name,
-                    line=dict(color=c, width=1.5),
-                    hovertemplate=f'{item_name}: %{{y:.3f}}<extra></extra>'
-                ), secondary_y=True)
-                
-            fig_c.update_layout(
-                **COMMON_LAYOUT,
-                height=300,
-                margin=dict(l=0, r=0, t=10, b=10),
-                showlegend=False,
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
-            )
-            fig_c.update_layout(hoverlabel_bgcolor='rgba(0,0,0,0.2)')
-            # Since KOSPI is datetime and spot_d might be strings, plotly will automatically handle if spot_d is valid dates
-            fig_c.update_xaxes(**crosshair_xaxis())
+                fig_mem.add_trace(go.Scatter(
+                    x=s_hd, y=spot_v, name=item_name, line=dict(color=c, width=1.5),
+                    hovertemplate=f'{item_name}: %{{y:.3f}}<extra></extra>', showlegend=False
+                ), row=row_idx, col=1, secondary_y=True)
+
+        fig_mem.update_layout(
+            **COMMON_LAYOUT,
+            height=2000, 
+            margin=dict(l=0, r=0, t=30, b=10),
+            showlegend=False
+        )
+        fig_mem.update_layout(hoverlabel_bgcolor='rgba(0,0,0,0.2)')
+        
+        for i in range(1, 8):
+            # Apply rectangle shape to each row
+            fig_mem.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=i, col=1)
+            
+            # Apply crosshair configs to X and Y axes of each subplot
+            fig_mem.update_xaxes(type='category', categoryorder='array', categoryarray=hd_mem, **crosshair_xaxis(), row=i, col=1)
             if kospi_y_range:
-                fig_c.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
+                fig_mem.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, row=i, col=1)
             else:
-                fig_c.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False)
-            fig_c.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True)
-            
-            st.plotly_chart(fig_c, width='stretch', config=COMMON_CONFIG, key=f"tab4_grp_{idx}_chart")
-            
-            
+                fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False, row=i, col=1)
+            fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True, row=i, col=1)
+
+        # Set initial range for the shared x-axis
+        fig_mem.update_xaxes(range=initial_x_range_idx, row=7, col=1)
+        
+        st.plotly_chart(fig_mem, width='stretch', config=COMMON_CONFIG, key="tab4_merged_all_chart")
+        
         # 3. 현물가 상세 표
         def format_price(p):
             if p is None: return "-"
             return f"${p:,.2f}" if p >= 100 else f"${p:.3f}" if p < 20 else f"${p:.2f}"
             
-        st.markdown("<br>#### 현물가 상세", unsafe_allow_html=True)
+        st.markdown("<br>\n\n#### 현물가 상세", unsafe_allow_html=True)
         tbl_html = """
         <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;">
             <thead>
@@ -2116,75 +2125,5 @@ with tabs[5]:
         tbl_html += "</tbody></table>"
         st.markdown(tbl_html, unsafe_allow_html=True)
         
-        # 4. 수출단가 차트
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("#### 메모리 수출단가")
-        if customs and 'dram' in customs:
-            fig_c3 = go.Figure()
-            fig_c3.add_trace(go.Scatter(x=dr_c.get('m'), y=dr_c.get('v'), name='DRAM(디램)', line=dict(color='#ff5b5b', width=2), hovertemplate='DRAM: %{y:.2f}k/kg<extra></extra>'))
-            if na_c:
-                fig_c3.add_trace(go.Scatter(x=na_c.get('m'), y=na_c.get('v'), name='NAND(플래시)', line=dict(color='#d99a2b', width=1.8, dash='dash'), hovertemplate='NAND: %{y:.2f}k/kg<extra></extra>'))
-                
-            fig_c3.update_layout(
-                **COMMON_LAYOUT,
-                height=250,
-                margin=dict(l=0, r=0, t=30, b=10),
-                showlegend=False,
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
-            )
-            fig_c3.update_layout(hoverlabel_bgcolor='rgba(0,0,0,0.2)')
-            fig_c3.update_xaxes(type='category', **crosshair_xaxis())
-            fig_c3.update_yaxes(**crosshair_yaxis())
-            st.plotly_chart(fig_c3, width='stretch', config=COMMON_CONFIG, key="tab4_c3_chart")
-            
-        # 5. ETF 영역
-        st.markdown("<br>", unsafe_allow_html=True)
-        if etf:
-            st.markdown(f"#### Roundhill Memory ETF <span style='font-size:0.75rem;color:#8b93a3;'>({etf.get('meta', {}).get('ticker', 'DRAM')})</span>", unsafe_allow_html=True)
-            
-            st.markdown(
-                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
-                f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;'>"
-                f"<tr style='background:transparent !important;border:none !important;'>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>순유입(주)</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;color:{flow_color};text-align:right;'>{flow_arrow}{(net_flow/1e6):.2f}M</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>발행 {(etf.get('shares', 0)/1e6):.1f}M</td>"
-                f"</tr>"
-                f"<tr style='background:transparent !important;border:none !important;'>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>시장 종가</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>${float(price):.2f}</td>"
-                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.7rem;color:#8b93a3;text-align:right;'>괴리 {premium:.2f}%</td>"
-                f"</tr>"
-                f"</table>"
-                f"</div>", unsafe_allow_html=True
-            )
-                
-            # ETF 차트
-            if etf_series:
-                fig_c2 = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_c2.add_trace(go.Scatter(
-                    x=etf_series.get('d'), y=kospi_prices_for_etf, name='KOSPI 지수',
-                    mode='lines+markers',
-                    line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
-                    marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
-                    hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
-                ), secondary_y=False)
-                fig_c2.add_trace(go.Scatter(x=etf_series.get('d'), y=etf_series.get('px'), name='종가 ($)', line=dict(color='#ff5b5b', width=2), hovertemplate='종가: %{y:.2f}<extra></extra>'), secondary_y=True)
-                
-                fig_c2.update_layout(
-                    **COMMON_LAYOUT,
-                    height=250,
-                    margin=dict(l=0, r=0, t=10, b=10),
-                    showlegend=False,
-                    shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
-                )
-                fig_c2.update_layout(hoverlabel_bgcolor='rgba(0,0,0,0.2)')
-                fig_c2.update_xaxes(type='category', **crosshair_xaxis())
-                if kospi_y_range:
-                    fig_c2.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
-                else:
-                    fig_c2.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False)
-                fig_c2.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True)
-                st.plotly_chart(fig_c2, width='stretch', config=COMMON_CONFIG, key="tab4_c2_chart")
     else:
         st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
