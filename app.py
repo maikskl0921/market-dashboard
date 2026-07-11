@@ -10,10 +10,7 @@ import calendar
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from collections import Counter
-import io
 from bs4 import BeautifulSoup
-import xml.etree.ElementTree as ET
-import urllib.request
 import os
 import json
 import re
@@ -727,66 +724,9 @@ def fetch_korean_market_data_v2():
     df_kr_s.set_index('Date', inplace=True)
     return df_kr_s[~df_kr_s.index.duplicated(keep='first')]
 
-# D램 가격 크롤링 및 로컬 DB 적재
-DB_FILE = 'dram_price_history.json'
-
-def update_and_get_dram_history():
-    history = {}
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, 'r', encoding='utf-8') as f:
-                history = json.load(f)
-        except:
-            pass
-            
-    scraped_prices = {}
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get('https://www.dramexchange.com', headers=headers, timeout=10)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            for t in soup.find_all('table'):
-                for tr in t.find_all('tr'):
-                    tds = [td.text.strip() for td in tr.find_all(['td', 'th']) if td.text.strip()]
-                    if len(tds) >= 6 and ('DDR' in tds[0] or 'SLC' in tds[0] or 'MLC' in tds[0] or 'MicroSD' in tds[0]):
-                        name = tds[0]
-                        avg_price_str = tds[5].replace(',', '')
-                        try:
-                            scraped_prices[name] = float(avg_price_str)
-                        except:
-                            pass
-    except Exception:
-        pass
-        
-    today_str = datetime.date.today().strftime('%Y-%m-%d')
-    if scraped_prices:
-        history[today_str] = scraped_prices
-        try:
-            with open(DB_FILE, 'w', encoding='utf-8') as f:
-                json.dump(history, f, indent=2, ensure_ascii=False)
-        except:
-            pass
-            
-    if not history:
-        history[today_str] = scraped_prices if scraped_prices else {
-            'DDR4 8Gb (1Gx8) 3200': 3.54,
-            'DDR4 16Gb (2Gx8) 3200': 7.375,
-            'DDR5 16Gb (2Gx8) 4800/5600': 4.667
-        }
-        
-    records = []
-    for dt_str, prices in history.items():
-        row = {'Date': pd.to_datetime(dt_str)}
-        row.update(prices)
-        records.append(row)
-        
-    df_dram = pd.DataFrame(records).sort_values('Date').set_index('Date')
-    return df_dram
-
 with st.spinner('데이터 로딩 중...'):
     df = fetch_and_process_data()
     df_kr = fetch_korean_market_data_v2()
-    df_dram = update_and_get_dram_history()
 
 # 탭 구성: 공탐변동 / 슬로프합 / 등락현황 / 메모리 / 지표개발 / 적중집중 / 균형집중 / 포착집중
 tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표', '등락현황', '메모리']
