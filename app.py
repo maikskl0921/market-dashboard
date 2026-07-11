@@ -21,6 +21,17 @@ import re
 # Page configuration
 st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
+# Configure yfinance to use a custom requests session with a User-Agent header
+# This helps bypass Yahoo Finance rate limits and blockings in cloud hosting environments.
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
+yf.set_tz_cache_location(None) # Prevents issues writing cache in read-only directories
+# Bind the session to yfinance globally
+import yfinance.shared as yf_shared
+yf_shared.default_session = session
+
 KOR_WEEKDAY = ['월', '화', '수', '목', '금', '토', '일']
 
 def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_threshold=0.05, local_min_factor=1.03):
