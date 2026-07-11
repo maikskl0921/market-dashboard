@@ -31,7 +31,14 @@ yf.set_tz_cache_location(None) # Prevents issues writing cache in read-only dire
 
 # Ensure yfinance uses the custom session globally
 import yfinance as yf
-yf.shared.default_session = session
+try:
+    import yfinance.shared as yf_shared
+    yf_shared.default_session = session
+except ImportError:
+    try:
+        yf.shared.default_session = session
+    except AttributeError:
+        pass
 
 # Custom helper for downloading with the session explicitly to be safe
 def yf_download_custom(tickers, **kwargs):
