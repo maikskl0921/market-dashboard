@@ -2,6 +2,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import requests
 import numpy as np
 import requests
 import datetime
@@ -349,7 +350,8 @@ def fetch_korean_market_status():
 def fetch_nasdaq100_status():
     try:
         ndx_tickers = ['MSFT','AAPL','NVDA','AMZN','META','GOOGL','GOOG','TSLA','AVGO','PEP','COST','AZN','CSCO','AMD','TMUS','QCOM','INTC','TXN','AMGN','INTU','ISRG','HON','AMAT','BKNG','ADP','MDLZ','GILD','ADI','LRCX','REGN','VRTX','MU','PANW','SBUX','KLAC','SNPS','CDNS','MRVL','NFLX','ORLY','ABNB','CTAS','PYPL','ASML','KDP','ROST','MNST','PAYX','FTNT','MCHP','DXCM','EXC','BIIB','IDXX','CPRT','VRSK','PCAR','ODFL','CSGP','CHTR','CEG','ANSS','TEAM','FAST','GEHC','ON','ILMN','EA','FANG','DLTR','NXPI','WDAY','MRNA','ALGN','DDOG','APP','CRWD','CDW','CTSH','ADSK','ROP','XEL','KHC','EBAY']
-        data = yf.download(ndx_tickers, period='10d', progress=False)['Close']
+        _df = yf.download(ndx_tickers, period='10d', progress=False)
+        data = _df['Close'] if not _df.empty and 'Close' in _df.columns else pd.DataFrame(columns=ndx_tickers)
         if isinstance(data.columns, pd.MultiIndex): data.columns = data.columns.get_level_values(0)
         data = data.ffill().bfill()
         # Find the most recent active trading day (where values changed compared to the previous day)
@@ -375,7 +377,8 @@ def fetch_historical_breadth():
     
     def calc_kr(tickers):
         try:
-            df_p = yf.download(tickers, period='130d', progress=False)['Close']
+            _df = yf.download(tickers, period='130d', progress=False)
+            df_p = _df['Close'] if not _df.empty and 'Close' in _df.columns else pd.DataFrame(columns=tickers)
             if isinstance(df_p.columns, pd.MultiIndex): df_p.columns = df_p.columns.get_level_values(0)
             df_d = df_p.diff().dropna(how='all')
             df_r = df_p.pct_change(fill_method=None) * 100
@@ -393,7 +396,8 @@ def fetch_historical_breadth():
             
     def calc_us(tickers):
         try:
-            df_p = yf.download(tickers, period='130d', progress=False)['Close']
+            _df = yf.download(tickers, period='130d', progress=False)
+            df_p = _df['Close'] if not _df.empty and 'Close' in _df.columns else pd.DataFrame(columns=tickers)
             if isinstance(df_p.columns, pd.MultiIndex): df_p.columns = df_p.columns.get_level_values(0)
             df_d = df_p.diff().dropna(how='all')
             df_b = pd.DataFrame({
@@ -412,7 +416,8 @@ def fetch_historical_breadth():
 def fetch_index_prices():
     try:
         def get_s(ticker):
-            s = yf.download(ticker, period='130d', progress=False)['Close']
+            df = yf.download(ticker, period='130d', progress=False)
+            s = df['Close'] if not df.empty and 'Close' in df.columns else pd.Series()
             if isinstance(s, pd.DataFrame): s = s.iloc[:,0]
             s.index = pd.to_datetime(s.index).normalize()
             return s
@@ -426,33 +431,33 @@ def fetch_and_process_data():
     start_date_str = "2018-10-01"
     qqq = yf.download('QQQ', start=start_date_str, progress=False)
     if isinstance(qqq.columns, pd.MultiIndex): qqq.columns = qqq.columns.get_level_values(0)
-    qqq_df = qqq[['Close']].rename(columns={'Close': 'QQQ'})
+    qqq_df = qqq[['Close']].rename(columns={'Close': 'QQQ'}) if not qqq.empty and 'Close' in qqq.columns else pd.DataFrame(columns=['QQQ'])
     vix = yf.download('^VIX', start=start_date_str, progress=False)
     if isinstance(vix.columns, pd.MultiIndex): vix.columns = vix.columns.get_level_values(0)
-    vix_df = vix[['Close']].rename(columns={'Close': 'VIX'})
+    vix_df = vix[['Close']].rename(columns={'Close': 'VIX'}) if not vix.empty and 'Close' in vix.columns else pd.DataFrame(columns=['VIX'])
     
     # 신규 추가: TNX (10년물 국채 금리), HYG (하이일드 채권 ETF)
     tnx = yf.download('^TNX', start=start_date_str, progress=False)
     if isinstance(tnx.columns, pd.MultiIndex): tnx.columns = tnx.columns.get_level_values(0)
-    tnx_df = tnx[['Close']].rename(columns={'Close': 'TNX'})
+    tnx_df = tnx[['Close']].rename(columns={'Close': 'TNX'}) if not tnx.empty and 'Close' in tnx.columns else pd.DataFrame(columns=['TNX'])
     
     hyg = yf.download('HYG', start=start_date_str, progress=False)
     if isinstance(hyg.columns, pd.MultiIndex): hyg.columns = hyg.columns.get_level_values(0)
-    hyg_df = hyg[['Close']].rename(columns={'Close': 'HYG'})
+    hyg_df = hyg[['Close']].rename(columns={'Close': 'HYG'}) if not hyg.empty and 'Close' in hyg.columns else pd.DataFrame(columns=['HYG'])
     
     # 2차 탐색을 위한 SKEW 및 VVIX 데이터 추가 다운로드
     skew = yf.download('^SKEW', start=start_date_str, progress=False)
     if isinstance(skew.columns, pd.MultiIndex): skew.columns = skew.columns.get_level_values(0)
-    skew_df = skew[['Close']].rename(columns={'Close': 'SKEW'})
+    skew_df = skew[['Close']].rename(columns={'Close': 'SKEW'}) if not skew.empty and 'Close' in skew.columns else pd.DataFrame(columns=['SKEW'])
     
     vvix = yf.download('^VVIX', start=start_date_str, progress=False)
     if isinstance(vvix.columns, pd.MultiIndex): vvix.columns = vvix.columns.get_level_values(0)
-    vvix_df = vvix[['Close']].rename(columns={'Close': 'VVIX'})
+    vvix_df = vvix[['Close']].rename(columns={'Close': 'VVIX'}) if not vvix.empty and 'Close' in vvix.columns else pd.DataFrame(columns=['VVIX'])
     
     # 2차 탐색 안전자산 대피 계산을 위한 TLT 다운로드 추가
     tlt = yf.download('TLT', start=start_date_str, progress=False)
     if isinstance(tlt.columns, pd.MultiIndex): tlt.columns = tlt.columns.get_level_values(0)
-    tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'})
+    tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'}) if not tlt.empty and 'Close' in tlt.columns else pd.DataFrame(columns=['TLT'])
 
     url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2018-10-01"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -589,7 +594,7 @@ def fetch_korean_market_data_v2():
     # 1. KOSPI 지수 다운로드
     kospi = yf.download('^KS11', start="2018-01-01", progress=False)
     if isinstance(kospi.columns, pd.MultiIndex): kospi.columns = kospi.columns.get_level_values(0)
-    kospi_df = kospi[['Close']].rename(columns={'Close': 'KOSPI'})
+    kospi_df = kospi[['Close']].rename(columns={'Close': 'KOSPI'}) if not kospi.empty and 'Close' in kospi.columns else pd.DataFrame(columns=['KOSPI'])
     
     # 2. 한국 공포탐욕지수 & 실시간 VKOSPI 가져오기
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -1586,7 +1591,8 @@ with tabs[3]:
         with st.spinner("통합지표 데이터를 계산 중입니다..."):
             df_pre = df.copy()
             
-            vol_data = yf.download('QQQ', start="2018-10-01", progress=False)['Volume']
+            _vol = yf.download('QQQ', start="2018-10-01", progress=False)
+            vol_data = _vol['Volume'] if not _vol.empty and 'Volume' in _vol.columns else pd.Series()
             if isinstance(vol_data, pd.DataFrame): 
                 vol_data = vol_data.iloc[:, 0]
             vol_data.index = vol_data.index.normalize()
