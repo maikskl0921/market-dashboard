@@ -1697,12 +1697,20 @@ with tabs[3]:
         if active_period_days:
             target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
             df_pre_plot = df_pre[df_pre.index >= pd.to_datetime(target_date)]
-            qqq_y_range = [float(df_pre_plot['QQQ'].min()) * 0.95, float(df_pre_plot['QQQ'].max()) * 1.05]
-            initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
+            if not df_pre_plot.empty:
+                qqq_y_range = [float(df_pre_plot['QQQ'].min()) * 0.95, float(df_pre_plot['QQQ'].max()) * 1.05]
+                initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
+            else:
+                qqq_y_range = None
+                initial_x_range = None
         else:
             df_pre_plot = df_pre.copy()
-            qqq_y_range = [float(df_pre_plot['QQQ'].min()) * 0.95, float(df_pre_plot['QQQ'].max()) * 1.05]
-            initial_x_range = None
+            if not df_pre_plot.empty:
+                qqq_y_range = [float(df_pre_plot['QQQ'].min()) * 0.95, float(df_pre_plot['QQQ'].max()) * 1.05]
+                initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
+            else:
+                qqq_y_range = None
+                initial_x_range = None
         
         st.markdown("<br>", unsafe_allow_html=True)
         
