@@ -628,10 +628,16 @@ def fetch_and_process_data():
     df_s['슬로프60일합'] = slope_sum_lagged(sl, 60)
     df_s['슬로프70일합'] = slope_sum_lagged(sl, 70)
     df_s['슬로프80일합'] = slope_sum_lagged(sl, 80)
+    # QQQ 기준 상하한 임계값 설정 (새로운 조건: 하한 -10~-40 및 하위호환 5, 10, 20, 40)
     df_s['5일상한'] = 20;  df_s['5일하한'] = -20
-    df_s['10일상한'] = 30; df_s['10일하한'] = -30
-    df_s['20일상한'] = 40; df_s['20일하한'] = -40
-    df_s['40일상한'] = 50; df_s['40일하한'] = -50
+    df_s['10일상한'] = 15; df_s['10일하한'] = -15
+    df_s['20일상한'] = 20; df_s['20일하한'] = -20
+    df_s['30일상한'] = 25; df_s['30일하한'] = -25
+    df_s['40일상한'] = 30; df_s['40일하한'] = -30
+    df_s['50일상한'] = 35; df_s['50일하한'] = -35
+    df_s['60일상한'] = 40; df_s['60일하한'] = -40
+    df_s['70일상한'] = 45; df_s['70일하한'] = -45
+    
     max_val = float(df_s['QQQ'].max()) * 1.5
     for days in [5, 10, 20, 40]:
         sc = f'슬로프{days}일합'
@@ -646,7 +652,7 @@ def fetch_and_process_data():
 
 # 한국 데이터 빌드 (FGI 50 고정 해결을 위해 NaN + Time Interpolation 처리)
 @st.cache_data(ttl=60)
-def fetch_korean_market_data_v2():
+def fetch_korean_market_data_v2(df_us=None):
     # 1. KOSPI 지수 다운로드
     kospi = yf.download('^KS11', start="2018-01-01", progress=False)
     if isinstance(kospi.columns, pd.MultiIndex): kospi.columns = kospi.columns.get_level_values(0)
@@ -762,13 +768,21 @@ def fetch_korean_market_data_v2():
     df_kr_s['슬로프5일합'] = slope_sum_lagged(sl_kr, 5)
     df_kr_s['슬로프10일합'] = slope_sum_lagged(sl_kr, 10)
     df_kr_s['슬로프20일합'] = slope_sum_lagged(sl_kr, 20)
+    df_kr_s['슬로프30일합'] = slope_sum_lagged(sl_kr, 30)
     df_kr_s['슬로프40일합'] = slope_sum_lagged(sl_kr, 40)
+    df_kr_s['슬로프50일합'] = slope_sum_lagged(sl_kr, 50)
+    df_kr_s['슬로프60일합'] = slope_sum_lagged(sl_kr, 60)
+    df_kr_s['슬로프70일합'] = slope_sum_lagged(sl_kr, 70)
     
-    # KOSPI 기준 상하한 임계값 설정
+    # KOSPI 기준 상하한 임계값 설정 (새로운 조건: 하한 -10~-40 및 하위호환 5, 10, 20, 40)
     df_kr_s['5일상한'] = 30;  df_kr_s['5일하한'] = -30
-    df_kr_s['10일상한'] = 50; df_kr_s['10일하한'] = -50
-    df_kr_s['20일상한'] = 70; df_kr_s['20일하한'] = -70
-    df_kr_s['40일상한'] = 100; df_kr_s['40일하한'] = -100
+    df_kr_s['10일상한'] = 15; df_kr_s['10일하한'] = -15
+    df_kr_s['20일상한'] = 20; df_kr_s['20일하한'] = -20
+    df_kr_s['30일상한'] = 25; df_kr_s['30일하한'] = -25
+    df_kr_s['40일상한'] = 30; df_kr_s['40일하한'] = -30
+    df_kr_s['50일상한'] = 35; df_kr_s['50일하한'] = -35
+    df_kr_s['60일상한'] = 40; df_kr_s['60일하한'] = -40
+    df_kr_s['70일상한'] = 45; df_kr_s['70일하한'] = -45
     
     max_val_kr = float(df_kr_s['KOSPI'].max()) * 1.5
     for days in [5, 10, 20, 40]:
@@ -781,7 +795,48 @@ def fetch_korean_market_data_v2():
         df_kr_s[f'{days}일_검정'] = np.where(diff >= 45, max_val_kr, 0)
         
     df_kr_s.set_index('Date', inplace=True)
-    return df_kr_s[~df_kr_s.index.duplicated(keep='first')]
+    df_kr_s = df_kr_s[~df_kr_s.index.duplicated(keep='first')]
+
+    # ── KOSPI 기술적 보조지표 연산 추가 ──
+    # 1) KOSPI RSI (14일)
+    delta_k = df_kr_s['KOSPI'].diff()
+    gain_k = (delta_k.where(delta_k > 0, 0)).rolling(window=14).mean()
+    loss_k = (-delta_k.where(delta_k < 0, 0)).rolling(window=14).mean()
+    rs_k = gain_k / (loss_k + 1e-10)
+    df_kr_s['KOSPI_RSI'] = 100 - (100 / (1 + rs_k))
+    
+    # KOSPI RSI (7일)
+    gain7_k = (delta_k.where(delta_k > 0, 0)).rolling(window=7).mean()
+    loss7_k = (-delta_k.where(delta_k < 0, 0)).rolling(window=7).mean()
+    rs7_k = gain7_k / (loss7_k + 1e-10)
+    df_kr_s['KOSPI_RSI7'] = 100 - (100 / (1 + rs7_k))
+    
+    # 2) KOSPI 볼린저 밴드 %B (20일)
+    ma20_k = df_kr_s['KOSPI'].rolling(20).mean()
+    std20_k = df_kr_s['KOSPI'].rolling(20).std()
+    df_kr_s['KOSPI_%B'] = (df_kr_s['KOSPI'] - (ma20_k - 2 * std20_k)) / (4 * std20_k + 1e-10)
+    
+    # 3) VKOSPI Z-score (200일 기준)
+    vkospi_ma200 = df_kr_s['VKOSPI'].rolling(200).mean()
+    vkospi_std200 = df_kr_s['VKOSPI'].rolling(200).std()
+    df_kr_s['VKOSPI_Z'] = (df_kr_s['VKOSPI'] - vkospi_ma200) / (vkospi_std200 + 1e-10)
+    
+    # VKOSPI 퍼센타일 (252일 롤링)
+    df_kr_s['VKOSPI_Pct'] = df_kr_s['VKOSPI'].rolling(252, min_periods=60).rank(pct=True)
+    
+    # KOSPI 낙폭 및 드로우다운 퍼센타일
+    df_kr_s['KOSPI_Peak'] = df_kr_s['KOSPI'].rolling(252, min_periods=1).max()
+    df_kr_s['KOSPI_DD'] = (df_kr_s['KOSPI_Peak'] - df_kr_s['KOSPI']) / df_kr_s['KOSPI_Peak']
+    df_kr_s['K_DD_Pct'] = df_kr_s['KOSPI_DD'].rolling(252, min_periods=60).rank(pct=True)
+
+    # 4) 미국(글로벌) 리스크 피처 조인
+    if df_us is not None:
+        global_cols = ['SKEW', 'VVIX', 'VVIX_Z', 'VVIX_Pct', 'HYG_RSI', 'TNX_ROC', 'FGI_Pct', 'VIX_Z']
+        df_us_filtered = df_us[[c for c in global_cols if c in df_us.columns]].copy()
+        df_kr_s = df_kr_s.join(df_us_filtered, how='left')
+        df_kr_s = df_kr_s.ffill().bfill()
+        
+    return df_kr_s
 
 @st.cache_data(ttl=3600)
 def fetch_monitoring_data(num_pages=80):
@@ -921,17 +976,20 @@ def update_and_get_dram_history():
 
 with st.spinner('데이터 로딩 중...'):
     df = fetch_and_process_data()
-    df_kr = fetch_korean_market_data_v2()
+    df_kr = fetch_korean_market_data_v2(df)
     df_dram = update_and_get_dram_history()
     df_mon = fetch_monitoring_data()
 
-# 탭 구성: 공탐변동 / 슬로프합 / 다중지표 / 통합지표 / 모니터링 / 메모리 / 고점지표
-tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표', '모니터링', '메모리', '고점지표']
+# 탭 구성: 저점지표 / 모니터링 / 메모리 / 고점지표
+tab_names = ['저점지표', '고점지표', '모니터링', '메모리']
 tabs = st.tabs(tab_names)
 
-# ── Tab 1: 공탐변동 ──
+# ── Tab 1: 저점지표 ──
 with tabs[0]:
-    if selected_country == "미국":
+    bottom_sub_tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표']
+    bottom_sub_tabs = st.tabs(bottom_sub_tab_names)
+    
+    def render_bottom_panic_us():
         five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
         df1 = df[df.index >= five_years_ago]
 
@@ -1055,7 +1113,7 @@ with tabs[0]:
             rows_html += f"<tr><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{ev['title']}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{ev['period']}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;color:#FF6B9D;font-weight:bold;'>{ev['fall_rate']}</td></tr>"
         st.markdown(f"<div style='margin-right: 100px;'><table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>사건 내용</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>날짜</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>하락률</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
-    elif selected_country == "한국":
+    def render_bottom_panic_kr():
         five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
         df1_kr = df_kr[df_kr.index >= five_years_ago]
         
@@ -1165,371 +1223,437 @@ with tabs[0]:
         st.markdown("<br>", unsafe_allow_html=True)
         render_stats_table(stats_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
-# ── Tab 2: 슬로프합 ──
-with tabs[1]:
-    if selected_country == "미국":
-        all_fd = []
-        for days_t in [5, 10, 20, 40]:
-            dfc = f'{days_t}일하한'
-            sfc = f'슬로프{days_t}일합'
-            all_fd.extend(df[df[dfc]-df[sfc]>=0].index.tolist())
-        dc_top = Counter(all_fd)
-        parent_dates = sorted(list(set(all_fd)), reverse=True)
-        
-        if parent_dates:
-            r100 = parent_dates[:100]
-            dates_row = []
-            counts_row = []
-            for dt in r100:
-                cnt = dc_top.get(dt, 1)
-                bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
-                fg = "#FFF" if cnt>=3 else "#000"
-                dates_row.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                
-                detected = []
-                for days in [5, 10, 20, 40]:
-                    dc_col = f'{days}일하한'
-                    sc_col = f'슬로프{days}일합'
-                    val_diff = df.loc[dt, dc_col] - df.loc[dt, sc_col]
-                    if val_diff >= 0:
-                        if 0 <= val_diff < 10:
-                            color = '#A9D08E'
-                        elif 10 <= val_diff < 20:
-                            color = '#FFD700'
-                        elif 20 <= val_diff < 30:
-                            color = '#E06666'
-                        else:
-                            color = '#595959'
-                        detected.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
-                    else:
-                        detected.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
-                
-                val_str = "<br>".join(detected)
-                counts_row.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
-            
-            top_html_transposed = f"""
-            <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
-            <table style='border-collapse:collapse;margin-top:3px;'>
-                <tr>
-                    <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
-                    {"".join(dates_row)}
-                </tr>
-                <tr>
-                    <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>이탈</th>
-                    {"".join(counts_row)}
-                </tr>
-            </table>
-            </div>
-            """
-            st.markdown(top_html_transposed, unsafe_allow_html=True)
+    # ── 소분류 1: 공탐변동 ──
+    with bottom_sub_tabs[0]:
+        if selected_country == "미국":
+            render_bottom_panic_us()
+        elif selected_country == "한국":
+            render_bottom_panic_kr()
 
-        fig_dsi = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.04,
-            subplot_titles=('슬로프 5일합','슬로프 10일합','슬로프 20일합','슬로프 40일합'),
-            specs=[[{"secondary_y": True}]]*4)
-        CHARTS = [
-            (1, 5,  '5일상한',  '5일하한',  '슬로프5일합',  '5일_초록',  '5일_주황',  '5일_빨강',  '5일_검정'),
-            (2, 10, '10일상한', '10일하한', '슬로프10일합', '10일_초록', '10일_주황', '10일_빨강', '10일_검정'),
-            (3, 20, '20일상한', '20일하한', '슬로프20일합', '20일_초록', '20일_주황', '20일_빨강', '20일_검정'),
-            (4, 40, '40일상한', '40일하한', '슬로프40일합', '40일_초록', '40일_주황', '40일_빨강', '40일_검정'),
-        ]
-        hd_df = [fmt_date_kor(d) for d in df.index]
-        for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS:
-            sf = (rn == 1)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-            fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-            
-            for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.3)'),(rc,'rgba(220,30,30,0.3)'),(bc,'rgba(0,0,0,0.3)')]:
-                fig_dsi.add_trace(go.Bar(
-                    x=hd_df, y=df[cn], marker_color=fc, showlegend=False, hoverinfo='skip',
-                    marker_line_width=0.5,
-                    marker_line_color='white'
-                ),row=rn,col=1,secondary_y=False)
-        
-        if active_period_days:
-            target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
-            detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_dsi)]
-            initial_x_range_dsi = [detected_indices_dsi[0], len(hd_df) - 1] if detected_indices_dsi else None
-            if detected_indices_dsi:
-                qqq_1y_dsi = df['QQQ'].iloc[detected_indices_dsi[0]:]
-                qmin_dsi, qmax_dsi = float(qqq_1y_dsi.min()), float(qqq_1y_dsi.max())
-            else:
-                qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
-        else:
-            initial_x_range_dsi = None
-            qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
-
-        layout_params = COMMON_LAYOUT.copy()
-        layout_params.pop('shapes', None)
-        fig_dsi.update_layout(
-            **layout_params, 
-            height=1200, 
-            margin=dict(l=0,r=50,t=30,b=10),
-            showlegend=False,
-            barmode='overlay',
-            bargap=0,
-            shapes=[
-                dict(type="rect", xref="paper", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y3 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y5 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y7 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
+    # ── 소분류 2: 슬로프합 ──
+    with bottom_sub_tabs[1]:
+        if selected_country == "미국":
+            SLOPE_BOTTOM_CHARTS = [
+                (2, 10, '슬로프10일합', -15),
+                (3, 20, '슬로프20일합', -20),
+                (4, 30, '슬로프30일합', -25),
+                (5, 40, '슬로프40일합', -30),
+                (6, 50, '슬로프50일합', -35),
+                (7, 60, '슬로프60일합', -40),
+                (8, 70, '슬로프70일합', -45),
             ]
-        )
-        for i in range(1, 5):
-            fig_dsi.update_yaxes(range=[qmin_dsi*0.95,qmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
-            fig_dsi.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
-        
-        if initial_x_range_dsi:
-            fig_dsi.update_xaxes(range=initial_x_range_dsi, type='category', **crosshair_xaxis())
-        else:
-            fig_dsi.update_xaxes(type='category', **crosshair_xaxis())
-        fig_dsi.update_annotations(font_size=10)
-
-        st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG, key="tab2_us_slope_chart")
-
-        # 실시간 지표검증결과 자동 계산 (QQQ 슬로프합 기준)
-        slope_conditions = {
-            "**5일합 이탈**": (df['슬로프5일합'] <= -20, "5일슬로프합 <= -20"),
-            "**10일합 이탈**": (df['슬로프10일합'] <= -30, "10일슬로프합 <= -30"),
-            "**20일합 이탈**": (df['슬로프20일합'] <= -40, "20일슬로프합 <= -40"),
-            "**40일합 이탈**": (df['슬로프40일합'] <= -50, "40일슬로프합 <= -50"),
-            "**슬로프합 종합 감지**": (
-                (df['슬로프5일합'] <= -20) | (df['슬로프10일합'] <= -30) | (df['슬로프20일합'] <= -40) | (df['슬로프40일합'] <= -50),
-                "1개 이상 지표 이탈"
-            ),
-            "**슬로프합 강력 이탈**": (
-                ((df['슬로프5일합'] <= -20).astype(int) + 
-                 (df['슬로프10일합'] <= -30).astype(int) + 
-                 (df['슬로프20일합'] <= -40).astype(int) + 
-                 (df['슬로프40일합'] <= -50).astype(int)) >= 3,
-                "3개 이상 지표 동시 이탈"
-            )
-        }
-        stats_slope = calculate_indicator_stats(df, 'QQQ', slope_conditions)
-        st.markdown("<br>", unsafe_allow_html=True)
-        render_stats_table(stats_slope, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
-
-        st.markdown("#### 하한 미만 세부 분석 표")
-        all_fd2 = []
-        for days in [5, 10, 20, 40]:
-            dc2 = f'{days}일하한'
-            sc2 = f'슬로프{days}일합'
-            all_fd2.extend(df[df[dc2]-df[sc2]>=0].index.tolist())
-        dcnt = Counter(all_fd2)
-        sel = st.selectbox('기간 선택', ['종합', 5, 10, 20, 40], format_func=lambda x: f'{x}일합' if isinstance(x, int) else x)
-
-        if sel == '종합':
-            uds = sorted(list(set(all_fd2)), reverse=True)
-            if uds:
-                rh = ""
-                for dt in uds:
-                    cnt = dcnt.get(dt, 1); bg, fg = color_bg(cnt)
-                    rh += f"<tr><td style='background:{bg};color:{fg};font-weight:bold;{TD}'>{fmt_date_kor(dt)}</td><td style='background:{bg};color:{fg};{TD}'></td><td style='background:{bg};color:{fg};{TD}'></td></tr>"
-                st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;margin-right:100px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
-            else:
-                st.info("하한을 하회하는 이탈 신호 데이터가 없습니다.")
-        else:
-            dc3 = f'{sel}일하한'; sc3 = f'슬로프{sel}일합'
-            dff = df[df[dc3]-df[sc3]>=0].copy()
-            dff['차이'] = dff[dc3]-dff[sc3]
-            dff = dff.sort_index(ascending=False)
-            if len(dff) > 0:
-                rh = ""
-                for dt, row in dff.iterrows():
-                    dv = row['차이']
-                    cn, bh, fh = ('초록','#A9D08E','#000') if 0<=dv<10 else ('노랑','#FFD700','#000') if 10<=dv<20 else ('빨강','#E06666','#FFF') if 20<=dv<30 else ('검정','#595959','#FFF')
-                    cnt = dcnt.get(dt, 1); bg, fg = color_bg(cnt)
-                    rh += f"<tr><td style='background:{bg};color:{fg};font-weight:bold;{TD}'>{fmt_date_kor(dt)}</td><td style='background:{bh};color:{fh};font-weight:bold;{TD}'>{cn}</td><td style='{TD}'>{dv:.1f}</td></tr>"
-                st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;margin-right:100px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
-            else:
-                st.info("하한을 하회하는 이탈 신호 데이터가 없습니다.")
-
-    elif selected_country == "한국":
-        all_fd_kr = []
-        for days_t in [5, 10, 20, 40]:
-            dfc = f'{days_t}일하한'
-            sfc = f'슬로프{days_t}일합'
-            all_fd_kr.extend(df_kr[df_kr[dfc]-df_kr[sfc]>=0].index.tolist())
-        dc_top_kr = Counter(all_fd_kr)
-        parent_dates_kr = sorted(list(set(all_fd_kr)), reverse=True)
-        
-        if parent_dates_kr:
-            r100_kr = parent_dates_kr[:100]
-            dates_row_kr = []
-            counts_row_kr = []
-            for dt in r100_kr:
-                cnt = dc_top_kr.get(dt, 1)
-                bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
-                fg = "#FFF" if cnt>=3 else "#000"
-                dates_row_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                
-                detected = []
-                for days in [5, 10, 20, 40]:
-                    dc_col = f'{days}일하한'
-                    sc_col = f'슬로프{days}일합'
-                    val_diff = df_kr.loc[dt, dc_col] - df_kr.loc[dt, sc_col]
-                    if val_diff >= 0:
-                        if 0 <= val_diff < 15:
-                            color = '#A9D08E'
-                        elif 15 <= val_diff < 30:
-                            color = '#FFD700'
-                        elif 30 <= val_diff < 45:
-                            color = '#E06666'
+            
+            # 동시 감지 갯수 계산 및 저장
+            slope_detect_count = sum(((df[sfc] <= thresh)).astype(int) for _, _, sfc, thresh in SLOPE_BOTTOM_CHARTS)
+            df['slope_detect_count'] = slope_detect_count
+            
+            # 상한 돌파 신호 감지표 (하한 돌파 저점 신호 수집)
+            all_top_sl = []
+            for _, days_t, sfc, thresh in SLOPE_BOTTOM_CHARTS:
+                _cond_sl = (df[sfc] <= thresh)
+                all_top_sl.extend(df[_cond_sl].index.tolist())
+            dc_top_sl = Counter(all_top_sl)
+            parent_dates_sl = sorted(list(set(all_top_sl)), reverse=True)
+            
+            if parent_dates_sl:
+                r100_sl = parent_dates_sl[:100]
+                dates_row_sl = []
+                counts_row_sl = []
+                for dt in r100_sl:
+                    cnt = dc_top_sl.get(dt, 1)
+                    # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF" if cnt in [1, 2, 5, 6, 7] else "#000"
+                    dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_BOTTOM_CHARTS:
+                        if dt in df.index and df.loc[dt, sc_col] <= th:
+                            # 초과율(%) 계산: (하한선 - 슬로프합) / abs(하한선)
+                            val_diff_pct = (th - df.loc[dt, sc_col]) / abs(th)
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E' # 초록
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFFF99' # 노랑
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666' # 빨강
+                            else:
+                                color = '#595959' # 검정
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
                         else:
-                            color = '#595959'
-                        detected.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>이탈</th>
+                        {"".join(counts_row_sl)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            hd_df = [fmt_date_kor(d) for d in df.index]
+            
+            bottom_slope_options = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_bottom_slopes = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options, default=["슬로프통합"], key="bottom_slope_multiselect")
+            
+            if not selected_bottom_slopes:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
+            else:
+                num_charts = len(selected_bottom_slopes)
+                fig_dsi = make_subplots(rows=num_charts, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts > 1 else 0.0,
+                    subplot_titles=tuple(selected_bottom_slopes),
+                    specs=[[{"secondary_y": True}]]*num_charts)
+                
+                chart_info_map = {
+                    10: ('슬로프10일합', -15),
+                    20: ('슬로프20일합', -20),
+                    30: ('슬로프30일합', -25),
+                    40: ('슬로프40일합', -30),
+                    50: ('슬로프50일합', -35),
+                    60: ('슬로프60일합', -40),
+                    70: ('슬로프70일합', -45),
+                }
+                
+                for idx, choice in enumerate(selected_bottom_slopes):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)', # 빨강
+                            2: 'rgba(255, 140, 0, 0.45)',   # 주황
+                            3: 'rgba(255, 255, 153, 0.45)', # 노랑
+                            4: 'rgba(169, 208, 142, 0.45)', # 초록
+                            5: 'rgba(135, 206, 235, 0.45)', # 파랑
+                            6: 'rgba(0, 0, 128, 0.45)',     # 남색
+                            7: 'rgba(128, 0, 128, 0.45)'    # 보라
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df['slope_detect_count'] == cnt_val)
+                            fig_dsi.add_trace(go.Bar(
+                                x=hd_df,
+                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
+                                marker_color=bar_color,
+                                showlegend=False,
+                                hoverinfo='skip',
+                                marker_line_width=0.5,
+                                marker_line_color='white'
+                            ), row=row_i, col=1, secondary_y=False)
+                            
                     else:
-                        detected.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map[days]
+                        
+                        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_dsi.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi.add_trace(go.Scatter(x=hd_df,y=[-thresh]*len(hd_df),name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi.add_trace(go.Scatter(x=hd_df,y=[thresh]*len(hd_df),name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
+                        diff_pct = (thresh - df[sc]) / abs(thresh)
+                        bottom_cond_vals = [
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.35)'),   # 0~40%: 초록색
+                            ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.3)'),   # 40% 초과 ~ 60% 이하: 노란색
+                            ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.3)'),   # 60% 초과 ~ 80% 이하: 빨간색
+                            ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.35)'),                             # 80% 초과: 검은색
+                        ]
+                        for tc, tfc in bottom_cond_vals:
+                            fig_dsi.add_trace(go.Bar(x=hd_df, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
                 
-                val_str = "<br>".join(detected)
-                counts_row_kr.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
-            
-            top_html_transposed_kr = f"""
-            <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
-            <table style='border-collapse:collapse;margin-top:3px;'>
-                <tr>
-                    <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
-                    {"".join(dates_row_kr)}
-                </tr>
-                <tr>
-                    <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>이탈</th>
-                    {"".join(counts_row_kr)}
-                </tr>
-            </table>
-            </div>
-            """
-            st.markdown(top_html_transposed_kr, unsafe_allow_html=True)
-
-        fig_dsi_kr = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.04,
-            subplot_titles=('슬로프 5일합','슬로프 10일합','슬로프 20일합','슬로프 40일합'),
-            specs=[[{"secondary_y": True}]]*4)
-            
-        CHARTS_KR = [
-            (1, 5,  '5일상한',  '5일하한',  '슬로프5일합',  '5일_초록',  '5일_주황',  '5일_빨강',  '5일_검정'),
-            (2, 10, '10일상한', '10일하한', '슬로프10일합', '10일_초록', '10일_주황', '10일_빨강', '10일_검정'),
-            (3, 20, '20일상한', '20일하한', '슬로프20일합', '20일_초록', '20일_주황', '20일_빨강', '20일_검정'),
-            (4, 40, '40일상한', '40일하한', '슬로프40일합', '40일_초록', '40일_주황', '40일_빨강', '40일_검정'),
-        ]
-        hd_df_kr = [fmt_date_kor(d) for d in df_kr.index]
-        for rn, days, uc, dc, sc, gc, oc, rc, bc in CHARTS_KR:
-            sf = (rn == 1)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-            fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[dc],name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
-            
-            for cn, fc in [(gc,'rgba(76,175,80,0.3)'),(oc,'rgba(255,220,0,0.3)'),(rc,'rgba(220,30,30,0.3)'),(bc,'rgba(0,0,0,0.3)')]:
-                fig_dsi_kr.add_trace(go.Bar(
-                    x=hd_df_kr, y=df_kr[cn], marker_color=fc, showlegend=False, hoverinfo='skip',
-                    marker_line_width=0.5,
-                    marker_line_color='white'
-                ),row=rn,col=1,secondary_y=False)
+                if active_period_days:
+                    target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_dsi)]
+                    initial_x_range_dsi = [detected_indices_dsi[0], len(hd_df) - 1] if detected_indices_dsi else None
+                    if detected_indices_dsi:
+                        qqq_1y_dsi = df['QQQ'].iloc[detected_indices_dsi[0]:]
+                        qmin_dsi, qmax_dsi = float(qqq_1y_dsi.min()), float(qqq_1y_dsi.max())
+                    else:
+                        qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
+                else:
+                    initial_x_range_dsi = None
+                    qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
                 
-        if active_period_days:
-            target_date_dsi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
-            detected_indices_dsi_kr = [i for i, d in enumerate(df_kr.index) if d >= pd.to_datetime(target_date_dsi_kr)]
-            initial_x_range_dsi_kr = [detected_indices_dsi_kr[0], len(hd_df_kr) - 1] if detected_indices_dsi_kr else None
-            if detected_indices_dsi_kr:
-                kospi_1y_dsi = df_kr['KOSPI'].iloc[detected_indices_dsi_kr[0]:]
-                kmin_dsi, kmax_dsi = float(kospi_1y_dsi.min()), float(kospi_1y_dsi.max())
-            else:
-                kmin_dsi, kmax_dsi = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
-        else:
-            initial_x_range_dsi_kr = None
-            kmin_dsi, kmax_dsi = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
-
-        layout_params_kr = COMMON_LAYOUT.copy()
-        layout_params_kr.pop('shapes', None)
-        fig_dsi_kr.update_layout(
-            **layout_params_kr, 
-            height=1200, 
-            margin=dict(l=0,r=50,t=30,b=10),
-            showlegend=False,
-            barmode='overlay',
-            bargap=0,
-            shapes=[
-                dict(type="rect", xref="paper", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y3 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y5 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                dict(type="rect", xref="paper", yref="y7 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
+                chart_height = max(400, num_charts * 300)
+                layout_params = COMMON_LAYOUT.copy()
+                layout_params.pop('shapes', None)
+                
+                shapes = []
+                for idx in range(num_charts):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    
+                fig_dsi.update_layout(**layout_params, height=chart_height, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes)
+                
+                for idx, choice in enumerate(selected_bottom_slopes):
+                    row_i = idx + 1
+                    fig_dsi.update_yaxes(range=[qmin_dsi*0.95,qmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_dsi.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_dsi.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_range_dsi:
+                    fig_dsi.update_xaxes(range=initial_x_range_dsi, type='category', **crosshair_xaxis())
+                else:
+                    fig_dsi.update_xaxes(type='category', **crosshair_xaxis())
+                fig_dsi.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG, key="tab2_us_slope_chart")
+            
+            # 실시간 지표검증결과 자동 계산 (QQQ 슬로프합 기준)
+            slope_conditions = {
+                "**10일합 이탈**": (df['슬로프10일합'] <= -15, "10일슬로프합 <= -15"),
+                "**20일합 이탈**": (df['슬로프20일합'] <= -20, "20일슬로프합 <= -20"),
+                "**30일합 이탈**": (df['슬로프30일합'] <= -25, "30일슬로프합 <= -25"),
+                "**40일합 이탈**": (df['슬로프40일합'] <= -30, "40일슬로프합 <= -30"),
+                "**50일합 이탈**": (df['슬로프50일합'] <= -35, "50일슬로프합 <= -35"),
+                "**60일합 이탈**": (df['슬로프60일합'] <= -40, "60일슬로프합 <= -40"),
+                "**70일합 이탈**": (df['슬로프70일합'] <= -45, "70일슬로프합 <= -45"),
+                "**슬로프합 종합 감지**": (
+                    (df['슬로프10일합'] <= -15) | (df['슬로프20일합'] <= -20) | (df['슬로프30일합'] <= -25) | 
+                    (df['슬로프40일합'] <= -30) | (df['슬로프50일합'] <= -35) | (df['슬로프60일합'] <= -40) | (df['슬로프70일합'] <= -45),
+                    "1개 이상 지표 이탈"
+                ),
+                "**슬로프합 강력 이탈**": (
+                    ((df['슬로프10일합'] <= -15).astype(int) + 
+                     (df['슬로프20일합'] <= -20).astype(int) + 
+                     (df['슬로프30일합'] <= -25).astype(int) + 
+                     (df['슬로프40일합'] <= -30).astype(int) + 
+                     (df['슬로프50일합'] <= -35).astype(int) + 
+                     (df['슬로프60일합'] <= -40).astype(int) + 
+                     (df['슬로프70일합'] <= -45).astype(int)) >= 4,
+                    "4개 이상 지표 동시 이탈"
+                )
+            }
+            stats_slope = calculate_indicator_stats(df, 'QQQ', slope_conditions)
+            st.markdown("<br>", unsafe_allow_html=True)
+            render_stats_table(stats_slope, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
+            
+        elif selected_country == "한국":
+            SLOPE_BOTTOM_CHARTS_KR = [
+                (2, 10, '슬로프10일합', -15),
+                (3, 20, '슬로프20일합', -20),
+                (4, 30, '슬로프30일합', -25),
+                (5, 40, '슬로프40일합', -30),
+                (6, 50, '슬로프50일합', -35),
+                (7, 60, '슬로프60일합', -40),
+                (8, 70, '슬로프70일합', -45),
             ]
-        )
-        for i in range(1, 5):
-            fig_dsi_kr.update_yaxes(range=[kmin_dsi*0.95,kmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
-            fig_dsi_kr.update_yaxes(range=[-150,220],tick0=-150,dtick=30,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
             
-        if initial_x_range_dsi_kr:
-            fig_dsi_kr.update_xaxes(range=initial_x_range_dsi_kr, type='category', **crosshair_xaxis())
-        else:
-            fig_dsi_kr.update_xaxes(type='category', **crosshair_xaxis())
-        fig_dsi_kr.update_annotations(font_size=10)
-
-        st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG, key="tab2_kr_slope_chart")
-
-        # 실시간 지표검증결과 자동 계산 (KOSPI 슬로프합 기준)
-        slope_conditions_kr = {
-            "**5일합 이탈**": (df_kr['슬로프5일합'] <= -30, "5일슬로프합 <= -30"),
-            "**10일합 이탈**": (df_kr['슬로프10일합'] <= -50, "10일슬로프합 <= -50"),
-            "**20일합 이탈**": (df_kr['슬로프20일합'] <= -70, "20일슬로프합 <= -70"),
-            "**40일합 이탈**": (df_kr['슬로프40일합'] <= -100, "40일슬로프합 <= -100"),
-            "**슬로프합 종합 감지**": (
-                (df_kr['슬로프5일합'] <= -30) | (df_kr['슬로프10일합'] <= -50) | (df_kr['슬로프20일합'] <= -70) | (df_kr['슬로프40일합'] <= -100),
-                "1개 이상 지표 이탈"
-            ),
-            "**슬로프합 강력 이탈**": (
-                ((df_kr['슬로프5일합'] <= -30).astype(int) + 
-                 (df_kr['슬로프10일합'] <= -50).astype(int) + 
-                 (df_kr['슬로프20일합'] <= -70).astype(int) + 
-                 (df_kr['슬로프40일합'] <= -100).astype(int)) >= 3,
-                "3개 이상 지표 동시 이탈"
-            )
-        }
-        stats_slope_kr = calculate_indicator_stats(df_kr, 'KOSPI', slope_conditions_kr)
-        st.markdown("<br>", unsafe_allow_html=True)
-        render_stats_table(stats_slope_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
-
-        st.markdown("#### 하한 미만 세부 분석 표")
-        all_fd2_kr = []
-        for days in [5, 10, 20, 40]:
-            dc2 = f'{days}일하한'
-            sc2 = f'슬로프{days}일합'
-            all_fd2_kr.extend(df_kr[df_kr[dc2]-df_kr[sc2]>=0].index.tolist())
-        dcnt_kr = Counter(all_fd2_kr)
-        sel_kr = st.selectbox('기간 선택 (한국)', ['종합', 5, 10, 20, 40], format_func=lambda x: f'{x}일합' if isinstance(x, int) else x)
-
-        if sel_kr == '종합':
-            uds_kr = sorted(list(set(all_fd2_kr)), reverse=True)
-            if uds_kr:
-                rh = ""
-                for dt in uds_kr:
-                    cnt = dcnt_kr.get(dt, 1); bg, fg = color_bg(cnt)
-                    rh += f"<tr><td style='background:{bg};color:{fg};font-weight:bold;{TD}'>{fmt_date_kor(dt)}</td><td style='background:{bg};color:{fg};{TD}'></td><td style='background:{bg};color:{fg};{TD}'></td></tr>"
-                st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;margin-right:100px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
+            # 동시 감지 갯수 계산 및 저장
+            slope_detect_count_kr = sum(((df_kr[sfc] <= thresh)).astype(int) for _, _, sfc, thresh in SLOPE_BOTTOM_CHARTS_KR)
+            df_kr['slope_detect_count'] = slope_detect_count_kr
+            
+            # 상한 돌파 신호 감지표 (하한 돌파 저점 신호 수집)
+            all_top_sl_kr = []
+            for _, days_t, sfc, thresh in SLOPE_BOTTOM_CHARTS_KR:
+                _cond_sl = (df_kr[sfc] <= thresh)
+                all_top_sl_kr.extend(df_kr[_cond_sl].index.tolist())
+            dc_top_sl_kr = Counter(all_top_sl_kr)
+            parent_dates_sl_kr = sorted(list(set(all_top_sl_kr)), reverse=True)
+            
+            if parent_dates_sl_kr:
+                r100_sl_kr = parent_dates_sl_kr[:100]
+                dates_row_sl_kr = []
+                counts_row_sl_kr = []
+                for dt in r100_sl_kr:
+                    cnt = dc_top_sl_kr.get(dt, 1)
+                    # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF" if cnt in [1, 2, 5, 6, 7] else "#000"
+                    dates_row_sl_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_BOTTOM_CHARTS_KR:
+                        if dt in df_kr.index and df_kr.loc[dt, sc_col] <= th:
+                            # 초과율(%) 계산: (하한선 - 슬로프합) / abs(하한선)
+                            val_diff_pct = (th - df_kr.loc[dt, sc_col]) / abs(th)
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E' # 초록
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFFF99' # 노랑
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666' # 빨강
+                            else:
+                                color = '#595959' # 검정
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                        else:
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl_kr.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl_kr)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>이탈</th>
+                        {"".join(counts_row_sl_kr)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            hd_df_kr = [fmt_date_kor(d) for d in df_kr.index]
+            
+            bottom_slope_options_kr = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_bottom_slopes_kr = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options_kr, default=["슬로프통합"], key="bottom_slope_multiselect_kr")
+            
+            if not selected_bottom_slopes_kr:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
             else:
-                st.info("하한을 하회하는 이탈 신호 데이터가 없습니다.")
-        else:
-            dc3 = f'{sel_kr}일하한'; sc3 = f'슬로프{sel_kr}일합'
-            dff_kr = df_kr[df_kr[dc3]-df_kr[sc3]>=0].copy()
-            dff_kr['차이'] = dff_kr[dc3]-dff_kr[sc3]
-            dff_kr = dff_kr.sort_index(ascending=False)
-            if len(dff_kr) > 0:
-                rh = ""
-                for dt, row in dff_kr.iterrows():
-                    dv = row['차이']
-                    cn, bh, fh = ('초록','#A9D08E','#000') if 0<=dv<15 else ('노랑','#FFD700','#000') if 15<=dv<30 else ('빨강','#E06666','#FFF') if 30<=dv<45 else ('검정','#595959','#FFF')
-                    cnt = dcnt_kr.get(dt, 1); bg, fg = color_bg(cnt)
-                    rh += f"<tr><td style='background:{bg};color:{fg};font-weight:bold;{TD}'>{fmt_date_kor(dt)}</td><td style='background:{bh};color:{fh};font-weight:bold;{TD}'>{cn}</td><td style='{TD}'>{dv:.1f}</td></tr>"
-                st.markdown(f"<div style='max-height:400px;overflow-y:auto;margin-top:4px;margin-right:100px;'><table style='{TS}'><thead><tr style='background:#1F4E79;color:white;position:sticky;top:0;'><th style='{TH}'>날짜</th><th style='{TH}'>색깔</th><th style='{TH}'>차이</th></tr></thead><tbody>{rh}</tbody></table></div>", unsafe_allow_html=True)
-            else:
-                st.info("하한을 하회하는 이탈 신호 데이터가 없습니다.")
+                num_charts_kr = len(selected_bottom_slopes_kr)
+                fig_dsi_kr = make_subplots(rows=num_charts_kr, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts_kr > 1 else 0.0,
+                    subplot_titles=tuple(selected_bottom_slopes_kr),
+                    specs=[[{"secondary_y": True}]]*num_charts_kr)
+                
+                chart_info_map_kr = {
+                    10: ('슬로프10일합', -15),
+                    20: ('슬로프20일합', -20),
+                    30: ('슬로프30일합', -25),
+                    40: ('슬로프40일합', -30),
+                    50: ('슬로프50일합', -35),
+                    60: ('슬로프60일합', -40),
+                    70: ('슬로프70일합', -45),
+                }
+                
+                for idx, choice in enumerate(selected_bottom_slopes_kr):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)', # 빨강
+                            2: 'rgba(255, 140, 0, 0.45)',   # 주황
+                            3: 'rgba(255, 255, 153, 0.45)', # 노랑
+                            4: 'rgba(169, 208, 142, 0.45)', # 초록
+                            5: 'rgba(135, 206, 235, 0.45)', # 파랑
+                            6: 'rgba(0, 0, 128, 0.45)',     # 남색
+                            7: 'rgba(128, 0, 128, 0.45)'    # 보라
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df_kr['slope_detect_count'] == cnt_val)
+                            fig_dsi_kr.add_trace(go.Bar(
+                                x=hd_df_kr,
+                                y=cond_bar.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2,
+                                marker_color=bar_color,
+                                showlegend=False,
+                                hoverinfo='skip',
+                                marker_line_width=0.5,
+                                marker_line_color='white'
+                            ), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map_kr[days]
+                        
+                        fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=[-thresh]*len(hd_df_kr),name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=[thresh]*len(hd_df_kr),name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
+                        diff_pct = (thresh - df_kr[sc]) / abs(thresh)
+                        bottom_cond_vals = [
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.35)'),
+                            ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.3)'),
+                            ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.3)'),
+                            ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.35)'),
+                        ]
+                        for tc, tfc in bottom_cond_vals:
+                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr, y=tc.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_dsi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_indices_dsi_kr = [i for i, d in enumerate(df_kr.index) if d >= pd.to_datetime(target_date_dsi_kr)]
+                    initial_x_range_dsi_kr = [detected_indices_dsi_kr[0], len(hd_df_kr) - 1] if detected_indices_dsi_kr else None
+                    if detected_indices_dsi_kr:
+                        kospi_1y_dsi = df_kr['KOSPI'].iloc[detected_indices_dsi_kr[0]:]
+                        kmin_dsi, kmax_dsi = float(kospi_1y_dsi.min()), float(kospi_1y_dsi.max())
+                    else:
+                        kmin_dsi, kmax_dsi = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
+                else:
+                    initial_x_range_dsi_kr = None
+                    kmin_dsi, kmax_dsi = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
+                
+                chart_height_kr = max(400, num_charts_kr * 300)
+                layout_params_kr = COMMON_LAYOUT.copy()
+                layout_params_kr.pop('shapes', None)
+                
+                shapes_kr = []
+                for idx in range(num_charts_kr):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes_kr.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    
+                fig_dsi_kr.update_layout(**layout_params_kr, height=chart_height_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
+                
+                for idx, choice in enumerate(selected_bottom_slopes_kr):
+                    row_i = idx + 1
+                    fig_dsi_kr.update_yaxes(range=[kmin_dsi*0.95,kmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_dsi_kr.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_dsi_kr.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_range_dsi_kr:
+                    fig_dsi_kr.update_xaxes(range=initial_x_range_dsi_kr, type='category', **crosshair_xaxis())
+                else:
+                    fig_dsi_kr.update_xaxes(type='category', **crosshair_xaxis())
+                fig_dsi_kr.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG, key="tab2_kr_slope_chart")
+            
+            # 실시간 지표검증결과 자동 계산 (KOSPI 슬로프합 기준)
+            slope_conditions_kr = {
+                "**10일합 이탈**": (df_kr['슬로프10일합'] <= -15, "10일슬로프합 <= -15"),
+                "**20일합 이탈**": (df_kr['슬로프20일합'] <= -20, "20일슬로프합 <= -20"),
+                "**30일합 이탈**": (df_kr['슬로프30일합'] <= -25, "30일슬로프합 <= -25"),
+                "**40일합 이탈**": (df_kr['슬로프40일합'] <= -30, "40일슬로프합 <= -30"),
+                "**50일합 이탈**": (df_kr['슬로프50일합'] <= -35, "50일슬로프합 <= -35"),
+                "**60일합 이탈**": (df_kr['슬로프60일합'] <= -40, "60일슬로프합 <= -40"),
+                "**70일합 이탈**": (df_kr['슬로프70일합'] <= -45, "70일슬로프합 <= -45"),
+                "**슬로프합 종합 감지**": (
+                    (df_kr['슬로프10일합'] <= -15) | (df_kr['슬로프20일합'] <= -20) | (df_kr['슬로프30일합'] <= -25) | 
+                    (df_kr['슬로프40일합'] <= -30) | (df_kr['슬로프50일합'] <= -35) | (df_kr['슬로프60일합'] <= -40) | (df_kr['슬로프70일합'] <= -45),
+                    "1개 이상 지표 이탈"
+                ),
+                "**슬로프합 강력 이탈**": (
+                    ((df_kr['슬로프10일합'] <= -15).astype(int) + 
+                     (df_kr['슬로프20일합'] <= -20).astype(int) + 
+                     (df_kr['슬로프30일합'] <= -25).astype(int) + 
+                     (df_kr['슬로프40일합'] <= -30).astype(int) + 
+                     (df_kr['슬로프50일합'] <= -35).astype(int) + 
+                     (df_kr['슬로프60일합'] <= -40).astype(int) + 
+                     (df_kr['슬로프70일합'] <= -45).astype(int)) >= 4,
+                    "4개 이상 지표 동시 이탈"
+                )
+            }
+            stats_slope_kr = calculate_indicator_stats(df_kr, 'KOSPI', slope_conditions_kr)
+            st.markdown("<br>", unsafe_allow_html=True)
+            render_stats_table(stats_slope_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
-# ── Tab 3: 다중지표 ──
-with tabs[2]:
-        
-    if selected_country == "미국":
+
+    def render_bottom_multi_us():
         df_multi = df.copy()
         
         # 49개의 후보 지표 조건들을 하나의 리스트로 통합
@@ -1717,14 +1841,189 @@ with tabs[2]:
         st.markdown("<br>", unsafe_allow_html=True)
         render_stats_table(stats_multi, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
 
-    else:
-        st.info("한국 데이터는 향후 지원 예정입니다. 국가 선택을 '미국'으로 변경해 주세요.")
+    def render_bottom_multi_kr():
+        df_multi_kr = df_kr.copy()
+        
+        # 49개의 후보 지표 조건들을 KOSPI 및 연동된 글로벌 피처들을 활용한 조건식으로 정의
+        all_conditions_kr = [
+            # 지표개발 19개
+            (df_multi_kr['KOSPI_%B'] * (df_multi_kr['HYG_RSI'] / 100) <= 0.010),
+            (df_multi_kr['FearGreedIndex'] * np.exp(df_multi_kr['TNX_ROC'] * 2) / (df_multi_kr['VKOSPI'] + 1e-10) <= 0.35),
+            (((df_multi_kr['FearGreedIndex'] - 50) / 20 + (df_multi_kr['KOSPI_RSI'] - 50) / 15 + (df_multi_kr['KOSPI_%B'] - 0.5) / 0.25 - df_multi_kr['VKOSPI_Z']) <= -5.0),
+            ((df_multi_kr['KOSPI_%B'] <= 0.01) & (df_multi_kr['FearGreedIndex'] <= 6) & (df_multi_kr['VKOSPI'] >= 25)),
+            ((df_multi_kr['KOSPI_%B'] <= -0.05) & (df_multi_kr['FearGreedIndex'] <= 7)),
+            ((df_multi_kr['슬로프10일합'] <= -40) & (df_multi_kr['VKOSPI'] >= 30) & (df_multi_kr['FearGreedIndex'] <= 9)),
+            ((df_multi_kr['슬로프40일합'] <= -70) & (df_multi_kr['FearGreedIndex'] <= 8) & (df_multi_kr['KOSPI_%B'] <= 0.02)),
+            ((df_multi_kr['HYG_RSI'] <= 18) & (df_multi_kr['VKOSPI'] >= 32)),
+            ((df_multi_kr['FearGreedIndex'] <= 8) & (df_multi_kr['VKOSPI'] >= 28) & (df_multi_kr['HYG_RSI'] <= 22)),
+            ((df_multi_kr['슬로프5일합'] <= -35) & (df_multi_kr['KOSPI_RSI'] <= 22) & (df_multi_kr['VKOSPI'] >= 28)),
+            ((df_multi_kr['KOSPI_RSI7'] <= 15) & (df_multi_kr['FearGreedIndex'] <= 15)),
+            ((df_multi_kr['KOSPI_RSI7'] <= 18) & (df_multi_kr['FearGreedIndex'] <= 12)),
+            ((df_multi_kr['KOSPI_RSI7'] <= 20) & (df_multi_kr['FearGreedIndex'] <= 12)),
+            ((df_multi_kr['KOSPI_RSI7'] <= 22) & (df_multi_kr['FearGreedIndex'] <= 12)),
+            ((df_multi_kr['VVIX_Z'] >= 3.0) & (df_multi_kr['FearGreedIndex'] <= 15)),
+            ((df_multi_kr['VVIX_Z'] >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 20)),
+            ((df_multi_kr['VVIX_Pct'] >= 0.90) & (df_multi_kr['FearGreedIndex'] <= 10)),
+            ((df_multi_kr['VVIX_Pct'] >= 0.90) & (df_multi_kr['KOSPI_RSI7'] <= 22)),
+            ((df_multi_kr['FearGreedIndex'].diff(7) <= -20) & (df_multi_kr['VKOSPI_Pct'] >= 0.85)),
+            # 적중집중 10개
+            (((30 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 18) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
+            (((25 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 12) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 5.0) & (df_multi_kr['FearGreedIndex'] <= 18) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            (((df_multi_kr['VKOSPI'] * df_multi_kr['VVIX'] / 1000) >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 10) & (df_multi_kr['KOSPI_DD'] >= 0.04)),
+            (((df_multi_kr['VKOSPI'] * df_multi_kr['VVIX'] / 1000) >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 10) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            (((25 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 15) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
+            (((20 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 10) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
+            (((30 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 18) & (df_multi_kr['VVIX_Pct'] >= 0.80)),
+            ((np.log(np.maximum(df_multi_kr['VVIX_Z'] + 5.0, 1e-5)) * df_multi_kr['VKOSPI_Pct'] >= 1.0) & (df_multi_kr['FearGreedIndex'] <= 12) & (df_multi_kr['KOSPI_%B'] <= 0.15)),
+            ((df_multi_kr['FearGreedIndex'] * np.exp(df_multi_kr['TNX_ROC'] * 3) <= 15) & (df_multi_kr['KOSPI_RSI7'] <= 28) & (df_multi_kr['VKOSPI_Pct'] >= 0.80)),
+            # 균형집중 10개
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 4.5) & (df_multi_kr['FearGreedIndex'] <= 30) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 3.5) & (df_multi_kr['FearGreedIndex'] <= 22) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            ((df_multi_kr['KOSPI_%B'] <= 0.10) & (df_multi_kr['KOSPI_RSI7'] <= 40) & (df_multi_kr['FearGreedIndex'] <= 30) & (df_multi_kr['VKOSPI_Pct'] >= 0.60) & (df_multi_kr['VVIX_Pct'] >= 0.50)),
+            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 3 >= 7.0) & (df_multi_kr['FGI_Pct'] <= 0.30)),
+            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 4 >= 8.0) & (df_multi_kr['FGI_Pct'] <= 0.30)),
+            ((df_multi_kr['KOSPI_%B'] <= 0.15) & (df_multi_kr['KOSPI_RSI7'] <= 35) & (df_multi_kr['FearGreedIndex'] <= 20) & (df_multi_kr['VKOSPI_Pct'] >= 0.60) & (df_multi_kr['VVIX_Pct'] >= 0.50)),
+            (((25 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 18) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['K_DD_Pct'] >= 0.70)),
+            (((30 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 25) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['K_DD_Pct'] >= 0.40)),
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 1.2) & (df_multi_kr['FearGreedIndex'] <= 12) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 1.5) & (df_multi_kr['FearGreedIndex'] <= 12) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            # 포착집중 10개
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 40) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 3.0) & (df_multi_kr['FearGreedIndex'] <= 45) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            ((df_multi_kr['KOSPI_%B'] <= 0.25) & (df_multi_kr['KOSPI_RSI7'] <= 50) & (df_multi_kr['FearGreedIndex'] <= 40) & (df_multi_kr['VKOSPI_Pct'] >= 0.40) & (df_multi_kr['VVIX_Pct'] >= 0.40)),
+            ((140 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 2 >= 6.0) & (df_multi_kr['FGI_Pct'] <= 0.35)),
+            ((df_multi_kr['KOSPI_%B'] <= 0.20) & (df_multi_kr['KOSPI_RSI7'] <= 50) & (df_multi_kr['FearGreedIndex'] <= 45) & (df_multi_kr['VKOSPI_Pct'] >= 0.40) & (df_multi_kr['VVIX_Pct'] >= 0.40)),
+            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 2 >= 5.0) & (df_multi_kr['FGI_Pct'] <= 0.35)),
+            (((40 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 25) & (df_multi_kr['VVIX_Pct'] >= 0.30) & (df_multi_kr['K_DD_Pct'] >= 0.50)),
+            (((35 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 20) & (df_multi_kr['VVIX_Pct'] >= 0.30) & (df_multi_kr['K_DD_Pct'] >= 0.50)),
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.5) & (df_multi_kr['FearGreedIndex'] <= 18) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.8) & (df_multi_kr['FearGreedIndex'] <= 18) & (df_multi_kr['KOSPI_DD'] >= 0.05))
+        ]
+        
+        # 합산(개수 세기)
+        df_multi_kr['multi_count'] = sum(cond.fillna(False).astype(int) for cond in all_conditions_kr)
+        
+        # 날짜 범위 설정 (기간 필터링)
+        if active_period_days:
+            target_date_multi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
+            detected_indices_kr = [i for i, d in enumerate(df_multi_kr.index) if d >= pd.to_datetime(target_date_multi_kr)]
+            initial_x_range_multi_kr = [detected_indices_kr[0], len(df_multi_kr.index) - 1] if detected_indices_kr else None
+            if detected_indices_kr:
+                kospi_1y_multi = df_multi_kr['KOSPI'].iloc[detected_indices_kr[0]:]
+                k_min, k_max = float(kospi_1y_multi.min()), float(kospi_1y_multi.max())
+                kospi_y_range = [k_min * 0.95, k_max * 1.05]
+            else:
+                kospi_y_range = [float(df_multi_kr['KOSPI'].min()) * 0.95, float(df_multi_kr['KOSPI'].max()) * 1.05]
+        else:
+            initial_x_range_multi_kr = None
+            k_min, k_max = float(df_multi_kr['KOSPI'].min()), float(df_multi_kr['KOSPI'].max())
+            kospi_y_range = [k_min * 0.95, k_max * 1.05]
 
-
-# ── Tab 4: 통합지표 ──
-with tabs[3]:
+        max_kospi_multi = float(df_multi_kr['KOSPI'].max()) * 1.2
+        
+        # 색상 매핑
+        cond_map_kr = [
+            ((df_multi_kr['multi_count'] >= 1) & (df_multi_kr['multi_count'] <= 7), '#E06666', '1~7개 감지'), # 빨간색
+            ((df_multi_kr['multi_count'] >= 8) & (df_multi_kr['multi_count'] <= 14), '#FF8C00', '8~14개 감지'), 
+            ((df_multi_kr['multi_count'] >= 15) & (df_multi_kr['multi_count'] <= 21), '#FFFF99', '15~21개 감지'), 
+            ((df_multi_kr['multi_count'] >= 22) & (df_multi_kr['multi_count'] <= 28), '#A9D08E', '22~28개 감지'), 
+            ((df_multi_kr['multi_count'] >= 29) & (df_multi_kr['multi_count'] <= 35), '#87CEEB', '29~35개 감지'), 
+            ((df_multi_kr['multi_count'] >= 36) & (df_multi_kr['multi_count'] <= 42), '#000080', '36~42개 감지'), 
+            ((df_multi_kr['multi_count'] >= 43) & (df_multi_kr['multi_count'] <= 49), '#800080', '43~49개 감지'), 
+        ]
+        
+        # 표 생성을 위한 데이터 준비 (최근 100개)
+        df_sig_kr = df_multi_kr[df_multi_kr['multi_count'] >= 1].sort_index(ascending=False).head(100)
+        
+        if not df_sig_kr.empty:
+            dates_row_tm_kr = []
+            counts_row_tm_kr = []
+            for dt in df_sig_kr.index:
+                cnt = df_sig_kr.loc[dt, 'multi_count']
+                bg_color = '#E06666' if cnt <= 7 else '#FF8C00' if cnt <= 14 else '#FFFF99' if cnt <= 21 else '#A9D08E' if cnt <= 28 else '#87CEEB' if cnt <= 35 else '#000080' if cnt <= 42 else '#800080'
+                fg_color = '#FFFFFF' if cnt <= 14 or cnt >= 36 else '#000000'
+                dates_row_tm_kr.append(f"<td style='background:{bg_color};color:{fg_color};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                counts_row_tm_kr.append(f"<td style='background:{bg_color};color:{fg_color};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{cnt}개</td>")
             
-    if selected_country == "미국":
+            st.markdown(f"""
+            <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 49지표 저점 감지 신호 (최근 100개)</span>
+            <table style='border-collapse:collapse;margin-top:3px;'>
+                <tr>
+                    <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                    {"".join(dates_row_tm_kr)}
+                </tr>
+                <tr>
+                    <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>갯수</th>
+                    {"".join(counts_row_tm_kr)}
+                </tr>
+            </table>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        fig_multi_kr = make_subplots(specs=[[{"secondary_y": True}]])
+        hd_multi_kr = [fmt_date_kor(d) for d in df_multi_kr.index]
+        
+        fig_multi_kr.add_trace(go.Scatter(x=hd_multi_kr, y=df_multi_kr['KOSPI'], name='KOSPI 가격', mode='lines+markers',
+            line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+            marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
+            hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
+            
+        for cond, color, label in cond_map_kr:
+            fig_multi_kr.add_trace(go.Bar(
+                x=hd_multi_kr, y=cond.astype(int) * max_kospi_multi,
+                marker_color=color.replace('#', 'rgba(') if '#' not in color else color,
+                opacity=0.7,
+                showlegend=False,
+                hoverinfo='skip',
+                marker_line_width=0.5,
+                marker_line_color='white'
+            ), secondary_y=False)
+            
+        fig_multi_kr.update_layout(
+            **COMMON_LAYOUT, 
+            height=400, 
+            margin=dict(l=0, r=50, t=30, b=10),
+            showlegend=False,
+            barmode='overlay',
+            bargap=0,
+            shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))]
+        )
+        if initial_x_range_multi_kr:
+            fig_multi_kr.update_xaxes(range=initial_x_range_multi_kr, type='category', **crosshair_xaxis())
+        else:
+            fig_multi_kr.update_xaxes(type='category', **crosshair_xaxis())
+            
+        fig_multi_kr.update_yaxes(range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, title_text="")
+        fig_multi_kr.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
+        
+        st.plotly_chart(fig_multi_kr, width='stretch', config=COMMON_CONFIG, key="tab5_multi_chart_kr")
+        
+        # 지표 검증 결과
+        multi_conditions_kr = {
+            "**빨간색**": (cond_map_kr[0][0], cond_map_kr[0][2]),
+            "**주황색**": (cond_map_kr[1][0], cond_map_kr[1][2]),
+            "**노란색**": (cond_map_kr[2][0], cond_map_kr[2][2]),
+            "**초록색**": (cond_map_kr[3][0], cond_map_kr[3][2]),
+            "**파란색**": (cond_map_kr[4][0], cond_map_kr[4][2]),
+            "**남색**":   (cond_map_kr[5][0], cond_map_kr[5][2]),
+            "**보라색**": (cond_map_kr[6][0], cond_map_kr[6][2]),
+        }
+        stats_multi_kr = calculate_indicator_stats(df_multi_kr, 'KOSPI', multi_conditions_kr)
+        st.markdown("<br>", unsafe_allow_html=True)
+        render_stats_table(stats_multi_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
+
+
+    # ── 소분류 3: 다중지표 ──
+    with bottom_sub_tabs[2]:
+        if selected_country == "미국":
+            render_bottom_multi_us()
+        elif selected_country == "한국":
+            render_bottom_multi_kr()
+
+
+    def render_bottom_unified_us():
         with st.spinner("통합지표 데이터를 계산 중입니다..."):
             df_pre = df.copy()
             
@@ -1886,11 +2185,173 @@ with tabs[3]:
         stats_pre = calculate_indicator_stats(df_pre, 'QQQ', pre_conditions)
         render_stats_table(stats_pre, "통합지표 통합 검증 결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
         
-    else:
-        st.info("한국 데이터는 향후 지원 예정입니다.")
+    def render_bottom_unified_kr():
+        with st.spinner("통합지표 데이터를 계산 중입니다..."):
+            df_pre_kr = df_kr.copy()
+            
+            _vol_kr = yf.download('^KS11', start="2018-01-01", progress=False)
+            vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
+            if isinstance(vol_data_kr, pd.DataFrame): 
+                vol_data_kr = vol_data_kr.iloc[:, 0]
+            vol_data_kr.index = vol_data_kr.index.normalize()
+            df_pre_kr['Volume'] = vol_data_kr.reindex(df_pre_kr.index).ffill()
+            
+            ema12_kr = df_pre_kr['KOSPI'].ewm(span=12, adjust=False).mean()
+            ema26_kr = df_pre_kr['KOSPI'].ewm(span=26, adjust=False).mean()
+            df_pre_kr['MACD'] = ema12_kr - ema26_kr
+            df_pre_kr['MACD_Signal'] = df_pre_kr['MACD'].ewm(span=9, adjust=False).mean()
+            df_pre_kr['MACD_Hist'] = df_pre_kr['MACD'] - df_pre_kr['MACD_Signal']
+            
+            df_pre_kr['SKEW_Z'] = (df_pre_kr['SKEW'] - df_pre_kr['SKEW'].rolling(252).mean()) / (df_pre_kr['SKEW'].rolling(252).std() + 1e-5)
+            df_pre_kr['Vol_Z'] = (df_pre_kr['Volume'] - df_pre_kr['Volume'].rolling(50).mean()) / (df_pre_kr['Volume'].rolling(50).std() + 1e-5)
+            
+            x_arr = np.arange(10)
+            var_x = np.var(x_arr)
+            def calc_slope(y):
+                if len(y) < 10: return 0
+                return np.cov(x_arr, y)[0,1] / var_x
+            df_pre_kr['KOSPI_Slope10'] = df_pre_kr['KOSPI'].rolling(10).apply(calc_slope, raw=True)
+            df_pre_kr['KOSPI_Vel'] = df_pre_kr['KOSPI'].pct_change(5)
+            df_pre_kr['KOSPI_Accel'] = df_pre_kr['KOSPI_Vel'].diff(3)
+            df_pre_kr['VVIX_Vel'] = df_pre_kr['VVIX'].diff(3)
+            
+            delta_k = df_pre_kr['KOSPI'].diff()
+            up_k = delta_k.clip(lower=0)
+            down_k = -1 * delta_k.clip(upper=0)
+            rs14_k = up_k.rolling(14).mean() / (down_k.rolling(14).mean() + 1e-5)
+            df_pre_kr['KOSPI_RSI14'] = 100 - (100 / (1 + rs14_k))
+            rs7_k = up_k.rolling(7).mean() / (down_k.rolling(7).mean() + 1e-5)
+            df_pre_kr['KOSPI_RSI7'] = 100 - (100 / (1 + rs7_k))
 
-# ── Tab 5: 모니터링 ──
-with tabs[4]:
+            df_pre_kr['DD_Sq'] = df_pre_kr['KOSPI_DD'] ** 2
+            df_pre_kr['FGI_Proxy'] = 100 - (df_pre_kr['VKOSPI'] / df_pre_kr['VKOSPI'].rolling(252).max() * 100)
+            if 'TNX_ROC' not in df_pre_kr.columns:
+                df_pre_kr['TNX_ROC'] = df_pre_kr['TNX'].pct_change(10)
+            if 'VKOSPI_Pct' not in df_pre_kr.columns:
+                df_pre_kr['VKOSPI_Pct'] = (df_pre_kr['VKOSPI'] - df_pre_kr['VKOSPI'].rolling(252).min()) / (df_pre_kr['VKOSPI'].rolling(252).max() - df_pre_kr['VKOSPI'].rolling(252).min() + 1e-5)
+
+            macro1 = (df_pre_kr['SKEW_Z'] > 0.5) | (df_pre_kr['HYG_RSI'] <= 25)
+            micro1 = (df_pre_kr['MACD_Hist'] < -1.0) & (df_pre_kr['KOSPI_Slope10'] < -1.0)
+            c1_1 = (macro1 & micro1) | ((np.log(df_pre_kr['VVIX'] + 1e-5) * df_pre_kr['DD_Sq'] * 100 > 1.0) & (df_pre_kr['KOSPI_%B'] <= 0.02))
+            
+            liq1 = (df_pre_kr['Vol_Z'] > 1.5) | (df_pre_kr['HYG_RSI'] < 20)
+            psy1 = (df_pre_kr['FearGreedIndex'] <= 15) | (df_pre_kr['VKOSPI_Pct'] >= 0.9)
+            dd_guard1 = df_pre_kr['KOSPI_DD'] >= 0.06
+            c2_1 = (liq1 & psy1 & dd_guard1) | ((df_pre_kr['VVIX_Vel'].diff(3) > 5.0) & (df_pre_kr['KOSPI_RSI7'] <= 25) & (df_pre_kr['KOSPI_DD'] >= 0.04))
+            
+            grav1 = (df_pre_kr['KOSPI_Accel'] < -0.015) & (df_pre_kr['DD_Sq'] * df_pre_kr['VVIX'] > 1.0)
+            vol_shock1 = (df_pre_kr['KOSPI_%B'] < 0.0) & (df_pre_kr['Vol_Z'] > 1.0) & (df_pre_kr['HYG_RSI'] <= 30)
+            c3_1 = (grav1 | vol_shock1) & (df_pre_kr['KOSPI_RSI14'] <= 45) & (df_pre_kr['KOSPI_DD'] >= 0.05)
+            
+            opt1 = (df_pre_kr['VVIX_Z'] > 1.5) | (df_pre_kr['VKOSPI_Pct'] > 0.85)
+            rate1 = (df_pre_kr['TNX_ROC'] > 0.1) | (df_pre_kr['SKEW_Z'] > 1.0)
+            tech1 = (df_pre_kr['KOSPI_RSI7'] <= 35) | (df_pre_kr['KOSPI_%B'] <= 0.05)
+            c4_1 = (opt1 | rate1) & tech1 & (df_pre_kr['KOSPI_DD'] >= 0.04) & (df_pre_kr['FearGreedIndex'] <= 40)
+            
+            c_all_1 = c1_1 & c2_1 & c3_1 & c4_1
+            
+            ke2 = 0.5 * np.maximum(df_pre_kr['Vol_Z'], 0.1) * (np.abs(df_pre_kr['KOSPI_Vel']) * 100)**2
+            pe2 = df_pre_kr['VKOSPI'] * (df_pre_kr['KOSPI_DD'] * 100)
+            c2_2 = (ke2*10 > pe2) & (df_pre_kr['Vol_Z'] > 0.5) & (df_pre_kr['KOSPI_%B'] <= 0.05)
+            
+            phase2 = np.sin((df_pre_kr['FGI_Proxy'] / 100) * np.pi) 
+            c4_2 = (phase2 < 0.5) & (df_pre_kr['KOSPI_Vel'] < -0.02) & (df_pre_kr['VKOSPI_Z'] > 1.0)
+            
+            c_or_final = c_all_1 | c2_2 | c4_2
+
+            triggered_dates = df_pre_kr[c_or_final].index.sort_values(ascending=False)
+            recent_100 = triggered_dates[:100]
+            if len(recent_100) > 0:
+                dates_row = ""
+                for dt in recent_100:
+                    dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                
+                table_html = f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 통합지표 저점 감지 신호 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                        {dates_row}
+                    </tr>
+                </table>
+                </div>
+                """
+                st.markdown(table_html, unsafe_allow_html=True)
+            
+            pre_conditions_kr = {
+                "**최종 3대 통합 괴물지표 (OR)**": (c_or_final, '4종 통합(AND) + 물리에너지 + 푸리에 파동'),
+                "4종 통합(AND)": (c_all_1, '연구 조건 4종 일치'),
+                "물리학적 에너지 역전 법칙": (c2_2, '투매 운동에너지 > 공포 응축에너지'),
+                "푸리에 변환 모방 위상 천이": (c4_2, '공포 삼각함수 파동 교차'),
+            }
+
+            if active_period_days:
+                target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                df_pre_plot = df_pre_kr[df_pre_kr.index >= pd.to_datetime(target_date)]
+                if not df_pre_plot.empty:
+                    kospi_y_range = [float(df_pre_plot['KOSPI'].min()) * 0.95, float(df_pre_plot['KOSPI'].max()) * 1.05]
+                    initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
+                else:
+                    kospi_y_range = None
+                    initial_x_range = None
+            else:
+                df_pre_plot = df_pre_kr.copy()
+                if not df_pre_plot.empty:
+                    kospi_y_range = [float(df_pre_plot['KOSPI'].min()) * 0.95, float(df_pre_plot['KOSPI'].max()) * 1.05]
+                    initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
+                else:
+                    kospi_y_range = None
+                    initial_x_range = None
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            fig_pre = make_subplots(specs=[[{"secondary_y": True}]])
+            hd_pre = [fmt_date_kor(d) for d in df_pre_plot.index]
+            
+            fig_pre.add_trace(go.Scatter(
+                x=hd_pre, y=df_pre_plot['KOSPI'], name='KOSPI 가격', mode='lines+markers',
+                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+                marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
+                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
+            ), secondary_y=False)
+            
+            fig_pre.add_trace(go.Bar(
+                x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * (kospi_y_range[1] if kospi_y_range else 3000), name='통합 감지 신호 (OR)',
+                marker_color='rgba(128, 0, 128, 0.7)',
+                marker_line_width=0.5,
+                marker_line_color='white',
+                hovertemplate='신호 감지<extra></extra>'
+            ), secondary_y=False)
+            
+            fig_pre.update_layout(
+                **COMMON_LAYOUT,
+                height=350,
+                margin=dict(l=0, r=50, t=10, b=10),
+                showlegend=False,
+                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
+            )
+            fig_pre.update_xaxes(type='category', **crosshair_xaxis())
+            if initial_x_range:
+                fig_pre.update_xaxes(range=initial_x_range)
+            
+            fig_pre.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
+            fig_pre.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
+            
+            st.plotly_chart(fig_pre, width='stretch', config=COMMON_CONFIG, key="pre_chart_final_or_kr")
+            
+            stats_pre_kr = calculate_indicator_stats(df_pre_kr, 'KOSPI', pre_conditions_kr)
+            render_stats_table(stats_pre_kr, "통합지표 통합 검증 결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
+
+    # ── 소분류 4: 통합지표 ──
+    with bottom_sub_tabs[3]:
+        if selected_country == "미국":
+            render_bottom_unified_us()
+        elif selected_country == "한국":
+            render_bottom_unified_kr()
+
+# ── Tab 3: 모니터링 ──
+with tabs[2]:
     st.markdown("### 국내 증시 자금 및 매매동향 모니터링")
     
     # 1. 3대 모니터링 요약 표 (상단 가로 배치)
@@ -2273,8 +2734,8 @@ with tabs[4]:
 
     st.plotly_chart(fig_breadth, width='stretch', config=COMMON_CONFIG, key="tab5_breadth_subplots")
 
-# ── Tab 6: 메모리 ──
-with tabs[5]:
+# ── Tab 4: 메모리 ──
+with tabs[3]:
     dram_data = fetch_dram_dashboard_data()
     if dram_data:
         as_of = dram_data.get('as_of', '')
@@ -2522,8 +2983,8 @@ with tabs[5]:
     else:
         st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
 
-# ── Tab 7: 고점지표 ──
-with tabs[6]:
+# ── Tab 2: 고점지표 ──
+with tabs[1]:
     if selected_country == "미국":
         # ===== 저점 감지일 수집 (4개 탭 종합) =====
         # 공탐변동 저점
@@ -3156,5 +3617,594 @@ with tabs[6]:
             render_top_stats_table(stats_top_final, "통합 고점지표 검증 결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
     
     else:
-        st.info("한국 데이터는 향후 지원 예정입니다. 국가 선택을 '미국'으로 변경해 주세요.")
+        # ===== 저점 감지일 수집 (한국 KOSPI용 4개 탭 종합) =====
+        # 공탐변동 저점
+        _bottom_fgi_kr = (
+            ((df_kr['FearGreedIndex'] <= 9) & (df_kr['VKOSPI'] >= 26)) |
+            ((df_kr['FearGreedIndex'] >= 10) & (df_kr['FearGreedIndex'] <= 19) & (df_kr['VKOSPI'] >= 22)) |
+            ((df_kr['FearGreedIndex'] >= 20) & (df_kr['FearGreedIndex'] <= 29) & (df_kr['VKOSPI'] >= 18)) |
+            ((df_kr['FearGreedIndex'] >= 30) & (df_kr['FearGreedIndex'] <= 39) & (df_kr['VKOSPI'] >= 14))
+        )
+        # 슬로프합 저점
+        _bottom_slope_kr = (
+            (df_kr['슬로프10일합'] <= -15) | (df_kr['슬로프20일합'] <= -20) |
+            (df_kr['슬로프30일합'] <= -25) | (df_kr['슬로프40일합'] <= -30) |
+            (df_kr['슬로프50일합'] <= -35) | (df_kr['슬로프60일합'] <= -40) |
+            (df_kr['슬로프70일합'] <= -45)
+        )
+        # 다중지표 저점
+        _multi_conds_for_bottom_kr = [
+            (df_kr['KOSPI_%B'] * (df_kr['HYG_RSI'] / 100) <= 0.010),
+            (df_kr['FearGreedIndex'] * np.exp(df_kr['TNX_ROC'] * 2) / (df_kr['VKOSPI'] + 1e-10) <= 0.35),
+            (((df_kr['FearGreedIndex'] - 50) / 20 + (df_kr['KOSPI_RSI'] - 50) / 15 + (df_kr['KOSPI_%B'] - 0.5) / 0.25 - df_kr['VKOSPI_Z']) <= -5.0),
+            ((df_kr['KOSPI_%B'] <= 0.01) & (df_kr['FearGreedIndex'] <= 6) & (df_kr['VKOSPI'] >= 25)),
+            ((df_kr['KOSPI_%B'] <= -0.05) & (df_kr['FearGreedIndex'] <= 7)),
+        ]
+        _multi_cnt_kr = sum(c.fillna(False).astype(int) for c in _multi_conds_for_bottom_kr)
+        _bottom_multi_kr = _multi_cnt_kr >= 1
+        
+        # 실제 KOSPI 차트상 저점 산출
+        _rolling_max_kr = df_kr['KOSPI'].rolling(252, min_periods=1).max()
+        _drawdown_kr = (_rolling_max_kr - df_kr['KOSPI']) / _rolling_max_kr
+        _local_min_kr = df_kr['KOSPI'].rolling(41, center=True, min_periods=1).min()
+        is_actual_bottom_kr = (df_kr['KOSPI'] <= _local_min_kr * 1.03) & (_drawdown_kr >= 0.05)
+        
+        is_any_bottom_kr = (_bottom_fgi_kr | _bottom_slope_kr | _bottom_multi_kr | is_actual_bottom_kr).reindex(df_kr.index).fillna(False)
+        
+        # ===== 고점지표용 보조지표 전처리 (한국 KOSPI용) =====
+        df_top_kr = df_kr.copy()
+        
+        df_top_kr['KOSPI_Low252'] = df_top_kr['KOSPI'].rolling(252, min_periods=1).min()
+        df_top_kr['KOSPI_RU'] = (df_top_kr['KOSPI'] - df_top_kr['KOSPI_Low252']) / (df_top_kr['KOSPI_Low252'] + 1e-10)
+        
+        df_top_kr['KOSPI_20H'] = df_top_kr['KOSPI'].rolling(20).max()
+        df_top_kr['RSI7_20H_kr'] = df_top_kr['KOSPI_RSI7'].rolling(20).max()
+        df_top_kr['RSI_Div'] = (df_top_kr['KOSPI'] >= df_top_kr['KOSPI_20H'] * 0.99) & (df_top_kr['KOSPI_RSI7'] < df_top_kr['RSI7_20H_kr'] - 5)
+        
+        _ema12_kr = df_top_kr['KOSPI'].ewm(span=12, adjust=False).mean()
+        _ema26_kr = df_top_kr['KOSPI'].ewm(span=26, adjust=False).mean()
+        df_top_kr['MACD'] = _ema12_kr - _ema26_kr
+        df_top_kr['MACD_Signal'] = df_top_kr['MACD'].ewm(span=9, adjust=False).mean()
+        df_top_kr['MACD_Hist'] = df_top_kr['MACD'] - df_top_kr['MACD_Signal']
+        
+        df_top_kr['KOSPI_MA20'] = df_top_kr['KOSPI'].rolling(20).mean()
+        df_top_kr['KOSPI_MA50'] = df_top_kr['KOSPI'].rolling(50).mean()
+        df_top_kr['MA20_Dev'] = (df_top_kr['KOSPI'] - df_top_kr['KOSPI_MA20']) / (df_top_kr['KOSPI_MA20'] + 1e-10) * 100
+        df_top_kr['MA50_Dev'] = (df_top_kr['KOSPI'] - df_top_kr['KOSPI_MA50']) / (df_top_kr['KOSPI_MA50'] + 1e-10) * 100
+        
+        df_top_kr['KOSPI_Vel'] = df_top_kr['KOSPI'].pct_change(5)
+        df_top_kr['KOSPI_Accel'] = df_top_kr['KOSPI_Vel'].diff(3)
+        df_top_kr['RU_Pct'] = df_top_kr['KOSPI_RU'].rolling(252, min_periods=60).rank(pct=True)
+        
+        _not_bottom_kr = ~is_any_bottom_kr.reindex(df_top_kr.index).fillna(False)
+        
+        # ===== 소분류 탭 구성 =====
+        top_sub_tabs_kr = st.tabs(['공탐변동', '슬로프합', '다중지표', '통합지표'])
+        
+        # ── 소분류 1: 공탐변동 고점 ──
+        with top_sub_tabs_kr[0]:
+            five_years_ago_top_kr = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
+            df_top1_kr = df_top_kr[df_top_kr.index >= five_years_ago_top_kr].copy()
+            
+            # 한국형 공탐/변동성 고점 조건
+            color_cond_map_top_kr = [
+                (((df_top1_kr['FearGreedIndex']>=90)&(df_top1_kr['VKOSPI']<=14)) & _not_bottom_kr, '#595959', '#FFFFFF', 'rgba(0,0,0,0.3)'),
+                (((df_top1_kr['FearGreedIndex']>=80)&(df_top1_kr['FearGreedIndex']<=89)&(df_top1_kr['VKOSPI']>=13)&(df_top1_kr['VKOSPI']<=16)) & _not_bottom_kr, '#E06666', '#FFFFFF', 'rgba(220,30,30,0.3)'),
+                (((df_top1_kr['FearGreedIndex']>=70)&(df_top1_kr['FearGreedIndex']<=79)&(df_top1_kr['VKOSPI']>=15)&(df_top1_kr['VKOSPI']<=18)) & _not_bottom_kr, '#FFD700', '#000000', 'rgba(255,220,0,0.3)'),
+                (((df_top1_kr['FearGreedIndex']>=60)&(df_top1_kr['FearGreedIndex']<=69)&(df_top1_kr['VKOSPI']>=17)&(df_top1_kr['VKOSPI']<=20)) & _not_bottom_kr, '#A9D08E', '#000000', 'rgba(0,128,0,0.3)'),
+            ]
+            
+            date_color_map_top_kr = {}
+            for cond, bg, fg, _ in reversed(color_cond_map_top_kr):
+                for d in df_top1_kr[cond].index:
+                    date_color_map_top_kr[d] = (bg, fg)
+            all_detected_sorted_top_kr = sorted(date_color_map_top_kr.keys(), reverse=True)[:100]
+            
+            TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+            TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
+            
+            date_cells_top_kr = "".join([f"<td style='background:{date_color_map_top_kr[d][0]};color:{date_color_map_top_kr[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted_top_kr]) if all_detected_sorted_top_kr else ""
+            vix_cells_top_kr = "".join([f"<td style='background:{date_color_map_top_kr[d][0]};color:{date_color_map_top_kr[d][1]};font-weight:bold;{TD_SIG}'>{df_top1_kr.loc[d, 'VKOSPI']:.2f}</td>" for d in all_detected_sorted_top_kr]) if all_detected_sorted_top_kr else ""
+            fgi_cells_top_kr = "".join([f"<td style='background:{date_color_map_top_kr[d][0]};color:{date_color_map_top_kr[d][1]};font-weight:bold;{TD_SIG}'>{df_top1_kr.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted_top_kr]) if all_detected_sorted_top_kr else ""
+            fv5_cells_top_kr = "".join([f"<td style='background:{date_color_map_top_kr[d][0]};color:{date_color_map_top_kr[d][1]};font-weight:bold;{TD_SIG}'>{df_top1_kr.loc[d, '(FGI-VIX)/5']:.2f}</td>" for d in all_detected_sorted_top_kr]) if all_detected_sorted_top_kr else ""
+            
+            st.markdown(
+                f"<div style='margin-bottom:0.2rem;'>"
+                f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 100개, 저점일 제외)</span>"
+                f"<div style='overflow-x:auto;margin-top:3px;'>"
+                f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
+                f"<tbody>"
+                f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells_top_kr}</tr>"
+                f"<tr><th style='{TH_SIG}'>VKOSPI</th>{vix_cells_top_kr}</tr>"
+                f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells_top_kr}</tr>"
+                f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells_top_kr}</tr>"
+                f"</tbody>"
+                f"</table>"
+                f"</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+            
+            fig_kr_top = make_subplots(specs=[[{"secondary_y": True}]])
+            hd1_kr_top = [fmt_date_kor(d) for d in df_top1_kr.index]
+            
+            fig_kr_top.add_trace(go.Scatter(x=hd1_kr_top, y=df_top1_kr['KOSPI'], name='KOSPI 가격', mode='lines+markers', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)), hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
+            fig_kr_top.add_trace(go.Scatter(x=hd1_kr_top, y=df_top1_kr['VKOSPI'], name='VKOSPI', line=dict(color='rgba(0, 0, 255, 0.75)', width=0.5), hovertemplate='VKOSPI: %{y:.2f}<extra></extra>'), secondary_y=True)
+            fig_kr_top.add_trace(go.Scatter(x=hd1_kr_top, y=df_top1_kr['FearGreedIndex'], name='FGI', line=dict(color='rgba(128, 0, 128, 0.75)', width=0.5), hovertemplate='FGI: %{y:.1f}<extra></extra>'), secondary_y=True)
+            fig_kr_top.add_trace(go.Scatter(x=hd1_kr_top, y=df_top1_kr['(FGI-VIX)/5'], name='(FGI-VKOSPI)/5', line=dict(color='rgba(255, 165, 0, 0.75)', width=0.5), hovertemplate='(FGI-VKOSPI)/5: %{y:.2f}<extra></extra>'), secondary_y=True)
+            
+            max_kospi_top_kr = float(df_top1_kr['KOSPI'].max()) * 1.2
+            for cond, _bg, _fg, fc in color_cond_map_top_kr:
+                fig_kr_top.add_trace(go.Bar(x=hd1_kr_top, y=cond.astype(int) * max_kospi_top_kr, marker_color=fc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
+                
+            if active_period_days:
+                target_date_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                detected_indices_kr = [i for i, d in enumerate(df_top1_kr.index) if d >= pd.to_datetime(target_date_kr)]
+                initial_x_range_kr = [detected_indices_kr[0], len(hd1_kr_top) - 1] if detected_indices_kr else None
+                if detected_indices_kr:
+                    kospi_1y = df_top1_kr['KOSPI'].iloc[detected_indices_kr[0]:]
+                    k_min, k_max = float(kospi_1y.min()), float(kospi_1y.max())
+                    kospi_y_range = [k_min * 0.95, k_max * 1.05]
+                else:
+                    kospi_y_range = [float(df_top1_kr['KOSPI'].min()) * 0.95, float(df_top1_kr['KOSPI'].max()) * 1.05]
+            else:
+                initial_x_range_kr = None
+                k_min, k_max = float(df_top1_kr['KOSPI'].min()), float(df_top1_kr['KOSPI'].max())
+                kospi_y_range = [k_min * 0.95, k_max * 1.05]
+                
+            fig_kr_top.update_layout(**COMMON_LAYOUT, height=320, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
+            if initial_x_range_kr:
+                fig_kr_top.update_xaxes(range=initial_x_range_kr, type='category', **crosshair_xaxis())
+            else:
+                fig_kr_top.update_xaxes(type='category', **crosshair_xaxis())
+            fig_kr_top.update_yaxes(range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, title_text="")
+            fig_kr_top.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
+            
+            st.plotly_chart(fig_kr_top, width='stretch', config=COMMON_CONFIG, key="tab4_kr_top_chart")
+            
+            fgi_conditions_kr_top = {
+                "**검정색 (극강 과열)**": (color_cond_map_top_kr[0][0], "FGI>=90 & VKOSPI<=14"),
+                "**빨간색 (강력 과열)**": (color_cond_map_top_kr[1][0], "FGI 80~89 & VKOSPI 13~16"),
+                "**노란색 (주의 과열)**": (color_cond_map_top_kr[2][0], "FGI 70~79 & VKOSPI 15~18"),
+                "**초록색 (초기 과열)**": (color_cond_map_top_kr[3][0], "FGI 60~69 & VKOSPI 17~20"),
+            }
+            stats_kr_top = calculate_top_stats(df_top1_kr, 'KOSPI', fgi_conditions_kr_top)
+            st.markdown("<br>", unsafe_allow_html=True)
+            render_top_stats_table(stats_kr_top, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            
+        # ── 소분류 2: 슬로프합 고점 ──
+        with top_sub_tabs_kr[1]:
+            SLOPE_TOP_CHARTS_KR = [
+                (2, 10, '슬로프10일합', 15),
+                (3, 20, '슬로프20일합', 20),
+                (4, 30, '슬로프30일합', 25),
+                (5, 40, '슬로프40일합', 30),
+                (6, 50, '슬로프50일합', 35),
+                (7, 60, '슬로프60일합', 40),
+                (8, 70, '슬로프70일합', 45),
+            ]
+            
+            slope_detect_count_top_kr = sum(((df_top_kr[sfc] >= thresh)).astype(int) for _, _, sfc, thresh in SLOPE_TOP_CHARTS_KR)
+            df_top_kr['slope_detect_count_top'] = slope_detect_count_top_kr
+            
+            all_top_sl_kr_top = []
+            for _, days_t, sfc, thresh in SLOPE_TOP_CHARTS_KR:
+                _cond_sl = (df_top_kr[sfc] >= thresh) & _not_bottom_kr
+                all_top_sl_kr_top.extend(df_top_kr[_cond_sl].index.tolist())
+            dc_top_sl_kr_top = Counter(all_top_sl_kr_top)
+            parent_dates_sl_kr_top = sorted(list(set(all_top_sl_kr_top)), reverse=True)
+            
+            if parent_dates_sl_kr_top:
+                r100_sl_kr_top = parent_dates_sl_kr_top[:100]
+                dates_row_sl_kr_top = []
+                counts_row_sl_kr_top = []
+                for dt in r100_sl_kr_top:
+                    cnt = dc_top_sl_kr_top.get(dt, 1)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF" if cnt in [1, 2, 5, 6, 7] else "#000"
+                    dates_row_sl_kr_top.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_TOP_CHARTS_KR:
+                        if dt in df_top_kr.index and df_top_kr.loc[dt, sc_col] >= th:
+                            val_diff_pct = (df_top_kr.loc[dt, sc_col] - th) / abs(th)
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E'
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFFF99'
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666'
+                            else:
+                                color = '#595959'
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                        else:
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl_kr_top.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개, 저점일 제외)</span>
+                <table style='border-collapse:collapse;margin-top:3px;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl_kr_top)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>이탈</th>
+                        {"".join(counts_row_sl_kr_top)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            hd_df_kr_top = [fmt_date_kor(d) for d in df_top_kr.index]
+            
+            bottom_slope_options_kr_top = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_bottom_slopes_kr_top = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options_kr_top, default=["슬로프통합"], key="bottom_slope_multiselect_kr_top")
+            
+            if not selected_bottom_slopes_kr_top:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요.")
+            else:
+                num_charts_kr_top = len(selected_bottom_slopes_kr_top)
+                fig_dsi_kr_top = make_subplots(rows=num_charts_kr_top, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts_kr_top > 1 else 0.0,
+                    subplot_titles=tuple(selected_bottom_slopes_kr_top),
+                    specs=[[{"secondary_y": True}]]*num_charts_kr_top)
+                
+                chart_info_map_kr_top = {
+                    10: ('슬로프10일합', 15),
+                    20: ('슬로프20일합', 20),
+                    30: ('슬로프30일합', 25),
+                    40: ('슬로프40일합', 30),
+                    50: ('슬로프50일합', 35),
+                    60: ('슬로프60일합', 40),
+                    70: ('슬로프70일합', 45),
+                }
+                
+                for idx, choice in enumerate(selected_bottom_slopes_kr_top):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)',
+                            2: 'rgba(255, 140, 0, 0.45)',
+                            3: 'rgba(255, 255, 153, 0.45)',
+                            4: 'rgba(169, 208, 142, 0.45)',
+                            5: 'rgba(135, 206, 235, 0.45)',
+                            6: 'rgba(0, 0, 128, 0.45)',
+                            7: 'rgba(128, 0, 128, 0.45)'
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df_top_kr['slope_detect_count_top'] == cnt_val) & _not_bottom_kr
+                            fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=cond_bar.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map_kr_top[days]
+                        
+                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=df_top_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=[-thresh]*len(hd_df_kr_top),name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=[thresh]*len(hd_df_kr_top),name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        diff_pct = (df_top_kr[sc] - thresh) / abs(thresh)
+                        bottom_cond_vals = [
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40) & _not_bottom_kr), 'rgba(76, 175, 80, 0.35)'),
+                            (((diff_pct > 0.40) & (diff_pct <= 0.60) & _not_bottom_kr), 'rgba(255, 220, 0, 0.3)'),
+                            (((diff_pct > 0.60) & (diff_pct <= 0.80) & _not_bottom_kr), 'rgba(220, 30, 30, 0.3)'),
+                            (((diff_pct > 0.80) & _not_bottom_kr), 'rgba(0, 0, 0, 0.35)'),
+                        ]
+                        for tc, tfc in bottom_cond_vals:
+                            fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=tc.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_dsi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_indices_dsi_kr = [i for i, d in enumerate(df_top_kr.index) if d >= pd.to_datetime(target_date_dsi_kr)]
+                    initial_x_range_dsi_kr = [detected_indices_dsi_kr[0], len(hd_df_kr_top) - 1] if detected_indices_dsi_kr else None
+                    if detected_indices_dsi_kr:
+                        kospi_1y_dsi = df_top_kr['KOSPI'].iloc[detected_indices_dsi_kr[0]:]
+                        kmin_dsi, kmax_dsi = float(kospi_1y_dsi.min()), float(kospi_1y_dsi.max())
+                    else:
+                        kmin_dsi, kmax_dsi = float(df_top_kr['KOSPI'].min()), float(df_top_kr['KOSPI'].max())
+                else:
+                    initial_x_range_dsi_kr = None
+                    kmin_dsi, kmax_dsi = float(df_top_kr['KOSPI'].min()), float(df_top_kr['KOSPI'].max())
+                
+                chart_height_kr = max(400, num_charts_kr_top * 300)
+                layout_params_kr = COMMON_LAYOUT.copy()
+                layout_params_kr.pop('shapes', None)
+                
+                shapes_kr = []
+                for idx in range(num_charts_kr_top):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes_kr.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    
+                fig_dsi_kr_top.update_layout(**layout_params_kr, height=chart_height_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
+                
+                for idx, choice in enumerate(selected_bottom_slopes_kr_top):
+                    row_i = idx + 1
+                    fig_dsi_kr_top.update_yaxes(range=[kmin_dsi*0.95,kmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_dsi_kr_top.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_dsi_kr_top.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_range_dsi_kr:
+                    fig_dsi_kr_top.update_xaxes(range=initial_x_range_dsi_kr, type='category', **crosshair_xaxis())
+                else:
+                    fig_dsi_kr_top.update_xaxes(type='category', **crosshair_xaxis())
+                fig_dsi_kr_top.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_dsi_kr_top, width='stretch', config=COMMON_CONFIG, key="tab4_kr_slope_chart_top")
+                
+            slope_conditions_kr_top = {
+                "**10일합 이탈**": (df_top_kr['슬로프10일합'] >= 15, "10일슬로프합 >= 15"),
+                "**20일합 이탈**": (df_top_kr['슬로프20일합'] >= 20, "20일슬로프합 >= 20"),
+                "**30일합 이탈**": (df_top_kr['슬로프30일합'] >= 25, "30일슬로프합 >= 25"),
+                "**40일합 이탈**": (df_top_kr['슬로프40일합'] >= 30, "40일슬로프합 >= 30"),
+                "**50일합 이탈**": (df_top_kr['슬로프50일합'] >= 35, "50일슬로프합 >= 35"),
+                "**60일합 이탈**": (df_top_kr['슬로프60일합'] >= 40, "60일슬로프합 >= 40"),
+                "**70일합 이탈**": (df_top_kr['슬로프70일합'] >= 45, "70일슬로프합 >= 45"),
+                "**슬로프합 종합 감지**": (
+                    ((df_top_kr['슬로프10일합'] >= 15) | (df_top_kr['슬로프20일합'] >= 20) | (df_top_kr['슬로프30일합'] >= 25) | 
+                     (df_top_kr['슬로프40일합'] >= 30) | (df_top_kr['슬로프50일합'] >= 35) | (df_top_kr['슬로프60일합'] >= 40) | (df_top_kr['슬로프70일합'] >= 45)) & _not_bottom_kr,
+                    "1개 이상 지표 이탈"
+                ),
+                "**슬로프합 강력 이탈**": (
+                    (((df_top_kr['슬로프10일합'] >= 15).astype(int) + 
+                      (df_top_kr['슬로프20일합'] >= 20).astype(int) + 
+                      (df_top_kr['슬로프30일합'] >= 25).astype(int) + 
+                      (df_top_kr['슬로프40일합'] >= 30).astype(int) + 
+                      (df_top_kr['슬로프50일합'] >= 35).astype(int) + 
+                      (df_top_kr['슬로프60일합'] >= 40).astype(int) + 
+                      (df_top_kr['슬로프70일합'] >= 45).astype(int)) >= 4) & _not_bottom_kr,
+                    "4개 이상 지표 동시 이탈"
+                )
+            }
+            stats_slope_kr_top = calculate_top_stats(df_top_kr, 'KOSPI', slope_conditions_kr_top)
+            st.markdown("<br>", unsafe_allow_html=True)
+            render_top_stats_table(stats_slope_kr_top, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            
+        # ── 소분류 3: 다중지표 고점 ──
+        with top_sub_tabs_kr[2]:
+            top_multi_conditions_list_kr = [
+                # 지표개발 반전 19개
+                ((df_top_kr['KOSPI_%B'] * (df_top_kr['HYG_RSI'] / 100) >= 0.85) & (df_top_kr['VKOSPI'] <= 14)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * np.exp(-df_top_kr['TNX_ROC'] * 2) >= 70) & (df_top_kr['VKOSPI'] <= 14)) & _not_bottom_kr,
+                (((df_top_kr['FearGreedIndex'] - 50) / 20 + (df_top_kr['KOSPI_RSI'] - 50) / 15 + (df_top_kr['KOSPI_%B'] - 0.5) / 0.25 - df_top_kr['VKOSPI_Z']) >= 4.0) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_%B'] >= 0.95) & (df_top_kr['FearGreedIndex'] >= 85) & (df_top_kr['VKOSPI'] <= 13)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_%B'] >= 0.98) & (df_top_kr['FearGreedIndex'] >= 88)) & _not_bottom_kr,
+                ((df_top_kr['슬로프10일합'] >= 40) & (df_top_kr['VKOSPI'] <= 13) & (df_top_kr['FearGreedIndex'] >= 80)) & _not_bottom_kr,
+                ((df_top_kr['슬로프40일합'] >= 70) & (df_top_kr['FearGreedIndex'] >= 82) & (df_top_kr['KOSPI_%B'] >= 0.90)) & _not_bottom_kr,
+                ((df_top_kr['HYG_RSI'] >= 82) & (df_top_kr['VKOSPI'] <= 13)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] >= 88) & (df_top_kr['VKOSPI'] <= 14) & (df_top_kr['HYG_RSI'] >= 78)) & _not_bottom_kr,
+                ((df_top_kr['슬로프5일합'] >= 35) & (df_top_kr['KOSPI_RSI'] >= 78) & (df_top_kr['VKOSPI'] <= 13)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_RSI7'] >= 85) & (df_top_kr['FearGreedIndex'] >= 82)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_RSI7'] >= 82) & (df_top_kr['FearGreedIndex'] >= 88)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_RSI7'] >= 80) & (df_top_kr['FearGreedIndex'] >= 88)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_RSI7'] >= 78) & (df_top_kr['FearGreedIndex'] >= 88)) & _not_bottom_kr,
+                ((df_top_kr['VVIX_Z'] <= -2.5) & (df_top_kr['FearGreedIndex'] >= 85)) & _not_bottom_kr,
+                ((df_top_kr['VVIX_Z'] <= -2.0) & (df_top_kr['FearGreedIndex'] >= 80)) & _not_bottom_kr,
+                ((df_top_kr['VVIX_Pct'] <= 0.10) & (df_top_kr['FearGreedIndex'] >= 90)) & _not_bottom_kr,
+                ((df_top_kr['VVIX_Pct'] <= 0.10) & (df_top_kr['KOSPI_RSI7'] >= 78)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'].diff(7) >= 20) & (df_top_kr['VKOSPI_Pct'] <= 0.15)) & _not_bottom_kr,
+                # 적중집중 반전 10개
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 72) & (df_top_kr['VVIX_Pct'] <= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 60) & (df_top_kr['VVIX_Pct'] <= 0.30)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / (df_top_kr['VVIX'] + 1e-5)) >= 6.5) & (df_top_kr['FearGreedIndex'] >= 82) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                (((1000 / (df_top_kr['VKOSPI'] * df_top_kr['VVIX'] + 1e-5)) >= 1.0) & (df_top_kr['FearGreedIndex'] >= 90) & (df_top_kr['KOSPI_RU'] >= 0.25)) & _not_bottom_kr,
+                (((1000 / (df_top_kr['VKOSPI'] * df_top_kr['VVIX'] + 1e-5)) >= 1.0) & (df_top_kr['FearGreedIndex'] >= 90) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 65) & (df_top_kr['VVIX_Pct'] <= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 50) & (df_top_kr['VVIX_Pct'] <= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 72) & (df_top_kr['VVIX_Pct'] <= 0.20)) & _not_bottom_kr,
+                ((np.log(np.maximum(-df_top_kr['VVIX_Z'] + 5.0, 1e-5)) * (1 - df_top_kr['VKOSPI_Pct']) >= 1.0) & (df_top_kr['FearGreedIndex'] >= 88) & (df_top_kr['KOSPI_%B'] >= 0.85)) & _not_bottom_kr,
+                (((100 - df_top_kr['FearGreedIndex']) * np.exp(-df_top_kr['TNX_ROC'] * 3) <= 15) & (df_top_kr['KOSPI_RSI7'] >= 72) & (df_top_kr['VKOSPI_Pct'] <= 0.20)) & _not_bottom_kr,
+                # 균형집중 반전 10개
+                (((df_top_kr['KOSPI_RSI7'] / (df_top_kr['VVIX'] + 1e-5)) >= 5.5) & (df_top_kr['FearGreedIndex'] >= 70) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / (df_top_kr['VVIX'] + 1e-5)) >= 4.5) & (df_top_kr['FearGreedIndex'] >= 78) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_%B'] >= 0.90) & (df_top_kr['KOSPI_RSI7'] >= 60) & (df_top_kr['FearGreedIndex'] >= 70) & (df_top_kr['VKOSPI_Pct'] <= 0.40) & (df_top_kr['VVIX_Pct'] <= 0.50)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / 100) + df_top_kr['RU_Pct'] * 3 >= 2.5) & (df_top_kr['FGI_Pct'] >= 0.70)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / 100) + df_top_kr['RU_Pct'] * 4 >= 3.0) & (df_top_kr['FGI_Pct'] >= 0.70)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_%B'] >= 0.85) & (df_top_kr['KOSPI_RSI7'] >= 65) & (df_top_kr['FearGreedIndex'] >= 80) & (df_top_kr['VKOSPI_Pct'] <= 0.40) & (df_top_kr['VVIX_Pct'] <= 0.50)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 60) & (df_top_kr['VVIX_Pct'] <= 0.50) & (df_top_kr['RU_Pct'] >= 0.70)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 70) & (df_top_kr['VVIX_Pct'] <= 0.50) & (df_top_kr['RU_Pct'] >= 0.40)) & _not_bottom_kr,
+                ((df_top_kr['VKOSPI_Z'] * df_top_kr['VVIX_Z'] >= 0.8) & (df_top_kr['FearGreedIndex'] >= 88) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['VKOSPI_Z'] * df_top_kr['VVIX_Z'] >= 1.0) & (df_top_kr['FearGreedIndex'] >= 88) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                # 포착집중 반전 10개
+                (((df_top_kr['KOSPI_RSI7'] / (df_top_kr['VVIX'] + 1e-5)) >= 3.5) & (df_top_kr['FearGreedIndex'] >= 60) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / (df_top_kr['VVIX'] + 1e-5)) >= 4.0) & (df_top_kr['FearGreedIndex'] >= 55) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_%B'] >= 0.75) & (df_top_kr['KOSPI_RSI7'] >= 50) & (df_top_kr['FearGreedIndex'] >= 60) & (df_top_kr['VKOSPI_Pct'] <= 0.60) & (df_top_kr['VVIX_Pct'] <= 0.60)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / 100) + df_top_kr['RU_Pct'] * 2 >= 2.0) & (df_top_kr['FGI_Pct'] >= 0.65)) & _not_bottom_kr,
+                ((df_top_kr['KOSPI_%B'] >= 0.80) & (df_top_kr['KOSPI_RSI7'] >= 50) & (df_top_kr['FearGreedIndex'] >= 55) & (df_top_kr['VKOSPI_Pct'] <= 0.60) & (df_top_kr['VVIX_Pct'] <= 0.60)) & _not_bottom_kr,
+                (((df_top_kr['KOSPI_RSI7'] / 100) + df_top_kr['RU_Pct'] * 2 >= 1.5) & (df_top_kr['FGI_Pct'] >= 0.65)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 45) & (df_top_kr['VVIX_Pct'] <= 0.70) & (df_top_kr['RU_Pct'] >= 0.50)) & _not_bottom_kr,
+                ((df_top_kr['FearGreedIndex'] * df_top_kr['KOSPI_%B'] >= 50) & (df_top_kr['VVIX_Pct'] <= 0.70) & (df_top_kr['RU_Pct'] >= 0.50)) & _not_bottom_kr,
+                ((df_top_kr['VKOSPI_Z'] * df_top_kr['VVIX_Z'] >= 0.3) & (df_top_kr['FearGreedIndex'] >= 82) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+                ((df_top_kr['VKOSPI_Z'] * df_top_kr['VVIX_Z'] >= 0.5) & (df_top_kr['FearGreedIndex'] >= 82) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _not_bottom_kr,
+            ]
+            
+            df_top_kr['top_multi_count'] = sum(cond.reindex(df_top_kr.index).fillna(False).astype(int) for cond in top_multi_conditions_list_kr)
+            
+            if active_period_days:
+                target_date_tm = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                detected_tm = [i for i, d in enumerate(df_top_kr.index) if d >= pd.to_datetime(target_date_tm)]
+                initial_x_tm = [detected_tm[0], len(df_top_kr.index) - 1] if detected_tm else None
+                if detected_tm:
+                    kospi_1y_tm = df_top_kr['KOSPI'].iloc[detected_tm[0]:]
+                    kospi_yr_tm = [float(kospi_1y_tm.min()) * 0.95, float(kospi_1y_tm.max()) * 1.05]
+                else:
+                    kospi_yr_tm = [float(df_top_kr['KOSPI'].min()) * 0.95, float(df_top_kr['KOSPI'].max()) * 1.05]
+            else:
+                initial_x_tm = None
+                kospi_yr_tm = [float(df_top_kr['KOSPI'].min()) * 0.95, float(df_top_kr['KOSPI'].max()) * 1.05]
+            
+            max_kospi_tm = float(df_top_kr['KOSPI'].max()) * 1.2
+            
+            top_cond_map_kr = [
+                ((df_top_kr['top_multi_count'] >= 1) & (df_top_kr['top_multi_count'] <= 7), 'rgba(224,102,102,0.5)', '#E06666', '1~7개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 8) & (df_top_kr['top_multi_count'] <= 14), 'rgba(255,140,0,0.5)', '#FF8C00', '8~14개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 15) & (df_top_kr['top_multi_count'] <= 21), 'rgba(255,255,153,0.5)', '#FFFF99', '15~21개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 22) & (df_top_kr['top_multi_count'] <= 28), 'rgba(169,208,142,0.5)', '#A9D08E', '22~28개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 29) & (df_top_kr['top_multi_count'] <= 35), 'rgba(135,206,235,0.5)', '#87CEEB', '29~35개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 36) & (df_top_kr['top_multi_count'] <= 42), 'rgba(0,0,128,0.5)', '#000080', '36~42개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 43) & (df_top_kr['top_multi_count'] <= 49), 'rgba(128,0,128,0.5)', '#800080', '43~49개 감지'), 
+            ]
+            
+            df_sig_tm_kr = df_top_kr[df_top_kr['top_multi_count'] >= 1].sort_index(ascending=False).head(100)
+            if not df_sig_tm_kr.empty:
+                dates_row_tm_kr = []
+                counts_row_tm_kr = []
+                for dt, row in df_sig_tm_kr.iterrows():
+                    cnt = row['top_multi_count']
+                    bg = '#E06666'
+                    for c, bar_c, tbl_c, lbl in top_cond_map_kr:
+                        if c.loc[dt]:
+                            bg = tbl_c
+                            break
+                    fg = "#FFF" if bg in ['#E06666', '#000080', '#800080'] else "#000"
+                    dates_row_tm_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    counts_row_tm_kr.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 49지표 고점 감지 신호 (최근 100개, 저점일 제외)</span>
+                <table style='border-collapse:collapse;margin-top:3px;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_tm_kr)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>갯수</th>
+                        {"".join(counts_row_tm_kr)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            fig_top_multi_kr = make_subplots(specs=[[{"secondary_y": True}]])
+            hd_top_multi_kr = [fmt_date_kor(d) for d in df_top_kr.index]
+            
+            fig_top_multi_kr.add_trace(go.Scatter(x=hd_top_multi_kr, y=df_top_kr['KOSPI'], name='KOSPI 가격', mode='lines+markers',
+                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+                marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
+                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
+            
+            for cond, bar_color, tbl_color, label in top_cond_map_kr:
+                fig_top_multi_kr.add_trace(go.Bar(x=hd_top_multi_kr, y=cond.astype(int).values * max_kospi_tm,
+                    marker_color=bar_color, showlegend=False, hoverinfo='skip',
+                    marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
+            
+            fig_top_multi_kr.update_layout(**COMMON_LAYOUT, height=400, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
+                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
+            if initial_x_tm:
+                fig_top_multi_kr.update_xaxes(range=initial_x_tm, type='category', **crosshair_xaxis())
+            else:
+                fig_top_multi_kr.update_xaxes(type='category', **crosshair_xaxis())
+            fig_top_multi_kr.update_yaxes(range=kospi_yr_tm, **crosshair_yaxis(), secondary_y=False, title_text="")
+            fig_top_multi_kr.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
+            
+            st.plotly_chart(fig_top_multi_kr, width='stretch', config=COMMON_CONFIG, key="top_tab_multi_chart_kr")
+            
+            top_multi_verify_kr = {
+                "**빨간색**": (top_cond_map_kr[0][0], top_cond_map_kr[0][3]),
+                "**주황색**": (top_cond_map_kr[1][0], top_cond_map_kr[1][3]),
+                "**노란색**": (top_cond_map_kr[2][0], top_cond_map_kr[2][3]),
+                "**초록색**": (top_cond_map_kr[3][0], top_cond_map_kr[3][3]),
+                "**파란색**": (top_cond_map_kr[4][0], top_cond_map_kr[4][3]),
+                "**남색**":   (top_cond_map_kr[5][0], top_cond_map_kr[5][3]),
+                "**보라색**": (top_cond_map_kr[6][0], top_cond_map_kr[6][3]),
+            }
+            stats_top_multi_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_multi_verify_kr)
+            st.markdown("<br>", unsafe_allow_html=True)
+            render_top_stats_table(stats_top_multi_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            
+        # ── 소분류 4: 통합지표 고점 ──
+        with top_sub_tabs_kr[3]:
+            _nb_top2_kr = _not_bottom_kr.reindex(df_top_kr.index).fillna(True)
+            
+            energy_top_kr = (df_top_kr['FearGreedIndex']/100) * df_top_kr['KOSPI_%B'] * (df_top_kr['KOSPI_RSI7']/100)
+            c_top_1_kr = ((energy_top_kr >= 0.55) & (df_top_kr['VKOSPI_Pct'] <= 0.20)) & _nb_top2_kr
+            
+            c_top_2_kr = ((df_top_kr['RSI_Div']) & (df_top_kr['KOSPI_RU'] >= 0.30)) & _nb_top2_kr
+            
+            c_top_3_kr = ((df_top_kr['MACD_Hist'].diff() < 0) & (df_top_kr['MACD_Hist'] > 0) & (df_top_kr['KOSPI_%B'] >= 0.90) & (df_top_kr['VKOSPI_Pct'] <= 0.20)) & _nb_top2_kr
+            
+            c_top_4_kr = ((df_top_kr['SKEW'] >= 145) & (df_top_kr['VKOSPI'] <= 15) & (df_top_kr['KOSPI_RSI7'] >= 70)) & _nb_top2_kr
+            
+            c_top_all_kr = c_top_1_kr | c_top_2_kr | c_top_3_kr | c_top_4_kr
+            
+            triggered_dates_top_kr = df_top_kr[c_top_all_kr].index.sort_values(ascending=False)
+            recent_100_top_kr = triggered_dates_top_kr[:100]
+            if len(recent_100_top_kr) > 0:
+                dates_row_top_kr = ""
+                for dt in recent_100_top_kr:
+                    dates_row_top_kr += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                
+                table_html_top_kr = f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 통합 고점 신호 (최근 100개, 저점일 제외)</span>
+                <table style='border-collapse:collapse;margin-top:3px;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
+                        {dates_row_top_kr}
+                    </tr>
+                </table>
+                </div>
+                """
+                st.markdown(table_html_top_kr, unsafe_allow_html=True)
+                
+            if active_period_days:
+                target_date_tt_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                df_top_plot_kr = df_top_kr[df_top_kr.index >= pd.to_datetime(target_date_tt_kr)]
+                if not df_top_plot_kr.empty:
+                    kospi_yr_tt = [float(df_top_plot_kr['KOSPI'].min()) * 0.95, float(df_top_plot_kr['KOSPI'].max()) * 1.05]
+                    initial_x_tt = [df_top_plot_kr.index[0].strftime("%Y-%m-%d"), df_top_plot_kr.index[-1].strftime("%Y-%m-%d")]
+                else:
+                    kospi_yr_tt = None
+                    initial_x_tt = None
+            else:
+                df_top_plot_kr = df_top_kr.copy()
+                if not df_top_plot_kr.empty:
+                    kospi_yr_tt = [float(df_top_plot_kr['KOSPI'].min()) * 0.95, float(df_top_plot_kr['KOSPI'].max()) * 1.05]
+                    initial_x_tt = [df_top_plot_kr.index[0].strftime("%Y-%m-%d"), df_top_plot_kr.index[-1].strftime("%Y-%m-%d")]
+                else:
+                    kospi_yr_tt = None
+                    initial_x_tt = None
+            
+            fig_top_final_kr = make_subplots(specs=[[{"secondary_y": True}]])
+            hd_top_final_kr = [fmt_date_kor(d) for d in df_top_plot_kr.index]
+            
+            fig_top_final_kr.add_trace(go.Scatter(
+                x=hd_top_final_kr, y=df_top_plot_kr['KOSPI'], name='KOSPI 가격', mode='lines+markers',
+                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
+                marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
+                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
+            ), secondary_y=False)
+            
+            fig_top_final_kr.add_trace(go.Bar(
+                x=hd_top_final_kr, y=c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000), name='통합 고점 감지 (OR)',
+                marker_color='rgba(128, 0, 128, 0.7)',
+                marker_line_width=0.5, marker_line_color='white',
+                hovertemplate='고점 신호 감지<extra></extra>'
+            ), secondary_y=False)
+            
+            fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
+            fig_top_final_kr.update_xaxes(type='category', **crosshair_xaxis())
+            if initial_x_tt:
+                fig_top_final_kr.update_xaxes(range=initial_x_tt)
+            fig_top_final_kr.update_yaxes(title_text="", range=kospi_yr_tt, **crosshair_yaxis(), secondary_y=False)
+            fig_top_final_kr.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
+            
+            st.plotly_chart(fig_top_final_kr, width='stretch', config=COMMON_CONFIG, key="top_tab_final_chart_kr")
+            
+            top_final_conditions_kr = {
+                "**최종 4대 통합 고점지표 (OR)**": (c_top_all_kr, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
+            }
+            stats_top_final_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_final_conditions_kr)
+            render_top_stats_table(stats_top_final_kr, "통합 고점지표 검증 결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
 
