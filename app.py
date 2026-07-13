@@ -622,7 +622,12 @@ def fetch_and_process_data():
     df_s['슬로프5일합'] = slope_sum_lagged(sl, 5)
     df_s['슬로프10일합'] = slope_sum_lagged(sl, 10)
     df_s['슬로프20일합'] = slope_sum_lagged(sl, 20)
+    df_s['슬로프30일합'] = slope_sum_lagged(sl, 30)
     df_s['슬로프40일합'] = slope_sum_lagged(sl, 40)
+    df_s['슬로프50일합'] = slope_sum_lagged(sl, 50)
+    df_s['슬로프60일합'] = slope_sum_lagged(sl, 60)
+    df_s['슬로프70일합'] = slope_sum_lagged(sl, 70)
+    df_s['슬로프80일합'] = slope_sum_lagged(sl, 80)
     df_s['5일상한'] = 20;  df_s['5일하한'] = -20
     df_s['10일상한'] = 30; df_s['10일하한'] = -30
     df_s['20일상한'] = 40; df_s['20일하한'] = -40
@@ -920,8 +925,8 @@ with st.spinner('데이터 로딩 중...'):
     df_dram = update_and_get_dram_history()
     df_mon = fetch_monitoring_data()
 
-# 탭 구성: 공탐변동 / 슬로프합 / 다중지표 / 통합지표 / 모니터링 / 메모리 / 고점지표 / 고점개발 / 고점개발2
-tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표', '모니터링', '메모리', '고점지표', '고점개발', '고점개발2']
+# 탭 구성: 공탐변동 / 슬로프합 / 다중지표 / 통합지표 / 모니터링 / 메모리 / 고점지표
+tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표', '모니터링', '메모리', '고점지표']
 tabs = st.tabs(tab_names)
 
 # ── Tab 1: 공탐변동 ──
@@ -941,7 +946,7 @@ with tabs[0]:
         for cond, bg, fg, _ in reversed(color_cond_map):
             for d in df1[cond].index:
                 date_color_map[d] = (bg, fg)
-        all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:50]
+        all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:100]
 
         TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
         TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
@@ -953,7 +958,7 @@ with tabs[0]:
         
         st.markdown(
             f"<div style='margin-bottom:0.2rem;'>"
-            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 50개)</span>"
+            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 100개)</span>"
             f"<div style='overflow-x:auto;margin-top:3px;'>"
             f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
             f"<tbody>"
@@ -1065,7 +1070,7 @@ with tabs[0]:
         for cond, bg, fg, _ in reversed(color_cond_map_kr):
             for d in df1_kr[cond].index:
                 date_color_map_kr[d] = (bg, fg)
-        all_detected_sorted_kr = sorted(date_color_map_kr.keys(), reverse=True)[:50]
+        all_detected_sorted_kr = sorted(date_color_map_kr.keys(), reverse=True)[:100]
 
         TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
         TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
@@ -1077,7 +1082,7 @@ with tabs[0]:
         
         st.markdown(
             f"<div style='margin-bottom:0.2rem;'>"
-            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 50개)</span>"
+            f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 100개)</span>"
             f"<div style='overflow-x:auto;margin-top:3px;'>"
             f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
             f"<tbody>"
@@ -1172,10 +1177,10 @@ with tabs[1]:
         parent_dates = sorted(list(set(all_fd)), reverse=True)
         
         if parent_dates:
-            r50 = parent_dates[:50]
+            r100 = parent_dates[:100]
             dates_row = []
             counts_row = []
-            for dt in r50:
+            for dt in r100:
                 cnt = dc_top.get(dt, 1)
                 bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
                 fg = "#FFF" if cnt>=3 else "#000"
@@ -1204,7 +1209,7 @@ with tabs[1]:
             
             top_html_transposed = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 50개)</span>
+            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
             <table style='border-collapse:collapse;margin-top:3px;'>
                 <tr>
                     <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -1351,10 +1356,10 @@ with tabs[1]:
         parent_dates_kr = sorted(list(set(all_fd_kr)), reverse=True)
         
         if parent_dates_kr:
-            r50_kr = parent_dates_kr[:50]
+            r100_kr = parent_dates_kr[:100]
             dates_row_kr = []
             counts_row_kr = []
-            for dt in r50_kr:
+            for dt in r100_kr:
                 cnt = dc_top_kr.get(dt, 1)
                 bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
                 fg = "#FFF" if cnt>=3 else "#000"
@@ -1383,7 +1388,7 @@ with tabs[1]:
             
             top_html_transposed_kr = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 50개)</span>
+            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
             <table style='border-collapse:collapse;margin-top:3px;'>
                 <tr>
                     <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -1616,8 +1621,8 @@ with tabs[2]:
             ((df_multi['multi_count'] >= 43) & (df_multi['multi_count'] <= 49), '#800080', '43~49개 감지'), # 보라색
         ]
         
-        # 표 생성을 위한 데이터 준비 (최근 50개)
-        df_sig = df_multi[df_multi['multi_count'] >= 1].sort_index(ascending=False).head(50)
+        # 표 생성을 위한 데이터 준비 (최근 100개)
+        df_sig = df_multi[df_multi['multi_count'] >= 1].sort_index(ascending=False).head(100)
         
         if not df_sig.empty:
             dates_row_multi = []
@@ -1638,7 +1643,7 @@ with tabs[2]:
                 
             top_html_multi = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 49지표 갯수 감지 신호 (최근 50개)</span>
+            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 49지표 갯수 감지 신호 (최근 100개)</span>
             <table style='border-collapse:collapse;margin-top:3px;'>
                 <tr>
                     <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -1797,15 +1802,15 @@ with tabs[3]:
         c_or_final = c_all_1 | c2_2 | c4_2
 
         triggered_dates = df_pre[c_or_final].index.sort_values(ascending=False)
-        recent_50 = triggered_dates[:50]
-        if len(recent_50) > 0:
+        recent_100 = triggered_dates[:100]
+        if len(recent_100) > 0:
             dates_row = ""
-            for dt in recent_50:
+            for dt in recent_100:
                 dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
             
             table_html = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 3대 기발한 아이디어 감지 신호 (최근 50개)</span>
+            <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 3대 기발한 아이디어 감지 신호 (최근 100개)</span>
             <table style='border-collapse:collapse;margin-top:3px;'>
                 <tr>
                     <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -2612,7 +2617,7 @@ with tabs[6]:
             for cond, bg, fg, _ in reversed(top_fgi_cond_map):
                 for d in df_top1[cond].index:
                     date_color_map_top[d] = (bg, fg)
-            all_detected_top = sorted(date_color_map_top.keys(), reverse=True)[:50]
+            all_detected_top = sorted(date_color_map_top.keys(), reverse=True)[:100]
             
             TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
             TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
@@ -2625,7 +2630,7 @@ with tabs[6]:
                 
                 st.markdown(
                     f"<div style='margin-bottom:0.2rem;'>"
-                    f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 고점 과열 감지 날짜 (최근 50개, 저점 감지일 제외)</span>"
+                    f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 고점 과열 감지 날짜 (최근 100개, 저점 감지일 제외)</span>"
                     f"<div style='overflow-x:auto;margin-top:3px;'>"
                     f"<table style='border-collapse:collapse;font-size:0.55rem;'>"
                     f"<tbody>"
@@ -2695,47 +2700,51 @@ with tabs[6]:
         
         # ── 소분류 2: 슬로프합 고점 ──
         with top_sub_tabs[1]:
-            fig_top_sl = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.04,
-                subplot_titles=('슬로프 5일합 (상한돌파 고점)','슬로프 10일합 (상한돌파 고점)','슬로프 20일합 (상한돌파 고점)','슬로프 40일합 (상한돌파 고점)'),
-                specs=[[{"secondary_y": True}]]*4)
-            
             SLOPE_TOP_CHARTS = [
-                (1, 5,  '5일상한',  '슬로프5일합',  15),
-                (2, 10, '10일상한', '슬로프10일합', 25),
-                (3, 20, '20일상한', '슬로프20일합', 30),
-                (4, 40, '40일상한', '슬로프40일합', 40),
+                (2, 10, '슬로프10일합', 20),
+                (3, 20, '슬로프20일합', 30),
+                (4, 30, '슬로프30일합', 40),
+                (5, 40, '슬로프40일합', 50),
+                (6, 50, '슬로프50일합', 60),
+                (7, 60, '슬로프60일합', 70),
+                (8, 70, '슬로프70일합', 80),
             ]
             
-            # 상한 돌파 신호 감지표 (저점일 제외)
+            # 동시 감지 갯수 계산 및 저장
+            slope_detect_count = sum(((df[sfc] >= thresh) & _not_bottom).astype(int) for _, _, sfc, thresh in SLOPE_TOP_CHARTS)
+            df['slope_detect_count'] = slope_detect_count
+            
+            # 상한 돌파 신호 감지표 (저점일 제외, 초과율 0% 이상인 경우 수집)
             all_top_sl = []
-            for _, days_t, _, sfc, thresh in SLOPE_TOP_CHARTS:
-                _cond_sl = (df[sfc]>=thresh) & _not_bottom
+            for _, days_t, sfc, thresh in SLOPE_TOP_CHARTS:
+                _cond_sl = (df[sfc] >= thresh) & _not_bottom
                 all_top_sl.extend(df[_cond_sl].index.tolist())
             dc_top_sl = Counter(all_top_sl)
             parent_dates_sl = sorted(list(set(all_top_sl)), reverse=True)
             
             if parent_dates_sl:
-                r50_sl = parent_dates_sl[:50]
+                r100_sl = parent_dates_sl[:100]
                 dates_row_sl = []
                 counts_row_sl = []
-                for dt in r50_sl:
+                for dt in r100_sl:
                     cnt = dc_top_sl.get(dt, 1)
-                    bg = "#595959" if cnt==4 else "#E06666" if cnt==3 else "#FFD700" if cnt==2 else "#A9D08E"
-                    fg = "#FFF" if cnt>=3 else "#000"
+                    # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF" if cnt>=6 else "#000"
                     dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
                     detected_items = []
-                    for _, days, _, sc_col, th in SLOPE_TOP_CHARTS:
+                    for _, days, sc_col, th in SLOPE_TOP_CHARTS:
                         if dt in df.index and df.loc[dt, sc_col] >= th:
-                            val_diff = df.loc[dt, sc_col] - th
-                            if 0 <= val_diff < 10:
-                                color = '#A9D08E'
-                            elif 10 <= val_diff < 20:
-                                color = '#FFD700'
-                            elif 20 <= val_diff < 30:
-                                color = '#E06666'
+                            val_diff_pct = (df.loc[dt, sc_col] - th) / th
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E' # 초록
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFFF99' # 노랑
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666' # 빨강
                             else:
-                                color = '#595959'
+                                color = '#595959' # 검정
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
                         else:
                             detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
@@ -2745,7 +2754,7 @@ with tabs[6]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 슬로프합 상한 돌파 고점 신호 (최근 50개, 저점일 제외)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 슬로프합 상한 돌파 고점 신호 (최근 100개, 저점일 제외)</span>
                 <table style='border-collapse:collapse;margin-top:3px;'>
                     <tr>
                         <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -2759,65 +2768,126 @@ with tabs[6]:
                 </div>
                 """, unsafe_allow_html=True)
             
+            slope_options = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_slopes = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", slope_options, default=["슬로프통합"], key="top_slope_multiselect")
+            
             hd_top_sl = [fmt_date_kor(d) for d in df.index]
-            for rn, days, uc, sc, thresh in SLOPE_TOP_CHARTS:
-                sf = (rn == 1)
-                fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=rn,col=1,secondary_y=False)
-                fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=rn,col=1,secondary_y=True)
-                fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df[uc],name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_top',hoverinfo='skip'),row=rn,col=1,secondary_y=True)
+            
+            if not selected_slopes:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
+            else:
+                num_charts = len(selected_slopes)
+                fig_top_sl = make_subplots(rows=num_charts, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts > 1 else 0.0,
+                    subplot_titles=tuple(selected_slopes),
+                    specs=[[{"secondary_y": True}]]*num_charts)
                 
-                # 상한 돌파 막대 (저점일 제외, 저점 슬로프합과 동일한 색상/투명도 구조)
-                diff_val = df[sc] - thresh
-                top_cond_vals = [
-                    (((diff_val >= 0) & (diff_val < 10)) & _not_bottom, 'rgba(76,175,80,0.3)'),
-                    (((diff_val >= 10) & (diff_val < 20)) & _not_bottom, 'rgba(255,220,0,0.3)'),
-                    (((diff_val >= 20) & (diff_val < 30)) & _not_bottom, 'rgba(220,30,30,0.3)'),
-                    ((diff_val >= 30) & _not_bottom, 'rgba(0,0,0,0.3)'),
-                ]
-                for tc, tfc in top_cond_vals:
-                    fig_top_sl.add_trace(go.Bar(x=hd_top_sl, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=rn,col=1,secondary_y=False)
-            
-            if active_period_days:
-                target_date_tsl = datetime.date.today() - datetime.timedelta(days=active_period_days)
-                detected_tsl = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_tsl)]
-                initial_x_tsl = [detected_tsl[0], len(hd_top_sl) - 1] if detected_tsl else None
-                if detected_tsl:
-                    qqq_1y_tsl = df['QQQ'].iloc[detected_tsl[0]:]
-                    qmin_tsl, qmax_tsl = float(qqq_1y_tsl.min()), float(qqq_1y_tsl.max())
+                chart_info_map = {
+                    10: ('슬로프10일합', 20),
+                    20: ('슬로프20일합', 30),
+                    30: ('슬로프30일합', 40),
+                    40: ('슬로프40일합', 50),
+                    50: ('슬로프50일합', 60),
+                    60: ('슬로프60일합', 70),
+                    70: ('슬로프70일합', 80),
+                }
+                
+                for idx, choice in enumerate(selected_slopes):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)', # 빨강
+                            2: 'rgba(255, 140, 0, 0.45)',   # 주황
+                            3: 'rgba(255, 255, 153, 0.45)', # 노랑
+                            4: 'rgba(169, 208, 142, 0.45)', # 초록
+                            5: 'rgba(135, 206, 235, 0.45)', # 파랑
+                            6: 'rgba(0, 0, 128, 0.45)',     # 남색
+                            7: 'rgba(128, 0, 128, 0.45)'    # 보라
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df['slope_detect_count'] == cnt_val)
+                            fig_top_sl.add_trace(go.Bar(
+                                x=hd_top_sl,
+                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
+                                marker_color=bar_color,
+                                showlegend=False,
+                                hoverinfo='skip',
+                                marker_line_width=0.5,
+                                marker_line_color='white'
+                            ), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map[days]
+                        
+                        fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=[thresh]*len(hd_top_sl),name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_top',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        diff_pct = (df[sc] - thresh) / thresh
+                        top_cond_vals = [
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)) & _not_bottom, 'rgba(76, 175, 80, 0.35)'),
+                            (((diff_pct > 0.40) & (diff_pct <= 0.60)) & _not_bottom, 'rgba(255, 220, 0, 0.3)'),
+                            (((diff_pct > 0.60) & (diff_pct <= 0.80)) & _not_bottom, 'rgba(220, 30, 30, 0.3)'),
+                            ((diff_pct > 0.80) & _not_bottom, 'rgba(0, 0, 0, 0.35)'),
+                        ]
+                        for tc, tfc in top_cond_vals:
+                            fig_top_sl.add_trace(go.Bar(x=hd_top_sl, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_tsl = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_tsl = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_tsl)]
+                    initial_x_tsl = [detected_tsl[0], len(hd_top_sl) - 1] if detected_tsl else None
+                    if detected_tsl:
+                        qqq_1y_tsl = df['QQQ'].iloc[detected_tsl[0]:]
+                        qmin_tsl, qmax_tsl = float(qqq_1y_tsl.min()), float(qqq_1y_tsl.max())
+                    else:
+                        qmin_tsl, qmax_tsl = float(df['QQQ'].min()), float(df['QQQ'].max())
                 else:
+                    initial_x_tsl = None
                     qmin_tsl, qmax_tsl = float(df['QQQ'].min()), float(df['QQQ'].max())
-            else:
-                initial_x_tsl = None
-                qmin_tsl, qmax_tsl = float(df['QQQ'].min()), float(df['QQQ'].max())
-            
-            layout_params_tsl = COMMON_LAYOUT.copy()
-            layout_params_tsl.pop('shapes', None)
-            fig_top_sl.update_layout(**layout_params_tsl, height=1200, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
-                shapes=[
-                    dict(type="rect", xref="paper", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                    dict(type="rect", xref="paper", yref="y3 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                    dict(type="rect", xref="paper", yref="y5 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)),
-                    dict(type="rect", xref="paper", yref="y7 domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5))
-                ])
-            for i in range(1, 5):
-                fig_top_sl.update_yaxes(range=[qmin_tsl*0.95,qmax_tsl*1.05],**crosshair_yaxis(),secondary_y=False,row=i,col=1)
-                fig_top_sl.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=i,col=1)
-            if initial_x_tsl:
-                fig_top_sl.update_xaxes(range=initial_x_tsl, type='category', **crosshair_xaxis())
-            else:
-                fig_top_sl.update_xaxes(type='category', **crosshair_xaxis())
-            fig_top_sl.update_annotations(font_size=10)
-            
-            st.plotly_chart(fig_top_sl, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_chart")
+                
+                chart_height = max(400, num_charts * 300)
+                layout_params_tsl = COMMON_LAYOUT.copy()
+                layout_params_tsl.pop('shapes', None)
+                
+                shapes = []
+                for idx in range(num_charts):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                
+                fig_top_sl.update_layout(**layout_params_tsl, height=chart_height, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes)
+                
+                for idx, choice in enumerate(selected_slopes):
+                    row_i = idx + 1
+                    fig_top_sl.update_yaxes(range=[qmin_tsl*0.95,qmax_tsl*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_top_sl.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_top_sl.update_yaxes(range=[-180,250],tick0=-180,dtick=30,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_tsl:
+                    fig_top_sl.update_xaxes(range=initial_x_tsl, type='category', **crosshair_xaxis())
+                else:
+                    fig_top_sl.update_xaxes(type='category', **crosshair_xaxis())
+                fig_top_sl.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_top_sl, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_chart")
             
             # 슬로프합 고점 검증결과 표
             slope_top_conditions = {
-                "**5일합 상한돌파**": ((df['슬로프5일합'] >= 15) & _nb, "슬로프5일합 ≥ 15"),
-                "**10일합 상한돌파**": ((df['슬로프10일합'] >= 25) & _nb, "슬로프10일합 ≥ 25"),
+                "**10일합 상한돌파**": ((df['슬로프10일합'] >= 20) & _nb, "슬로프10일합 ≥ 20"),
                 "**20일합 상한돌파**": ((df['슬로프20일합'] >= 30) & _nb, "슬로프20일합 ≥ 30"),
-                "**40일합 상한돌파**": ((df['슬로프40일합'] >= 40) & _nb, "슬로프40일합 ≥ 40"),
+                "**30일합 상한돌파**": ((df['슬로프30일합'] >= 40) & _nb, "슬로프30일합 ≥ 40"),
+                "**40일합 상한돌파**": ((df['슬로프40일합'] >= 50) & _nb, "슬로프40일합 ≥ 50"),
+                "**50일합 상한돌파**": ((df['슬로프50일합'] >= 60) & _nb, "슬로프50일합 ≥ 60"),
+                "**60일합 상한돌파**": ((df['슬로프60일합'] >= 70) & _nb, "슬로프60일합 ≥ 70"),
+                "**70일합 상한돌파**": ((df['슬로프70일합'] >= 80) & _nb, "슬로프70일합 ≥ 80"),
                 "**슬로프합 고점 종합**": (
-                    ((df['슬로프5일합'] >= 15) | (df['슬로프10일합'] >= 25) | (df['슬로프20일합'] >= 30) | (df['슬로프40일합'] >= 40)) & _nb,
+                    ((df['슬로프10일합'] >= 20) | (df['슬로프20일합'] >= 30) | (df['슬로프30일합'] >= 40) | (df['슬로프40일합'] >= 50) | (df['슬로프50일합'] >= 60) | (df['슬로프60일합'] >= 70) | (df['슬로프70일합'] >= 80)) & _nb,
                     "1개 이상 상한선 돌파 (저점일 제외)"
                 )
             }
@@ -2918,7 +2988,7 @@ with tabs[6]:
             ]
             
             # 감지 신호표 (1개 이상 감지된 날 기준)
-            df_sig_tm = df_top[df_top['top_multi_count'] >= 1].sort_index(ascending=False).head(50)
+            df_sig_tm = df_top[df_top['top_multi_count'] >= 1].sort_index(ascending=False).head(100)
             if not df_sig_tm.empty:
                 dates_row_tm = []
                 counts_row_tm = []
@@ -2935,7 +3005,7 @@ with tabs[6]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 49지표 고점 감지 신호 (최근 50개, 저점일 제외)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 49지표 고점 감지 신호 (최근 100개, 저점일 제외)</span>
                 <table style='border-collapse:collapse;margin-top:3px;'>
                     <tr>
                         <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -3010,10 +3080,10 @@ with tabs[6]:
             
             # 감지 신호표
             triggered_dates_top = df_top[c_top_all].index.sort_values(ascending=False)
-            recent_50_top = triggered_dates_top[:50]
-            if len(recent_50_top) > 0:
+            recent_100_top = triggered_dates_top[:100]
+            if len(recent_100_top) > 0:
                 dates_row_top = ""
-                for dt in recent_50_top:
+                for dt in recent_100_top:
                     cnt = int(c_top_1.loc[dt]) + int(c_top_2.loc[dt]) + int(c_top_3.loc[dt]) + int(c_top_4.loc[dt])
                     bg = '#800080' if cnt >= 3 else '#E06666' if cnt >= 2 else '#FF8C00'
                     fg = '#FFF'
@@ -3021,7 +3091,7 @@ with tabs[6]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 4대 통합 고점 감지 신호 (최근 50개, 저점일 제외)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 4대 통합 고점 감지 신호 (최근 100개, 저점일 제외)</span>
                 <table style='border-collapse:collapse;margin-top:3px;'>
                     <tr>
                         <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
@@ -3088,687 +3158,3 @@ with tabs[6]:
     else:
         st.info("한국 데이터는 향후 지원 예정입니다. 국가 선택을 '미국'으로 변경해 주세요.")
 
-# ── Tab 8: 고점개발 ──
-with tabs[7]:
-    if selected_country == "미국":
-        # 1. 저점 및 실제 QQQ 저점 수집 (상호 배제용)
-        _bottom_fgi = (
-            ((df['FearGreedIndex'] <= 9) & (df['VIX'] >= 26)) |
-            ((df['FearGreedIndex'] >= 10) & (df['FearGreedIndex'] <= 19) & (df['VIX'] >= 22) & (df['VIX'] <= 25)) |
-            ((df['FearGreedIndex'] >= 20) & (df['FearGreedIndex'] <= 29) & (df['VIX'] >= 18) & (df['VIX'] <= 21)) |
-            ((df['FearGreedIndex'] >= 30) & (df['FearGreedIndex'] <= 39) & (df['VIX'] >= 14) & (df['VIX'] <= 17))
-        )
-        _bottom_slope = (
-            (df['슬로프5일합'] <= -20) | (df['슬로프10일합'] <= -30) |
-            (df['슬로프20일합'] <= -40) | (df['슬로프40일합'] <= -50)
-        )
-        _multi_conds_for_bottom = [
-            (df['QQQ_%B'] * (df['HYG_RSI'] / 100) <= 0.010),
-            (df['FearGreedIndex'] * np.exp(df['TNX_ROC'] * 2) / (df['VIX'] + 1e-10) <= 0.35),
-            (((df['FearGreedIndex'] - 50) / 20 + (df['QQQ_RSI'] - 50) / 15 + (df['QQQ_%B'] - 0.5) / 0.25 - df['VIX_Z']) <= -5.0),
-            ((df['QQQ_%B'] <= 0.01) & (df['FearGreedIndex'] <= 6) & (df['VIX'] >= 25)),
-            ((df['QQQ_%B'] <= -0.05) & (df['FearGreedIndex'] <= 7)),
-        ]
-        _multi_cnt = sum(c.fillna(False).astype(int) for c in _multi_conds_for_bottom)
-        _bottom_multi = _multi_cnt >= 1
-        
-        is_bottom_day = (_bottom_fgi | _bottom_slope | _bottom_multi).reindex(df.index).fillna(False)
-        
-        _rolling_max = df['QQQ'].rolling(252, min_periods=1).max()
-        _drawdown = (_rolling_max - df['QQQ']) / _rolling_max
-        _local_min = df['QQQ'].rolling(41, center=True, min_periods=1).min()
-        is_actual_bottom = (df['QQQ'] <= _local_min * 1.03) & (_drawdown >= 0.05)
-        
-        is_any_bottom = (is_bottom_day | is_actual_bottom).reindex(df.index).fillna(False)
-        _not_bottom = ~is_any_bottom
-        
-        # 보조지표 구하기
-        df_dev = df.copy()
-        df_dev['QQQ_Low252'] = df_dev['QQQ'].rolling(252, min_periods=1).min()
-        df_dev['QQQ_RU'] = (df_dev['QQQ'] - df_dev['QQQ_Low252']) / (df_dev['QQQ_Low252'] + 1e-10)
-        df_dev['RU_Pct'] = df_dev['QQQ_RU'].rolling(252, min_periods=60).rank(pct=True)
-        
-        df_dev['QQQ_20H'] = df_dev['QQQ'].rolling(20).max()
-        df_dev['RSI7_20H'] = df_dev['QQQ_RSI7'].rolling(20).max()
-        df_dev['RSI_Div'] = (df_dev['QQQ'] >= df_dev['QQQ_20H'] * 0.99) & (df_dev['QQQ_RSI7'] < df_dev['RSI7_20H'] - 5)
-        
-        _ema12 = df_dev['QQQ'].ewm(span=12, adjust=False).mean()
-        _ema26 = df_dev['QQQ'].ewm(span=26, adjust=False).mean()
-        df_dev['MACD'] = _ema12 - _ema26
-        df_dev['MACD_Signal'] = df_dev['MACD'].ewm(span=9, adjust=False).mean()
-        df_dev['MACD_Hist'] = df_dev['MACD'] - df_dev['MACD_Signal']
-        
-        df_dev['QQQ_MA20'] = df_dev['QQQ'].rolling(20).mean()
-        df_dev['QQQ_MA50'] = df_dev['QQQ'].rolling(50).mean()
-        df_dev['MA20_Dev'] = (df_dev['QQQ'] - df_dev['QQQ_MA20']) / (df_dev['QQQ_MA20'] + 1e-10) * 100
-        df_dev['MA50_Dev'] = (df_dev['QQQ'] - df_dev['QQQ_MA50']) / (df_dev['QQQ_MA50'] + 1e-10) * 100
-        
-        df_dev['QQQ_Vel'] = df_dev['QQQ'].pct_change(5)
-        df_dev['QQQ_Accel'] = df_dev['QQQ_Vel'].diff(3)
-        df_dev['SKEW_Z'] = (df_dev['SKEW'] - df_dev['SKEW'].rolling(252).mean()) / (df_dev['SKEW'].rolling(252).std() + 1e-5)
-        
-        # 다중지표 갯수
-        conds_multi = [
-            (df_dev['QQQ_%B'] * (df_dev['HYG_RSI'] / 100) >= 0.75) & _not_bottom,
-            ((100 - df_dev['FearGreedIndex']) * np.exp(-df_dev['TNX_ROC'] * 2) / (df_dev['VIX'] + 1e-10) >= 6.0) & _not_bottom,
-            (((df_dev['FearGreedIndex'] - 50) / 20 + (df_dev['QQQ_RSI'] - 50) / 15 + (df_dev['QQQ_%B'] - 0.5) / 0.25 - df_dev['VIX_Z']) >= 4.0) & _not_bottom,
-            ((df_dev['QQQ_%B'] >= 0.99) & (df_dev['FearGreedIndex'] >= 94) & (df_dev['VIX'] <= 12)) & _not_bottom,
-            ((df_dev['QQQ_%B'] >= 1.05) & (df_dev['FearGreedIndex'] >= 93)) & _not_bottom,
-            ((df_dev['슬로프10일합'] >= 40) & (df_dev['VIX'] <= 12) & (df_dev['FearGreedIndex'] >= 91)) & _not_bottom,
-            ((df_dev['슬로프40일합'] >= 70) & (df_dev['FearGreedIndex'] >= 92) & (df_dev['QQQ_%B'] >= 0.98)) & _not_bottom,
-            ((df_dev['HYG_RSI'] >= 82) & (df_dev['VIX'] <= 11)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] >= 92) & (df_dev['VIX'] <= 13) & (df_dev['HYG_RSI'] >= 78)) & _not_bottom,
-            ((df_dev['슬로프5일합'] >= 35) & (df_dev['QQQ_RSI'] >= 78) & (df_dev['VIX'] <= 13)) & _not_bottom,
-            ((df_dev['QQQ_RSI7'] >= 85) & (df_dev['FearGreedIndex'] >= 85)) & _not_bottom,
-            ((df_dev['QQQ_RSI7'] >= 82) & (df_dev['FearGreedIndex'] >= 88)) & _not_bottom,
-            ((df_dev['QQQ_RSI7'] >= 80) & (df_dev['FearGreedIndex'] >= 88)) & _not_bottom,
-            ((df_dev['QQQ_RSI7'] >= 78) & (df_dev['FearGreedIndex'] >= 88)) & _not_bottom,
-            ((df_dev['VVIX_Z'] <= -2.5) & (df_dev['FearGreedIndex'] >= 85)) & _not_bottom,
-            ((df_dev['VVIX_Z'] <= -2.0) & (df_dev['FearGreedIndex'] >= 80)) & _not_bottom,
-            ((df_dev['VVIX_Pct'] <= 0.10) & (df_dev['FearGreedIndex'] >= 90)) & _not_bottom,
-            ((df_dev['VVIX_Pct'] <= 0.10) & (df_dev['QQQ_RSI7'] >= 78)) & _not_bottom,
-            ((df_dev['FearGreedIndex'].diff(7) >= 20) & (df_dev['VIX_Pct'] <= 0.15)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 72) & (df_dev['VVIX_Pct'] <= 0.30)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 60) & (df_dev['VVIX_Pct'] <= 0.30)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / (df_dev['VVIX'] + 1e-5)) >= 6.5) & (df_dev['FearGreedIndex'] >= 82) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            (((1000 / (df_dev['VIX'] * df_dev['VVIX'] + 1e-5)) >= 1.0) & (df_dev['FearGreedIndex'] >= 90) & (df_dev['QQQ_RU'] >= 0.25)) & _not_bottom,
-            (((1000 / (df_dev['VIX'] * df_dev['VVIX'] + 1e-5)) >= 1.0) & (df_dev['FearGreedIndex'] >= 90) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 65) & (df_dev['VVIX_Pct'] <= 0.30)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 50) & (df_dev['VVIX_Pct'] <= 0.30)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 72) & (df_dev['VVIX_Pct'] <= 0.20)) & _not_bottom,
-            ((np.log(np.maximum(-df_dev['VVIX_Z'] + 5.0, 1e-5)) * (1 - df_dev['VIX_Pct']) >= 1.0) & (df_dev['FearGreedIndex'] >= 88) & (df_dev['QQQ_%B'] >= 0.85)) & _not_bottom,
-            (((100 - df_dev['FearGreedIndex']) * np.exp(-df_dev['TNX_ROC'] * 3) <= 15) & (df_dev['QQQ_RSI7'] >= 72) & (df_dev['VIX_Pct'] <= 0.20)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / (df_dev['VVIX'] + 1e-5)) >= 5.5) & (df_dev['FearGreedIndex'] >= 70) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / (df_dev['VVIX'] + 1e-5)) >= 4.5) & (df_dev['FearGreedIndex'] >= 78) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            ((df_dev['QQQ_%B'] >= 0.90) & (df_dev['QQQ_RSI7'] >= 60) & (df_dev['FearGreedIndex'] >= 70) & (df_dev['VIX_Pct'] <= 0.40) & (df_dev['VVIX_Pct'] <= 0.50)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / 100) + df_dev['RU_Pct'] * 3 >= 2.5) & (df_dev['FGI_Pct'] >= 0.70)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / 100) + df_dev['RU_Pct'] * 4 >= 3.0) & (df_dev['FGI_Pct'] >= 0.70)) & _not_bottom,
-            ((df_dev['QQQ_%B'] >= 0.85) & (df_dev['QQQ_RSI7'] >= 65) & (df_dev['FearGreedIndex'] >= 80) & (df_dev['VIX_Pct'] <= 0.40) & (df_dev['VVIX_Pct'] <= 0.50)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 60) & (df_dev['VVIX_Pct'] <= 0.50) & (df_dev['RU_Pct'] >= 0.70)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 70) & (df_dev['VVIX_Pct'] <= 0.50) & (df_dev['RU_Pct'] >= 0.40)) & _not_bottom,
-            ((df_dev['VIX_Z'] * df_dev['VVIX_Z'] >= 0.8) & (df_dev['FearGreedIndex'] >= 88) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            ((df_dev['VIX_Z'] * df_dev['VVIX_Z'] >= 1.0) & (df_dev['FearGreedIndex'] >= 88) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / (df_dev['VVIX'] + 1e-5)) >= 3.5) & (df_dev['FearGreedIndex'] >= 60) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / (df_dev['VVIX'] + 1e-5)) >= 4.0) & (df_dev['FearGreedIndex'] >= 55) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            ((df_dev['QQQ_%B'] >= 0.75) & (df_dev['QQQ_RSI7'] >= 50) & (df_dev['FearGreedIndex'] >= 60) & (df_dev['VIX_Pct'] <= 0.60) & (df_dev['VVIX_Pct'] <= 0.60)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / 100) + df_dev['RU_Pct'] * 2 >= 2.0) & (df_dev['FGI_Pct'] >= 0.65)) & _not_bottom,
-            ((df_dev['QQQ_%B'] >= 0.80) & (df_dev['QQQ_RSI7'] >= 50) & (df_dev['FearGreedIndex'] >= 55) & (df_dev['VIX_Pct'] <= 0.60) & (df_dev['VVIX_Pct'] <= 0.60)) & _not_bottom,
-            (((df_dev['QQQ_RSI7'] / 100) + df_dev['RU_Pct'] * 2 >= 1.5) & (df_dev['FGI_Pct'] >= 0.65)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 45) & (df_dev['VVIX_Pct'] <= 0.70) & (df_dev['RU_Pct'] >= 0.50)) & _not_bottom,
-            ((df_dev['FearGreedIndex'] * df_dev['QQQ_%B'] >= 50) & (df_dev['VVIX_Pct'] <= 0.70) & (df_dev['RU_Pct'] >= 0.50)) & _not_bottom,
-            ((df_dev['VIX_Z'] * df_dev['VVIX_Z'] >= 0.3) & (df_dev['FearGreedIndex'] >= 82) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-            ((df_dev['VIX_Z'] * df_dev['VVIX_Z'] >= 0.5) & (df_dev['FearGreedIndex'] >= 82) & (df_dev['QQQ_RU'] >= 0.30)) & _not_bottom,
-        ]
-        cnt = sum(c.fillna(False).astype(int) for c in conds_multi)
-        
-        # 4대 통합지표
-        energy_top = (df_dev['FearGreedIndex']/100) * df_dev['QQQ_%B'] * (df_dev['QQQ_RSI7']/100)
-        c_top_1 = ((energy_top >= 0.55) & (df_dev['VIX_Pct'] <= 0.20))
-        c_top_2 = ((df_dev['RSI_Div']) & (df_dev['QQQ_RU'] >= 0.30))
-        c_top_3 = ((df_dev['MACD_Hist'].diff() < 0) & (df_dev['MACD_Hist'] > 0) & (df_dev['QQQ_%B'] >= 0.90) & (df_dev['VIX_Pct'] <= 0.20))
-        c_top_4 = ((df_dev['SKEW'] >= 145) & (df_dev['VIX'] <= 15) & (df_dev['QQQ_RSI7'] >= 70))
-        c_top_all = c_top_1 | c_top_2 | c_top_3 | c_top_4
-
-        # ──────────────────────────────────────────────────────────
-        # [기존 책정안] 원래의 고점개발 위험 점수 책정안
-        # ──────────────────────────────────────────────────────────
-        # 공탐변동 (원래)
-        score_fgi_orig = pd.Series(0.0, index=df_dev.index)
-        score_fgi_orig.loc[((df_dev['(FGI-VIX)/5'] >= 11) & _not_bottom)] = 1.0
-        score_fgi_orig.loc[((df_dev['VIX_Pct'] <= 0.18) & (df_dev['FearGreedIndex'] >= 65) & _not_bottom)] = 1.5
-        score_fgi_orig.loc[((df_dev['VIX_Pct'] <= 0.12) & (df_dev['FearGreedIndex'] >= 72) & _not_bottom)] = 2.0
-        score_fgi_orig.loc[((df_dev['VIX_Pct'] <= 0.08) & (df_dev['FGI_Pct'] >= 0.82) & _not_bottom)] = 2.5
-        
-        # 슬로프합 (원래)
-        score_slope_orig = pd.Series(0.0, index=df_dev.index)
-        slope_setups_orig = [
-            ('슬로프5일합', 15, 1.0),
-            ('슬로프10일합', 25, 1.5),
-            ('슬로프20일합', 30, 2.0),
-            ('슬로프40일합', 40, 2.5),
-        ]
-        for col, thresh, weight in slope_setups_orig:
-            val = df_dev[col]
-            c_score = pd.Series(0.0, index=df_dev.index)
-            c_score.loc[((val >= thresh) & (val < thresh * 1.5))] = 1.0
-            c_score.loc[((val >= thresh * 1.5) & (val < thresh * 2.0))] = 1.5
-            c_score.loc[((val >= thresh * 2.0) & (val < thresh * 2.5))] = 2.0
-            c_score.loc[((val >= thresh * 2.5))] = 2.5
-            score_slope_orig += c_score * weight
-        score_slope_orig = score_slope_orig * _not_bottom.astype(float)
-        
-        # 다중지표 (원래)
-        score_multi_orig = pd.Series(0.0, index=df_dev.index)
-        score_multi_orig.loc[((cnt >= 1) & (cnt <= 7))] = 1.0
-        score_multi_orig.loc[((cnt >= 8) & (cnt <= 14))] = 2.0
-        score_multi_orig.loc[((cnt >= 15) & (cnt <= 21))] = 3.0
-        score_multi_orig.loc[((cnt >= 22) & (cnt <= 28))] = 4.0
-        score_multi_orig.loc[((cnt >= 29) & (cnt <= 35))] = 5.0
-        score_multi_orig.loc[((cnt >= 36) & (cnt <= 42))] = 6.0
-        score_multi_orig.loc[((cnt >= 43))] = 7.0
-        score_multi_orig = score_multi_orig * _not_bottom.astype(float)
-        
-        # 통합지표 (원래)
-        score_unified_orig = c_top_all.astype(float) * 2.0
-        score_unified_orig = score_unified_orig * _not_bottom.astype(float)
-        
-        df_dev['score_orig'] = score_fgi_orig + score_slope_orig + score_multi_orig + score_unified_orig
-
-        # ──────────────────────────────────────────────────────────
-        # [버전 1] 신뢰도 비례 점수 책정안 (신규 제안안)
-        # ──────────────────────────────────────────────────────────
-        # 공탐변동 (가중치 낮음)
-        score_fgi_v1 = pd.Series(0.0, index=df_dev.index)
-        score_fgi_v1.loc[((df_dev['(FGI-VIX)/5'] >= 11) & _not_bottom)] = 1.0
-        score_fgi_v1.loc[((df_dev['VIX_Pct'] <= 0.18) & (df_dev['FearGreedIndex'] >= 65) & _not_bottom)] = 1.2
-        score_fgi_v1.loc[((df_dev['VIX_Pct'] <= 0.12) & (df_dev['FearGreedIndex'] >= 72) & _not_bottom)] = 1.5
-        score_fgi_v1.loc[((df_dev['VIX_Pct'] <= 0.08) & (df_dev['FGI_Pct'] >= 0.82) & _not_bottom)] = 1.8
-        
-        # 슬로프합 (가중치 보통, 중첩 제어)
-        score_slope_v1 = pd.Series(0.0, index=df_dev.index)
-        slope_setups_v1 = [
-            ('슬로프5일합', 15, 1.0),
-            ('슬로프10일합', 25, 1.2),
-            ('슬로프20일합', 30, 1.5),
-            ('슬로프40일합', 40, 1.8),
-        ]
-        for col, thresh, weight in slope_setups_v1:
-            val = df_dev[col]
-            c_score = pd.Series(0.0, index=df_dev.index)
-            c_score.loc[((val >= thresh) & (val < thresh * 1.5))] = 1.0
-            c_score.loc[((val >= thresh * 1.5) & (val < thresh * 2.0))] = 1.5
-            c_score.loc[((val >= thresh * 2.0) & (val < thresh * 2.5))] = 2.0
-            c_score.loc[((val >= thresh * 2.5))] = 2.5
-            score_slope_v1 += c_score * weight
-        score_slope_v1 = score_slope_v1 * _not_bottom.astype(float)
-        
-        # 다중지표 (신뢰도 높음, 가중치 대폭 강화)
-        score_multi_v1 = pd.Series(0.0, index=df_dev.index)
-        score_multi_v1.loc[((cnt >= 1) & (cnt <= 7))] = 2.0
-        score_multi_v1.loc[((cnt >= 8) & (cnt <= 14))] = 4.0
-        score_multi_v1.loc[((cnt >= 15) & (cnt <= 21))] = 6.0
-        score_multi_v1.loc[((cnt >= 22) & (cnt <= 28))] = 8.0
-        score_multi_v1.loc[((cnt >= 29))] = 10.0
-        score_multi_v1 = score_multi_v1 * _not_bottom.astype(float)
-        
-        # 통합지표 (신뢰도 높음, 가중치 강화)
-        score_unified_v1 = c_top_all.astype(float) * 4.0
-        score_unified_v1 = score_unified_v1 * _not_bottom.astype(float)
-        
-        df_dev['score_v1'] = score_fgi_v1 + score_slope_v1 + score_multi_v1 + score_unified_v1
-
-        # ──────────────────────────────────────────────────────────
-        # [버전 2] 가중치 일괄 상향 및 임계치 하향 조정안 (기획 제안안)
-        # ──────────────────────────────────────────────────────────
-        # 공탐변동 (각 등급 0.5~1.0점씩 상향 보강)
-        score_fgi_v2 = pd.Series(0.0, index=df_dev.index)
-        score_fgi_v2.loc[((df_dev['(FGI-VIX)/5'] >= 11) & _not_bottom)] = 2.0
-        score_fgi_v2.loc[((df_dev['VIX_Pct'] <= 0.18) & (df_dev['FearGreedIndex'] >= 65) & _not_bottom)] = 3.0
-        score_fgi_v2.loc[((df_dev['VIX_Pct'] <= 0.12) & (df_dev['FearGreedIndex'] >= 72) & _not_bottom)] = 4.0
-        score_fgi_v2.loc[((df_dev['VIX_Pct'] <= 0.08) & (df_dev['FGI_Pct'] >= 0.82) & _not_bottom)] = 5.0
-        
-        # 슬로프합 (일수별 가중치 보강)
-        score_slope_v2 = pd.Series(0.0, index=df_dev.index)
-        slope_setups_v2 = [
-            ('슬로프5일합', 15, 2.0),
-            ('슬로프10일합', 25, 2.5),
-            ('슬로프20일합', 30, 3.0),
-            ('슬로프40일합', 40, 3.5),
-        ]
-        for col, thresh, weight in slope_setups_v2:
-            val = df_dev[col]
-            c_score = pd.Series(0.0, index=df_dev.index)
-            c_score.loc[((val >= thresh) & (val < thresh * 1.5))] = 1.0
-            c_score.loc[((val >= thresh * 1.5) & (val < thresh * 2.0))] = 1.5
-            c_score.loc[((val >= thresh * 2.0) & (val < thresh * 2.5))] = 2.0
-            c_score.loc[((val >= thresh * 2.5))] = 2.5
-            score_slope_v2 += c_score * weight
-        score_slope_v2 = score_slope_v2 * _not_bottom.astype(float)
-        
-        # 다중지표 (누적 감지 등급별 점수 개편)
-        score_multi_v2 = pd.Series(0.0, index=df_dev.index)
-        score_multi_v2.loc[((cnt >= 1) & (cnt <= 7))] = 1.5
-        score_multi_v2.loc[((cnt >= 8) & (cnt <= 14))] = 3.0
-        score_multi_v2.loc[((cnt >= 15) & (cnt <= 21))] = 4.5
-        score_multi_v2.loc[((cnt >= 22) & (cnt <= 28))] = 6.0
-        score_multi_v2.loc[((cnt >= 29) & (cnt <= 35))] = 7.5
-        score_multi_v2.loc[((cnt >= 36) & (cnt <= 42))] = 9.0
-        score_multi_v2.loc[((cnt >= 43))] = 10.5
-        score_multi_v2 = score_multi_v2 * _not_bottom.astype(float)
-        
-        # 통합지표 (감지 시 3.5점 부여)
-        score_unified_v2 = c_top_all.astype(float) * 3.5
-        score_unified_v2 = score_unified_v2 * _not_bottom.astype(float)
-        
-        df_dev['score_v2'] = score_fgi_v2 + score_slope_v2 + score_multi_v2 + score_unified_v2
-
-        # ──────────────────────────────────────────────────────────
-        # [백분위수 동적 연산] 감지일(점수 > 0) 대상 분포 기준
-        # ──────────────────────────────────────────────────────────
-        # 버전 1 분위수 (초록 80%, 노랑 15%, 빨강 3.75%, 검정 1.25%)
-        scores_v1_active = df_dev.loc[df_dev['score_v1'] > 0, 'score_v1']
-        if not scores_v1_active.empty:
-            q80_v1 = float(scores_v1_active.quantile(0.80))
-            q95_v1 = float(scores_v1_active.quantile(0.95))
-            q9875_v1 = float(scores_v1_active.quantile(0.9875))
-        else:
-            q80_v1, q95_v1, q9875_v1 = 4.0, 7.0, 10.0
-            
-        # 버전 2 분위수 (초록 80%, 노랑 15%, 빨강 3.75%, 검정 1.25%)
-        scores_v2_active = df_dev.loc[df_dev['score_v2'] > 0, 'score_v2']
-        if not scores_v2_active.empty:
-            q80_v2 = float(scores_v2_active.quantile(0.80))
-            q95_v2 = float(scores_v2_active.quantile(0.95))
-            q9875_v2 = float(scores_v2_active.quantile(0.9875))
-        else:
-            q80_v2, q95_v2, q9875_v2 = 3.5, 6.5, 9.5
-
-        # 날짜 연산 (최근 5년)
-        five_years_ago_dev = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
-        df_dev_plot = df_dev[df_dev.index >= five_years_ago_dev].copy()
-        
-        if active_period_days:
-            target_date_dev = datetime.date.today() - datetime.timedelta(days=active_period_days)
-            detected_dev = [i for i, d in enumerate(df_dev_plot.index) if d >= pd.to_datetime(target_date_dev)]
-            initial_x_dev = [detected_dev[0], len(df_dev_plot.index) - 1] if detected_dev else None
-            if detected_dev:
-                qqq_1y_dev = df_dev_plot['QQQ'].iloc[detected_dev[0]:]
-                qqq_yr_dev = [float(qqq_1y_dev.min()) * 0.95, float(qqq_1y_dev.max()) * 1.05]
-            else:
-                qqq_yr_dev = [float(df_dev_plot['QQQ'].min()) * 0.95, float(df_dev_plot['QQQ'].max()) * 1.05]
-        else:
-            initial_x_dev = None
-            qqq_yr_dev = [float(df_dev_plot['QQQ'].min()) * 0.95, float(df_dev_plot['QQQ'].max()) * 1.05]
-            
-        max_qqq_dev = float(df_dev_plot['QQQ'].max()) * 1.2
-        hd_dev = [fmt_date_kor(d) for d in df_dev_plot.index]
-
-        # ──────────────────────────────────────────────────────────
-        # [렌더링 1] 🔵 [기존 책정안] 원래의 고점개발 위험 점수 그래프
-        # ──────────────────────────────────────────────────────────
-        st.subheader("🔵 [기존 책정안] 원래의 고점개발 위험 점수 그래프")
-        st.markdown("""
-        * **공탐변동(1~2.5점), 슬로프합(1~2.5점), 다중지표(1~7점), 통합지표(2점)** 기존 가중치 유지.
-        * **기존 점수대 등급**: 5점 이하(초록) / 10점 이하(노랑) / 15점 이하(빨강) / 15점 초과(검정)
-        """)
-        
-        fig_orig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_orig.add_trace(go.Scatter(x=hd_dev, y=df_dev_plot['QQQ'], name='QQQ 가격', mode='lines+markers', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
-        
-        dev_cond_orig = [
-            ((df_dev_plot['score_orig'] > 0) & (df_dev_plot['score_orig'] <= 5.0),   'rgba(169,208,142,0.5)', '#A9D08E'),
-            ((df_dev_plot['score_orig'] > 5.0) & (df_dev_plot['score_orig'] <= 10.0),  'rgba(255,255,153,0.5)', '#FFFF99'),
-            ((df_dev_plot['score_orig'] > 10.0) & (df_dev_plot['score_orig'] <= 15.0), 'rgba(224,102,102,0.5)', '#E06666'),
-            ((df_dev_plot['score_orig'] > 15.0),                                  'rgba(89,89,89,0.5)',    '#595959'),
-        ]
-        for cond, bar_color, _ in dev_cond_orig:
-            fig_orig.add_trace(go.Bar(x=hd_dev, y=cond.astype(int).values * max_qqq_dev, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
-            
-        fig_orig.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
-        if initial_x_dev:
-            fig_orig.update_xaxes(range=initial_x_dev, type='category', **crosshair_xaxis())
-        else:
-            fig_orig.update_xaxes(type='category', **crosshair_xaxis())
-        fig_orig.update_yaxes(range=qqq_yr_dev, **crosshair_yaxis(), secondary_y=False)
-        fig_orig.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
-        st.plotly_chart(fig_orig, width='stretch', config=COMMON_CONFIG, key="top_dev_orig_chart")
-        
-        # 최근 50개 시그널 표 orig
-        df_sig_orig = df_dev_plot[df_dev_plot['score_orig'] > 0].sort_index(ascending=False).head(50)
-        if not df_sig_orig.empty:
-            dates_row_orig = []
-            scores_row_orig = []
-            for dt, row in df_sig_orig.iterrows():
-                val = row['score_orig']
-                bg = '#A9D08E'
-                for c, bar_c, tbl_c in dev_cond_orig:
-                    if c.loc[dt]:
-                        bg = tbl_c
-                        break
-                fg = "#FFF" if bg in ['#E06666', '#595959'] else "#000"
-                dates_row_orig.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                scores_row_orig.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val:.2f}</td>")
-            st.markdown(f"<div style='margin-bottom:0.3rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:3px;'><tr><th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>{''.join(dates_row_orig)}</tr><tr><th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>점수</th>{''.join(scores_row_orig)}</tr></table></div>", unsafe_allow_html=True)
-            
-        # 검증 통계 orig
-        top_verify_orig = {
-            "**초록색 구간 (5.0점 이하)**": ((df_dev['score_orig'] > 0) & (df_dev['score_orig'] <= 5.0), "5.0점 이하 과열"),
-            "**노란색 구간 (10.0점 이하)**": ((df_dev['score_orig'] > 5.0) & (df_dev['score_orig'] <= 10.0), "5.0점 초과 10.0점 이하 과열"),
-            "**빨간색 구간 (15.0점 이하)**": ((df_dev['score_orig'] > 10.0) & (df_dev['score_orig'] <= 15.0), "10.0점 초과 15.0점 이하 과열"),
-            "**검은색 구간 (15.0점 초과)**": ((df_dev['score_orig'] > 15.0), "15.0점 초과 극단적 과열"),
-            "**종합 감지 (기존)**": (df_dev['score_orig'] > 0, "과열 점수가 감지된 모든 날"),
-        }
-        stats_orig = calculate_top_stats(df_dev, 'QQQ', top_verify_orig)
-        render_top_stats_table(stats_orig, "기존 책정안 지표 검증 결과")
-
-        st.markdown("<hr style='border: 2px solid #555; margin: 3rem 0;'>", unsafe_allow_html=True)
-
-        # ──────────────────────────────────────────────────────────
-        # [렌더링 2] 🔴 [버전 1] 신뢰도 비례 점수 책정안 (신규 제안안)
-        # ──────────────────────────────────────────────────────────
-        st.subheader("🔴 [버전 1] 신뢰도 비례 점수 책정안 (신규 제안안)")
-        st.markdown("""
-        * **다중지표(신뢰도 극상)** 및 **통합지표(신뢰도 상)** 가중치 강화.
-        * **슬로프합(신뢰도 보통)** 중첩 팽창 억제 및 **공탐변동(신뢰도 보통 이하)** 가중치 하향.
-        * **조정된 점수대 등급**: 초록(80%) / 노랑(15%) / 빨강(3.75%) / 검정(1.25%)
-        """)
-        
-        fig_v1 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_v1.add_trace(go.Scatter(x=hd_dev, y=df_dev_plot['QQQ'], name='QQQ 가격', mode='lines+markers', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
-        
-        dev_cond_v1 = [
-            ((df_dev_plot['score_v1'] > 0) & (df_dev_plot['score_v1'] <= q80_v1),  'rgba(169,208,142,0.5)', '#A9D08E'),
-            ((df_dev_plot['score_v1'] > q80_v1) & (df_dev_plot['score_v1'] <= q95_v1), 'rgba(255,255,153,0.5)', '#FFFF99'),
-            ((df_dev_plot['score_v1'] > q95_v1) & (df_dev_plot['score_v1'] <= q9875_v1), 'rgba(224,102,102,0.5)', '#E06666'),
-            ((df_dev_plot['score_v1'] > q9875_v1),                                  'rgba(89,89,89,0.5)',    '#595959'),
-        ]
-        for cond, bar_color, _ in dev_cond_v1:
-            fig_v1.add_trace(go.Bar(x=hd_dev, y=cond.astype(int).values * max_qqq_dev, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
-            
-        fig_v1.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
-        if initial_x_dev:
-            fig_v1.update_xaxes(range=initial_x_dev, type='category', **crosshair_xaxis())
-        else:
-            fig_v1.update_xaxes(type='category', **crosshair_xaxis())
-        fig_v1.update_yaxes(range=qqq_yr_dev, **crosshair_yaxis(), secondary_y=False)
-        fig_v1.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
-        st.plotly_chart(fig_v1, width='stretch', config=COMMON_CONFIG, key="top_dev_v1_chart")
-        
-        # 최근 50개 시그널 표 v1
-        df_sig_v1 = df_dev_plot[df_dev_plot['score_v1'] > 0].sort_index(ascending=False).head(50)
-        if not df_sig_v1.empty:
-            dates_row_v1 = []
-            scores_row_v1 = []
-            for dt, row in df_sig_v1.iterrows():
-                val = row['score_v1']
-                bg = '#A9D08E'
-                for c, bar_c, tbl_c in dev_cond_v1:
-                    if c.loc[dt]:
-                        bg = tbl_c
-                        break
-                fg = "#FFF" if bg in ['#E06666', '#595959'] else "#000"
-                dates_row_v1.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                scores_row_v1.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val:.2f}</td>")
-            st.markdown(f"<div style='margin-bottom:0.3rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:3px;'><tr><th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>{''.join(dates_row_v1)}</tr><tr><th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>점수</th>{''.join(scores_row_v1)}</tr></table></div>", unsafe_allow_html=True)
-            
-        # 검증 통계 v1
-        top_verify_v1 = {
-            f"**초록색 구간 ({q80_v1:.2f}점 이하, 80%)**": ((df_dev['score_v1'] > 0) & (df_dev['score_v1'] <= q80_v1), f"{q80_v1:.2f}점 이하 (하위 80%)"),
-            f"**노란색 구간 ({q95_v1:.2f}점 이하, 15%)**": ((df_dev['score_v1'] > q80_v1) & (df_dev['score_v1'] <= q95_v1), f"{q80_v1:.2f}점 초과 {q95_v1:.2f}점 이하 (중간 15%)"),
-            f"**빨간색 구간 ({q9875_v1:.2f}점 이하, 3.75%)**": ((df_dev['score_v1'] > q95_v1) & (df_dev['score_v1'] <= q9875_v1), f"{q95_v1:.2f}점 초과 {q9875_v1:.2f}점 이하 (상위 3.75%)"),
-            f"**검은색 구간 ({q9875_v1:.2f}점 초과, 1.25%)**": ((df_dev['score_v1'] > q9875_v1), f"{q9875_v1:.2f}점 초과 극단적 과열 (최상위 1.25%)"),
-            "**종합 감지 (v1)**": (df_dev['score_v1'] > 0, "과열 점수가 감지된 모든 날"),
-        }
-        stats_v1 = calculate_top_stats(df_dev, 'QQQ', top_verify_v1)
-        render_top_stats_table(stats_v1, "버전 1 (신규 제안안) 지표 검증 결과")
-        
-        st.markdown("<hr style='border: 2px solid #555; margin: 3rem 0;'>", unsafe_allow_html=True)
-
-        # ──────────────────────────────────────────────────────────
-        # [렌더링 2] 가중치 일괄 상향 및 임계치 하향 조정안 (기획 제안안)
-        # ──────────────────────────────────────────────────────────
-        st.subheader("🟢 [버전 2] 가중치 일괄 상향 및 임계치 하향 조정안 (기획 제안안)")
-        st.markdown("""
-        * **공탐변동, 슬로프합, 다중지표, 통합지표** 가중치를 일괄 상향 보강. (슬로프합 중첩 기여 인정)
-        * **조정된 종합 등급 임계치**: 초록(80%) / 노랑(15%) / 빨강(3.75%) / 검정(1.25%)
-        """)
-        
-        fig_v2 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_v2.add_trace(go.Scatter(x=hd_dev, y=df_dev_plot['QQQ'], name='QQQ 가격', mode='lines+markers', line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5), marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)), hovertemplate='QQQ: %{y:.2f}<extra></extra>'), secondary_y=False)
-        
-        dev_cond_v2 = [
-            ((df_dev_plot['score_v2'] > 0) & (df_dev_plot['score_v2'] <= q80_v2),   'rgba(169,208,142,0.5)', '#A9D08E'),
-            ((df_dev_plot['score_v2'] > q80_v2) & (df_dev_plot['score_v2'] <= q95_v2),  'rgba(255,255,153,0.5)', '#FFFF99'),
-            ((df_dev_plot['score_v2'] > q95_v2) & (df_dev_plot['score_v2'] <= q9875_v2),  'rgba(224,102,102,0.5)', '#E06666'),
-            ((df_dev_plot['score_v2'] > q9875_v2),                                  'rgba(89,89,89,0.5)',    '#595959'),
-        ]
-        for cond, bar_color, _ in dev_cond_v2:
-            fig_v2.add_trace(go.Bar(x=hd_dev, y=cond.astype(int).values * max_qqq_dev, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
-            
-        fig_v2.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
-        if initial_x_dev:
-            fig_v2.update_xaxes(range=initial_x_dev, type='category', **crosshair_xaxis())
-        else:
-            fig_v2.update_xaxes(type='category', **crosshair_xaxis())
-        fig_v2.update_yaxes(range=qqq_yr_dev, **crosshair_yaxis(), secondary_y=False)
-        fig_v2.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
-        st.plotly_chart(fig_v2, width='stretch', config=COMMON_CONFIG, key="top_dev_v2_chart")
-        
-        # 최근 50개 시그널 표 v2
-        df_sig_v2 = df_dev_plot[df_dev_plot['score_v2'] > 0].sort_index(ascending=False).head(50)
-        if not df_sig_v2.empty:
-            dates_row_v2 = []
-            scores_row_v2 = []
-            for dt, row in df_sig_v2.iterrows():
-                val = row['score_v2']
-                bg = '#A9D08E'
-                for c, bar_c, tbl_c in dev_cond_v2:
-                    if c.loc[dt]:
-                        bg = tbl_c
-                        break
-                fg = "#FFF" if bg in ['#E06666', '#595959'] else "#000"
-                dates_row_v2.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                scores_row_v2.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val:.2f}</td>")
-            st.markdown(f"<div style='margin-bottom:0.3rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:3px;'><tr><th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>{''.join(dates_row_v2)}</tr><tr><th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>점수</th>{''.join(scores_row_v2)}</tr></table></div>", unsafe_allow_html=True)
-            
-        # 검증 통계 v2
-        top_verify_v2 = {
-            f"**초록색 구간 ({q80_v2:.2f}점 이하, 80%)**": ((df_dev['score_v2'] > 0) & (df_dev['score_v2'] <= q80_v2), f"{q80_v2:.2f}점 이하 (하위 80%)"),
-            f"**노란색 구간 ({q95_v2:.2f}점 이하, 15%)**": ((df_dev['score_v2'] > q80_v2) & (df_dev['score_v2'] <= q95_v2), f"{q95_v2:.2f}점 초과 {q95_v2:.2f}점 이하 (중간 15%)"),
-            f"**빨간색 구간 ({q9875_v2:.2f}점 이하, 3.75%)**": ((df_dev['score_v2'] > q95_v2) & (df_dev['score_v2'] <= q9875_v2), f"{q95_v2:.2f}점 초과 {q9875_v2:.2f}점 이하 (상위 3.75%)"),
-            f"**검은색 구간 ({q9875_v2:.2f}점 초과, 1.25%)**": ((df_dev['score_v2'] > q9875_v2), f"{q9875_v2:.2f}점 초과 극단적 과열 (최상위 1.25%)"),
-            "**종합 감지 (v2)**": (df_dev['score_v2'] > 0, "과열 점수가 감지된 모든 날"),
-        }
-        stats_v2 = calculate_top_stats(df_dev, 'QQQ', top_verify_v2)
-        render_top_stats_table(stats_v2, "버전 2 (기획 제안안) 지표 검증 결과")
-
-    else:
-        st.info("한국 데이터는 향후 지원 예정입니다. 국가 선택을 '미국'으로 변경해 주세요.")
-
-# ── Tab 9: 고점개발2 ──
-with tabs[8]:
-    if selected_country == "미국":
-        # 1. 저점 및 실제 QQQ 저점 수집 (상호 배제용)
-        _bottom_fgi = (
-            ((df['FearGreedIndex'] <= 9) & (df['VIX'] >= 26)) |
-            ((df['FearGreedIndex'] >= 10) & (df['FearGreedIndex'] <= 19) & (df['VIX'] >= 22) & (df['VIX'] <= 25)) |
-            ((df['FearGreedIndex'] >= 20) & (df['FearGreedIndex'] <= 29) & (df['VIX'] >= 18) & (df['VIX'] <= 21)) |
-            ((df['FearGreedIndex'] >= 30) & (df['FearGreedIndex'] <= 39) & (df['VIX'] >= 14) & (df['VIX'] <= 17))
-        )
-        _bottom_slope = (
-            (df['슬로프5일합'] <= -20) | (df['슬로프10일합'] <= -30) |
-            (df['슬로프20일합'] <= -40) | (df['슬로프40일합'] <= -50)
-        )
-        _multi_conds_for_bottom = [
-            (df['QQQ_%B'] * (df['HYG_RSI'] / 100) <= 0.010),
-            (df['FearGreedIndex'] * np.exp(df['TNX_ROC'] * 2) / (df['VIX'] + 1e-10) <= 0.35),
-            (((df['FearGreedIndex'] - 50) / 20 + (df['QQQ_RSI'] - 50) / 15 + (df['QQQ_%B'] - 0.5) / 0.25 - df['VIX_Z']) <= -5.0),
-            ((df['QQQ_%B'] <= 0.01) & (df['FearGreedIndex'] <= 6) & (df['VIX'] >= 25)),
-            ((df['QQQ_%B'] <= -0.05) & (df['FearGreedIndex'] <= 7)),
-        ]
-        _multi_cnt = sum(c.fillna(False).astype(int) for c in _multi_conds_for_bottom)
-        _bottom_multi = _multi_cnt >= 1
-        
-        is_bottom_day = (_bottom_fgi | _bottom_slope | _bottom_multi).reindex(df.index).fillna(False)
-        
-        _rolling_max = df['QQQ'].rolling(252, min_periods=1).max()
-        _drawdown = (_rolling_max - df['QQQ']) / _rolling_max
-        _local_min = df['QQQ'].rolling(41, center=True, min_periods=1).min()
-        is_actual_bottom = (df['QQQ'] <= _local_min * 1.03) & (_drawdown >= 0.05)
-        
-        is_any_bottom = (is_bottom_day | is_actual_bottom).reindex(df.index).fillna(False)
-        _not_bottom = ~is_any_bottom
-        
-        # 전처리
-        df_dev2 = df.copy()
-        df_dev2['QQQ_Low252'] = df_dev2['QQQ'].rolling(252, min_periods=1).min()
-        df_dev2['QQQ_RU'] = (df_dev2['QQQ'] - df_dev2['QQQ_Low252']) / (df_dev2['QQQ_Low252'] + 1e-10)
-        df_dev2['RU_Pct'] = df_dev2['QQQ_RU'].rolling(252, min_periods=60).rank(pct=True)
-        
-        df_dev2['QQQ_20H'] = df_dev2['QQQ'].rolling(20).max()
-        df_dev2['RSI7_20H'] = df_dev2['QQQ_RSI7'].rolling(20).max()
-        df_dev2['RSI_Div'] = (df_dev2['QQQ'] >= df_dev2['QQQ_20H'] * 0.99) & (df_dev2['QQQ_RSI7'] < df_dev2['RSI7_20H'] - 5)
-        
-        _ema12 = df_dev2['QQQ'].ewm(span=12, adjust=False).mean()
-        _ema26 = df_dev2['QQQ'].ewm(span=26, adjust=False).mean()
-        df_dev2['MACD'] = _ema12 - _ema26
-        df_dev2['MACD_Signal'] = df_dev2['MACD'].ewm(span=9, adjust=False).mean()
-        df_dev2['MACD_Hist'] = df_dev2['MACD'] - df_dev2['MACD_Signal']
-        
-        df_dev2['QQQ_MA20'] = df_dev2['QQQ'].rolling(20).mean()
-        df_dev2['QQQ_MA50'] = df_dev2['QQQ'].rolling(50).mean()
-        df_dev2['MA20_Dev'] = (df_dev2['QQQ'] - df_dev2['QQQ_MA20']) / (df_dev2['QQQ_MA20'] + 1e-10) * 100
-        df_dev2['MA50_Dev'] = (df_dev2['QQQ'] - df_dev2['QQQ_MA50']) / (df_dev2['QQQ_MA50'] + 1e-10) * 100
-        
-        df_dev2['QQQ_Vel'] = df_dev2['QQQ'].pct_change(5)
-        df_dev2['QQQ_Accel'] = df_dev2['QQQ_Vel'].diff(3)
-        df_dev2['SKEW_Z'] = (df_dev2['SKEW'] - df_dev2['SKEW'].rolling(252).mean()) / (df_dev2['SKEW'].rolling(252).std() + 1e-5)
-        
-        # 15대 고점 지표 count용 리스트
-        conds_15 = [
-            df_dev2['RSI_Div'],
-            (df_dev2['QQQ_RU'] >= 0.30) & (df_dev2['QQQ_RSI7'] >= 70),
-            df_dev2['QQQ_RSI7'] >= 75,
-            df_dev2['VIX_Pct'] <= 0.15,
-            df_dev2['QQQ_RSI'] >= 70,
-            df_dev2['QQQ_%B'] >= 0.90,
-            df_dev2['QQQ_RSI7'] >= 80,
-            df_dev2['VIX_Pct'] <= 0.10,
-            (df_dev2['MACD_Hist'].diff() < 0) & (df_dev2['MACD_Hist'] > 0) & (df_dev2['QQQ_RSI7'] >= 65),
-            (df_dev2['SKEW'] >= 145) & (df_dev2['VIX'] <= 15),
-            df_dev2['QQQ_%B'] >= 1.0,
-            (df_dev2['QQQ_%B'] >= 0.95) & (df_dev2['VIX'] <= 16),
-            df_dev2['QQQ_RU'] >= 0.40,
-            (df_dev2['VVIX_Pct'] <= 0.20) & (df_dev2['QQQ_RSI7'] >= 75),
-            df_dev2['QQQ_RSI'] >= 75
-        ]
-        cnt_15 = sum(c.fillna(False).astype(int) for c in conds_15)
-        
-        # 6대 고점 특화 지표 딕셔너리 구성 (저점 배제 처리 적용)
-        indicators_6 = {
-            "적중 2 (SKEW 대발산 & VIX 저위 & RSI7 과열)": (
-                (df_dev2['SKEW'] >= 148) & (df_dev2['VIX'] <= 13.0) & (df_dev2['QQQ_RSI7'] >= 75) & _not_bottom,
-                "SKEW >= 148 & VIX <= 13.0 & QQQ_RSI7 >= 75 (적중률 57.9%)",
-                "rgba(224, 102, 102, 0.5)", "#E06666" # 빨간색 계열
-            ),
-            "적중 4 (HYG & QQQ 초과열)": (
-                (df_dev2['HYG_RSI'] >= 78) & (df_dev2['QQQ_RSI7'] >= 80) & (df_dev2['VIX'] <= 12.5) & _not_bottom,
-                "HYG_RSI >= 78 & QQQ_RSI7 >= 80 & VIX <= 12.5 (적중률 37.5%)",
-                "rgba(255, 140, 0, 0.5)", "#FF8C00" # 주황색 계열
-            ),
-            "균형 2 (RSI 다이버전스 & QQQ 랠리 성숙)": (
-                (df_dev2['RSI_Div']) & (df_dev2['QQQ_RU'] >= 0.35) & (df_dev2['QQQ_RSI7'] >= 70) & _not_bottom,
-                "RSI_Div & QQQ_RU >= 0.35 & QQQ_RSI7 >= 70 (적중률 39.8% / 포착률 17.6%)",
-                "rgba(255, 255, 153, 0.5)", "#FFFF99" # 노란색 계열
-            ),
-            "균형 4 (VVIX 백분위 저위 & FGI 탐욕 & RSI7 과열)": (
-                (df_dev2['VVIX_Pct'] <= 0.12) & (df_dev2['FearGreedIndex'] >= 75) & (df_dev2['QQQ_RSI7'] >= 72) & _not_bottom,
-                "VVIX_Pct <= 0.12 & FGI >= 75 & QQQ_RSI7 >= 72 (적중률 100.0%)",
-                "rgba(169, 208, 142, 0.5)", "#A9D08E" # 초록색 계열
-            ),
-            "포착 3 (15대 핵심 지표 중 3개 이상 만족 - 다중 카운트)": (
-                (cnt_15 >= 3) & _not_bottom,
-                "15대 핵심 고점 후보 조건 중 3가지 이상 동시 발생 (적중률 40.1% / 포착률 61.4%)",
-                "rgba(135, 206, 235, 0.5)", "#87CEEB" # 파란색 계열
-            ),
-            "포착 4 (FGI-VIX 스프레드 확장)": (
-                ((df_dev2['(FGI-VIX)/5'] >= 9.5) & (df_dev2['QQQ_RU'] >= 0.20)) & _not_bottom,
-                "(FGI-VIX)/5 >= 9.5 & QQQ_RU >= 0.20 (적중률 45.6% / 포착률 24.1%)",
-                "rgba(128, 0, 128, 0.5)", "#800080" # 보라색 계열
-            )
-        }
-        
-        # 날짜 범위 연산 및 5년 필터링 (루프 외부에서 1회 수행)
-        five_years_ago_dev2 = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
-        df_dev2_plot = df_dev2[df_dev2.index >= five_years_ago_dev2].copy()
-        
-        if active_period_days:
-            target_date_dev2 = datetime.date.today() - datetime.timedelta(days=active_period_days)
-            detected_dev2 = [i for i, d in enumerate(df_dev2_plot.index) if d >= pd.to_datetime(target_date_dev2)]
-            initial_x_dev2 = [detected_dev2[0], len(df_dev2_plot.index) - 1] if detected_dev2 else None
-            if detected_dev2:
-                qqq_1y_dev2 = df_dev2_plot['QQQ'].iloc[detected_dev2[0]:]
-                qqq_yr_dev2 = [float(qqq_1y_dev2.min()) * 0.95, float(qqq_1y_dev2.max()) * 1.05]
-            else:
-                qqq_yr_dev2 = [float(df_dev2_plot['QQQ'].min()) * 0.95, float(df_dev2_plot['QQQ'].max()) * 1.05]
-        else:
-            initial_x_dev2 = None
-            qqq_yr_dev2 = [float(df_dev2_plot['QQQ'].min()) * 0.95, float(df_dev2_plot['QQQ'].max()) * 1.05]
-            
-        max_qqq_dev2 = float(df_dev2_plot['QQQ'].max()) * 1.2
-        hd_dev2 = [fmt_date_kor(d) for d in df_dev2_plot.index]
-        
-        # 6가지 지표 순차적으로 화면에 출력
-        for idx, (name, (cond_bool, desc_str, bar_color, tbl_color)) in enumerate(indicators_6.items()):
-            st.markdown(f"#### 📈 {name}")
-            st.markdown(f"**조건 세부 내용**: `{desc_str}`")
-            
-            cond_plot = cond_bool.reindex(df_dev2_plot.index).fillna(False)
-            
-            fig_dev2 = make_subplots(specs=[[{"secondary_y": True}]])
-            
-            # QQQ 가격 선 그래프 (슬로프합 디자인 동기화)
-            fig_dev2.add_trace(go.Scatter(
-                x=hd_dev2, y=df_dev2_plot['QQQ'], name='QQQ 가격', mode='lines+markers',
-                line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),
-                marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),
-                hovertemplate='QQQ: %{y:.2f}<extra></extra>'
-            ), secondary_y=False)
-            
-            # 고점 신호 오버레이 막대 그래프
-            fig_dev2.add_trace(go.Bar(
-                x=hd_dev2, y=cond_plot.astype(int).values * max_qqq_dev2,
-                name='고점 감지 신호',
-                marker_color=bar_color,
-                marker_line_width=0.5, marker_line_color='white',
-                hovertemplate='고점 감지일<extra></extra>'
-            ), secondary_y=False)
-            
-            fig_dev2.update_layout(**COMMON_LAYOUT, height=330, margin=dict(l=0,r=50,t=10,b=10), showlegend=False, barmode='overlay', bargap=0,
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
-            if initial_x_dev2:
-                fig_dev2.update_xaxes(range=initial_x_dev2, type='category', **crosshair_xaxis())
-            else:
-                fig_dev2.update_xaxes(type='category', **crosshair_xaxis())
-            fig_dev2.update_yaxes(range=qqq_yr_dev2, **crosshair_yaxis(), secondary_y=False)
-            fig_dev2.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
-            
-            st.plotly_chart(fig_dev2, width='stretch', config=COMMON_CONFIG, key=f"top_dev2_chart_{idx}")
-            
-            # 최근 고점 감지 신호 날짜 리스트표 생성
-            df_sig_dev2 = df_dev2_plot[cond_plot].sort_index(ascending=False).head(50)
-            if not df_sig_dev2.empty:
-                dates_row_dev2 = []
-                desc_row_dev2 = []
-                for dt, row in df_sig_dev2.iterrows():
-                    bg = tbl_color
-                    fg = "#FFF" if bg in ['#E06666', '#800080', '#FF8C00'] else "#000"
-                    dates_row_dev2.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                    desc_row_dev2.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>감지됨</td>")
-                
-                st.markdown(f"""
-                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 최근 감지 신호 (최근 50개, 저점일 제외)</span>
-                <table style='border-collapse:collapse;margin-top:3px;'>
-                    <tr>
-                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>날짜</th>
-                        {"".join(dates_row_dev2)}
-                    </tr>
-                    <tr>
-                        <th style='border:1px solid #555;padding:2px 6px;background:#1F4E79;color:white;text-align:center;white-space:nowrap;'>여부</th>
-                        {"".join(desc_row_dev2)}
-                    </tr>
-                </table>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            # 검증결과 통계 테이블 생성
-            top_dev2_verify = {
-                name: (cond_bool, desc_str)
-            }
-            stats_top_dev2 = calculate_top_stats(df_dev2, 'QQQ', top_dev2_verify)
-            st.markdown("<br>", unsafe_allow_html=True)
-            render_top_stats_table(stats_top_dev2, f"'{name}' 검증 결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
-            st.markdown("<hr style='border: 1px dashed #555; margin: 1.5rem 0;'>", unsafe_allow_html=True)
-    else:
-        st.info("한국 데이터는 향후 지원 예정입니다. 국가 선택을 '미국'으로 변경해 주세요.")
