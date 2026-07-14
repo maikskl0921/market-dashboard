@@ -1119,11 +1119,16 @@ with tabs[0]:
         five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
         df1_kr = df_kr[df_kr.index >= five_years_ago]
         
+        v2_black = ((df1_kr['FearGreedIndex'] <= 18) & (df1_kr['VKOSPI'] >= 26)) | ((df1_kr['FearGreedIndex'] == 50) & (df1_kr['VKOSPI'] >= 30) & (df1_kr['KOSPI_%B'] <= 0.05))
+        v2_red = (((df1_kr['FearGreedIndex'] >= 19) & (df1_kr['FearGreedIndex'] <= 25)) & (df1_kr['VKOSPI'] >= 22)) | ((df1_kr['FearGreedIndex'] == 50) & (df1_kr['VKOSPI'] >= 24) & (df1_kr['VKOSPI'] < 30) & (df1_kr['KOSPI_%B'] <= 0.10))
+        v2_yellow = (((df1_kr['FearGreedIndex'] >= 26) & (df1_kr['FearGreedIndex'] <= 32)) & (df1_kr['VKOSPI'] >= 18)) | ((df1_kr['FearGreedIndex'] == 50) & (df1_kr['VKOSPI'] >= 20) & (df1_kr['VKOSPI'] < 24) & (df1_kr['KOSPI_%B'] <= 0.20))
+        v2_green = (((df1_kr['FearGreedIndex'] >= 33) & (df1_kr['FearGreedIndex'] <= 40)) & (df1_kr['VKOSPI'] >= 14)) | ((df1_kr['FearGreedIndex'] == 50) & (df1_kr['VKOSPI'] >= 20) & (df1_kr['VKOSPI'] < 24) & (df1_kr['KOSPI_%B'] <= 0.20))
+
         color_cond_map_kr = [
-            ((df1_kr['FearGreedIndex']<=9)&(df1_kr['VKOSPI']>=26),                                                          '#595959', '#FFFFFF', 'rgba(0,0,0,0.3)'),
-            ((df1_kr['FearGreedIndex']>=10)&(df1_kr['FearGreedIndex']<=19)&(df1_kr['VKOSPI']>=22),                          '#E06666', '#FFFFFF', 'rgba(220,30,30,0.3)'),
-            ((df1_kr['FearGreedIndex']>=20)&(df1_kr['FearGreedIndex']<=29)&(df1_kr['VKOSPI']>=18),                          '#FFD700', '#000000', 'rgba(255,220,0,0.3)'),
-            ((df1_kr['FearGreedIndex']>=30)&(df1_kr['FearGreedIndex']<=39)&(df1_kr['VKOSPI']>=14),                          '#A9D08E', '#000000', 'rgba(0,128,0,0.3)'),
+            (v2_black,  '#595959', '#FFFFFF', 'rgba(0,0,0,0.3)'),
+            (v2_red,    '#E06666', '#FFFFFF', 'rgba(220,30,30,0.3)'),
+            (v2_yellow, '#FFD700', '#000000', 'rgba(255,220,0,0.3)'),
+            (v2_green,  '#A9D08E', '#000000', 'rgba(0,128,0,0.3)'),
         ]
 
         date_color_map_kr = {}
@@ -1208,16 +1213,18 @@ with tabs[0]:
         st.plotly_chart(fig_kr, width='stretch', config=COMMON_CONFIG, key="tab1_kr_fgi_chart")
 
         # 실시간 지표검증결과 자동 계산 (KOSPI 기준)
+        v2_black_all = ((df_kr['FearGreedIndex'] <= 18) & (df_kr['VKOSPI'] >= 26)) | ((df_kr['FearGreedIndex'] == 50) & (df_kr['VKOSPI'] >= 30) & (df_kr['KOSPI_%B'] <= 0.05))
+        v2_red_all = (((df_kr['FearGreedIndex'] >= 19) & (df_kr['FearGreedIndex'] <= 25)) & (df_kr['VKOSPI'] >= 22)) | ((df_kr['FearGreedIndex'] == 50) & (df_kr['VKOSPI'] >= 24) & (df_kr['VKOSPI'] < 30) & (df_kr['KOSPI_%B'] <= 0.10))
+        v2_yellow_all = (((df_kr['FearGreedIndex'] >= 26) & (df_kr['FearGreedIndex'] <= 32)) & (df_kr['VKOSPI'] >= 18)) | ((df_kr['FearGreedIndex'] == 50) & (df_kr['VKOSPI'] >= 20) & (df_kr['VKOSPI'] < 24) & (df_kr['KOSPI_%B'] <= 0.20))
+        v2_green_all = (((df_kr['FearGreedIndex'] >= 33) & (df_kr['FearGreedIndex'] <= 40)) & (df_kr['VKOSPI'] >= 14)) | ((df_kr['FearGreedIndex'] == 50) & (df_kr['VKOSPI'] >= 20) & (df_kr['VKOSPI'] < 24) & (df_kr['KOSPI_%B'] <= 0.20))
+
         fgi_conditions_kr = {
-            "**[검정] 극단적 패닉**": ((df_kr['FearGreedIndex'] <= 9) & (df_kr['VKOSPI'] >= 26), "FGI <= 9 & VKOSPI >= 26"),
-            "**[빨강] 강한 패닉**": ((df_kr['FearGreedIndex'] >= 10) & (df_kr['FearGreedIndex'] <= 19) & (df_kr['VKOSPI'] >= 22), "FGI 10-19 & VKOSPI >= 22"),
-            "**[노랑] 약세 패닉**": ((df_kr['FearGreedIndex'] >= 20) & (df_kr['FearGreedIndex'] <= 29) & (df_kr['VKOSPI'] >= 18), "FGI 20-29 & VKOSPI >= 18"),
-            "**[초록] 주의 구간**": ((df_kr['FearGreedIndex'] >= 30) & (df_kr['FearGreedIndex'] <= 39) & (df_kr['VKOSPI'] >= 14), "FGI 30-39 & VKOSPI >= 14"),
+            "**[검정] 극단적 패닉**": (v2_black_all, "극단적 패닉 (KR FGI <= 18 & VKOSPI >= 26)"),
+            "**[빨강] 강한 패닉**": (v2_red_all, "강한 패닉 (19 <= KR FGI <= 25 & VKOSPI >= 22)"),
+            "**[노랑] 약세 패닉**": (v2_yellow_all, "약세 패닉 (26 <= KR FGI <= 32 & VKOSPI >= 18)"),
+            "**[초록] 주의 구간**": (v2_green_all, "주의 구간 (33 <= KR FGI <= 40 & VKOSPI >= 14)"),
             "**공탐변동 종합 감지**": (
-                ((df_kr['FearGreedIndex'] <= 9) & (df_kr['VKOSPI'] >= 26)) |
-                ((df_kr['FearGreedIndex'] >= 10) & (df_kr['FearGreedIndex'] <= 19) & (df_kr['VKOSPI'] >= 22)) |
-                ((df_kr['FearGreedIndex'] >= 20) & (df_kr['FearGreedIndex'] <= 29) & (df_kr['VKOSPI'] >= 18)) |
-                ((df_kr['FearGreedIndex'] >= 30) & (df_kr['FearGreedIndex'] <= 39) & (df_kr['VKOSPI'] >= 14)),
+                v2_black_all | v2_red_all | v2_yellow_all | v2_green_all,
                 "위 4가지 색 중 하나 이상 감지"
             )
         }
@@ -1446,13 +1453,13 @@ with tabs[0]:
             
         elif selected_country == "한국":
             SLOPE_BOTTOM_CHARTS_KR = [
-                (2, 10, '슬로프10일합', -15),
-                (3, 20, '슬로프20일합', -20),
-                (4, 30, '슬로프30일합', -25),
-                (5, 40, '슬로프40일합', -30),
-                (6, 50, '슬로프50일합', -35),
-                (7, 60, '슬로프60일합', -40),
-                (8, 70, '슬로프70일합', -45),
+                (2, 10, '슬로프10일합', -90),
+                (3, 20, '슬로프20일합', -140),
+                (4, 30, '슬로프30일합', -170),
+                (5, 40, '슬로프40일합', -200),
+                (6, 50, '슬로프50일합', -230),
+                (7, 60, '슬로프60일합', -260),
+                (8, 70, '슬로프70일합', -290),
             ]
             
             # 동시 감지 갯수 계산 및 저장
@@ -1627,32 +1634,45 @@ with tabs[0]:
             
             # 실시간 지표검증결과 자동 계산 (KOSPI 슬로프합 기준)
             slope_conditions_kr = {
-                "**10일합 이탈**": (df_kr['슬로프10일합'] <= -15, "10일슬로프합 <= -15"),
-                "**20일합 이탈**": (df_kr['슬로프20일합'] <= -20, "20일슬로프합 <= -20"),
-                "**30일합 이탈**": (df_kr['슬로프30일합'] <= -25, "30일슬로프합 <= -25"),
-                "**40일합 이탈**": (df_kr['슬로프40일합'] <= -30, "40일슬로프합 <= -30"),
-                "**50일합 이탈**": (df_kr['슬로프50일합'] <= -35, "50일슬로프합 <= -35"),
-                "**60일합 이탈**": (df_kr['슬로프60일합'] <= -40, "60일슬로프합 <= -40"),
-                "**70일합 이탈**": (df_kr['슬로프70일합'] <= -45, "70일슬로프합 <= -45"),
+                "**10일합 이탈**": (df_kr['슬로프10일합'] <= -90, "10일슬로프합 <= -90"),
+                "**20일합 이탈**": (df_kr['슬로프20일합'] <= -140, "20일슬로프합 <= -140"),
+                "**30일합 이탈**": (df_kr['슬로프30일합'] <= -170, "30일슬로프합 <= -170"),
+                "**40일합 이탈**": (df_kr['슬로프40일합'] <= -200, "40일슬로프합 <= -200"),
+                "**50일합 이탈**": (df_kr['슬로프50일합'] <= -230, "50일슬로프합 <= -230"),
+                "**60일합 이탈**": (df_kr['슬로프60일합'] <= -260, "60일슬로프합 <= -260"),
+                "**70일합 이탈**": (df_kr['슬로프70일합'] <= -290, "70일슬로프합 <= -290"),
                 "**슬로프합 종합 감지**": (
-                    (df_kr['슬로프10일합'] <= -15) | (df_kr['슬로프20일합'] <= -20) | (df_kr['슬로프30일합'] <= -25) | 
-                    (df_kr['슬로프40일합'] <= -30) | (df_kr['슬로프50일합'] <= -35) | (df_kr['슬로프60일합'] <= -40) | (df_kr['슬로프70일합'] <= -45),
+                    (df_kr['슬로프10일합'] <= -90) | (df_kr['슬로프20일합'] <= -140) | (df_kr['슬로프30일합'] <= -170) | 
+                    (df_kr['슬로프40일합'] <= -200) | (df_kr['슬로프50일합'] <= -230) | (df_kr['슬로프60일합'] <= -260) | (df_kr['슬로프70일합'] <= -290),
                     "1개 이상 지표 이탈"
                 ),
                 "**슬로프합 강력 이탈**": (
-                    ((df_kr['슬로프10일합'] <= -15).astype(int) + 
-                     (df_kr['슬로프20일합'] <= -20).astype(int) + 
-                     (df_kr['슬로프30일합'] <= -25).astype(int) + 
-                     (df_kr['슬로프40일합'] <= -30).astype(int) + 
-                     (df_kr['슬로프50일합'] <= -35).astype(int) + 
-                     (df_kr['슬로프60일합'] <= -40).astype(int) + 
-                     (df_kr['슬로프70일합'] <= -45).astype(int)) >= 4,
+                    ((df_kr['슬로프10일합'] <= -90).astype(int) + 
+                     (df_kr['슬로프20일합'] <= -140).astype(int) + 
+                     (df_kr['슬로프30일합'] <= -170).astype(int) + 
+                     (df_kr['슬로프40일합'] <= -200).astype(int) + 
+                     (df_kr['슬로프50일합'] <= -230).astype(int) + 
+                     (df_kr['슬로프60일합'] <= -260).astype(int) + 
+                     (df_kr['슬로프70일합'] <= -290).astype(int)) >= 4,
                     "4개 이상 지표 동시 이탈"
                 )
             }
             stats_slope_kr = calculate_indicator_stats(df_kr, 'KOSPI', slope_conditions_kr)
             st.markdown("<br>", unsafe_allow_html=True)
             render_stats_table(stats_slope_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
+            
+            v2_slope_rainbow_verify_kr = {
+                "빨간색 (1개 감지)": (df_kr['slope_detect_count'] == 1, "동시 감지 1개"),
+                "주황색 (2개 감지)": (df_kr['slope_detect_count'] == 2, "동시 감지 2개"),
+                "노란색 (3개 감지)": (df_kr['slope_detect_count'] == 3, "동시 감지 3개"),
+                "초록색 (4개 감지)": (df_kr['slope_detect_count'] == 4, "동시 감지 4개"),
+                "파란색 (5개 감지)": (df_kr['slope_detect_count'] == 5, "동시 감지 5개"),
+                "남색 (6개 감지)": (df_kr['slope_detect_count'] == 6, "동시 감지 6개"),
+                "보라색 (7개 감지)": (df_kr['slope_detect_count'] == 7, "동시 감지 7개")
+            }
+            stats_slope_rainbow_kr = calculate_indicator_stats(df_kr, 'KOSPI', v2_slope_rainbow_verify_kr)
+            st.markdown("<br>", unsafe_allow_html=True)
+            render_stats_table(stats_slope_rainbow_kr, "📊 슬로프합 최종본 다중 감지 검증 결과")
 
 
     def render_bottom_multi_us():
@@ -1846,61 +1866,115 @@ with tabs[0]:
     def render_bottom_multi_kr():
         df_multi_kr = df_kr.copy()
         
+        # 보조 지표 계산 (임시비교 탭의 계산 방식과 100% 일치)
+        ema12_c = df_multi_kr['KOSPI'].ewm(span=12, adjust=False).mean()
+        ema26_c = df_multi_kr['KOSPI'].ewm(span=26, adjust=False).mean()
+        df_multi_kr['MACD'] = ema12_c - ema26_c
+        df_multi_kr['MACD_Signal'] = df_multi_kr['MACD'].ewm(span=9, adjust=False).mean()
+        df_multi_kr['MACD_Hist'] = df_multi_kr['MACD'] - df_multi_kr['MACD_Signal']
+        df_multi_kr['SKEW_Z'] = (df_multi_kr['SKEW'] - df_multi_kr['SKEW'].rolling(252).mean()) / (df_multi_kr['SKEW'].rolling(252).std() + 1e-5)
+        
+        # KOSPI Volume & Vol_Z
+        _vol_kr = yf.download('^KS11', start="2018-01-01", progress=False)
+        vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
+        if isinstance(vol_data_kr, pd.DataFrame): 
+            vol_data_kr = vol_data_kr.iloc[:, 0]
+        vol_data_kr.index = vol_data_kr.index.normalize()
+        df_multi_kr['Volume'] = vol_data_kr.reindex(df_multi_kr.index).ffill()
+        df_multi_kr['Vol_Z'] = (df_multi_kr['Volume'] - df_multi_kr['Volume'].rolling(50).mean()) / (df_multi_kr['Volume'].rolling(50).std() + 1e-5)
+        
+        # Velocity, Accel, VVIX_Vel
+        x_arr = np.arange(10)
+        var_x = np.var(x_arr)
+        def calc_slope(y):
+            if len(y) < 10: return 0
+            return np.cov(x_arr, y)[0,1] / var_x
+        df_multi_kr['KOSPI_Slope10'] = df_multi_kr['KOSPI'].rolling(10).apply(calc_slope, raw=True)
+        df_multi_kr['KOSPI_Vel'] = df_multi_kr['KOSPI'].pct_change(5)
+        df_multi_kr['KOSPI_Accel'] = df_multi_kr['KOSPI_Vel'].diff(3)
+        df_multi_kr['VVIX_Vel'] = df_multi_kr['VVIX'].diff(3)
+        
+        # RSI
+        delta_comp = df_multi_kr['KOSPI'].diff()
+        up_comp = delta_comp.clip(lower=0)
+        down_comp = -1 * delta_comp.clip(upper=0)
+        rs14_comp = up_comp.rolling(14).mean() / (down_comp.rolling(14).mean() + 1e-5)
+        df_multi_kr['KOSPI_RSI14'] = 100 - (100 / (1 + rs14_comp))
+        rs7_comp = up_comp.rolling(7).mean() / (down_comp.rolling(7).mean() + 1e-5)
+        df_multi_kr['KOSPI_RSI7'] = 100 - (100 / (1 + rs7_comp))
+        
+        df_multi_kr['DD_Sq'] = df_multi_kr['KOSPI_DD'] ** 2
+        df_multi_kr['FGI_Proxy'] = 100 - (df_multi_kr['VKOSPI'] / df_multi_kr['VKOSPI'].rolling(252).max() * 100)
+        df_multi_kr['VKOSPI_Pct'] = (df_multi_kr['VKOSPI'] - df_multi_kr['VKOSPI'].rolling(252).min()) / (df_multi_kr['VKOSPI'].rolling(252).max() - df_multi_kr['VKOSPI'].rolling(252).min() + 1e-5)
+        
+        # 슬로프합 보조 연산 (df_multi_kr에 슬로프5~70일합 연산)
+        df_multi_s = df_multi_kr.copy().reset_index()
+        df_multi_s.rename(columns={df_multi_s.columns[0]: 'Date'}, inplace=True)
+        df_multi_s['Date'] = pd.to_datetime(df_multi_s['Date'])
+        df_multi_s = df_multi_s.sort_values('Date').reset_index(drop=True)
+        df_multi_s['슬로프'] = df_multi_s['KOSPI'].diff()
+        sl_multi = df_multi_s['슬로프'].values
+        
+        df_multi_kr['슬로프5일합'] = slope_sum_lagged(sl_multi, 5)
+        df_multi_kr['슬로프10일합'] = slope_sum_lagged(sl_multi, 10)
+        df_multi_kr['슬로프20일합'] = slope_sum_lagged(sl_multi, 20)
+        df_multi_kr['슬로프30일합'] = slope_sum_lagged(sl_multi, 30)
+        df_multi_kr['슬로프40일합'] = slope_sum_lagged(sl_multi, 40)
+        df_multi_kr['슬로프50일합'] = slope_sum_lagged(sl_multi, 50)
+        df_multi_kr['슬로프60일합'] = slope_sum_lagged(sl_multi, 60)
+        df_multi_kr['슬로프70일합'] = slope_sum_lagged(sl_multi, 70)
+
         # 49개의 후보 지표 조건들을 KOSPI 및 연동된 글로벌 피처들을 활용한 조건식으로 정의
         all_conditions_kr = [
-            # 지표개발 19개
-            (df_multi_kr['KOSPI_%B'] * (df_multi_kr['HYG_RSI'] / 100) <= 0.010),
-            (df_multi_kr['FearGreedIndex'] * np.exp(df_multi_kr['TNX_ROC'] * 2) / (df_multi_kr['VKOSPI'] + 1e-10) <= 0.35),
-            (((df_multi_kr['FearGreedIndex'] - 50) / 20 + (df_multi_kr['KOSPI_RSI'] - 50) / 15 + (df_multi_kr['KOSPI_%B'] - 0.5) / 0.25 - df_multi_kr['VKOSPI_Z']) <= -5.0),
-            ((df_multi_kr['KOSPI_%B'] <= 0.01) & (df_multi_kr['FearGreedIndex'] <= 6) & (df_multi_kr['VKOSPI'] >= 25)),
-            ((df_multi_kr['KOSPI_%B'] <= -0.05) & (df_multi_kr['FearGreedIndex'] <= 7)),
-            ((df_multi_kr['슬로프10일합'] <= -40) & (df_multi_kr['VKOSPI'] >= 30) & (df_multi_kr['FearGreedIndex'] <= 9)),
-            ((df_multi_kr['슬로프40일합'] <= -70) & (df_multi_kr['FearGreedIndex'] <= 8) & (df_multi_kr['KOSPI_%B'] <= 0.02)),
-            ((df_multi_kr['HYG_RSI'] <= 18) & (df_multi_kr['VKOSPI'] >= 32)),
-            ((df_multi_kr['FearGreedIndex'] <= 8) & (df_multi_kr['VKOSPI'] >= 28) & (df_multi_kr['HYG_RSI'] <= 22)),
-            ((df_multi_kr['슬로프5일합'] <= -35) & (df_multi_kr['KOSPI_RSI'] <= 22) & (df_multi_kr['VKOSPI'] >= 28)),
-            ((df_multi_kr['KOSPI_RSI7'] <= 15) & (df_multi_kr['FearGreedIndex'] <= 15)),
-            ((df_multi_kr['KOSPI_RSI7'] <= 18) & (df_multi_kr['FearGreedIndex'] <= 12)),
-            ((df_multi_kr['KOSPI_RSI7'] <= 20) & (df_multi_kr['FearGreedIndex'] <= 12)),
-            ((df_multi_kr['KOSPI_RSI7'] <= 22) & (df_multi_kr['FearGreedIndex'] <= 12)),
-            ((df_multi_kr['VVIX_Z'] >= 3.0) & (df_multi_kr['FearGreedIndex'] <= 15)),
-            ((df_multi_kr['VVIX_Z'] >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 20)),
-            ((df_multi_kr['VVIX_Pct'] >= 0.90) & (df_multi_kr['FearGreedIndex'] <= 10)),
-            ((df_multi_kr['VVIX_Pct'] >= 0.90) & (df_multi_kr['KOSPI_RSI7'] <= 22)),
-            ((df_multi_kr['FearGreedIndex'].diff(7) <= -20) & (df_multi_kr['VKOSPI_Pct'] >= 0.85)),
-            # 적중집중 10개
-            (((30 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 18) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
-            (((25 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 12) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
-            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 5.0) & (df_multi_kr['FearGreedIndex'] <= 18) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            (((df_multi_kr['VKOSPI'] * df_multi_kr['VVIX'] / 1000) >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 10) & (df_multi_kr['KOSPI_DD'] >= 0.04)),
-            (((df_multi_kr['VKOSPI'] * df_multi_kr['VVIX'] / 1000) >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 10) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            (((25 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 15) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
-            (((20 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 10) & (df_multi_kr['VVIX_Pct'] >= 0.70)),
-            (((30 - df_multi_kr['FearGreedIndex']) * (1 - df_multi_kr['KOSPI_%B']) >= 18) & (df_multi_kr['VVIX_Pct'] >= 0.80)),
-            ((np.log(np.maximum(df_multi_kr['VVIX_Z'] + 5.0, 1e-5)) * df_multi_kr['VKOSPI_Pct'] >= 1.0) & (df_multi_kr['FearGreedIndex'] <= 12) & (df_multi_kr['KOSPI_%B'] <= 0.15)),
-            ((df_multi_kr['FearGreedIndex'] * np.exp(df_multi_kr['TNX_ROC'] * 3) <= 15) & (df_multi_kr['KOSPI_RSI7'] <= 28) & (df_multi_kr['VKOSPI_Pct'] >= 0.80)),
-            # 균형집중 10개
-            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 4.5) & (df_multi_kr['FearGreedIndex'] <= 30) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 3.5) & (df_multi_kr['FearGreedIndex'] <= 22) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            ((df_multi_kr['KOSPI_%B'] <= 0.10) & (df_multi_kr['KOSPI_RSI7'] <= 40) & (df_multi_kr['FearGreedIndex'] <= 30) & (df_multi_kr['VKOSPI_Pct'] >= 0.60) & (df_multi_kr['VVIX_Pct'] >= 0.50)),
-            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 3 >= 7.0) & (df_multi_kr['FGI_Pct'] <= 0.30)),
-            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 4 >= 8.0) & (df_multi_kr['FGI_Pct'] <= 0.30)),
-            ((df_multi_kr['KOSPI_%B'] <= 0.15) & (df_multi_kr['KOSPI_RSI7'] <= 35) & (df_multi_kr['FearGreedIndex'] <= 20) & (df_multi_kr['VKOSPI_Pct'] >= 0.60) & (df_multi_kr['VVIX_Pct'] >= 0.50)),
-            (((25 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 18) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['K_DD_Pct'] >= 0.70)),
-            (((30 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 25) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['K_DD_Pct'] >= 0.40)),
-            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 1.2) & (df_multi_kr['FearGreedIndex'] <= 12) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 1.5) & (df_multi_kr['FearGreedIndex'] <= 12) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            # 포착집중 10개
-            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 2.5) & (df_multi_kr['FearGreedIndex'] <= 40) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 3.0) & (df_multi_kr['FearGreedIndex'] <= 45) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            ((df_multi_kr['KOSPI_%B'] <= 0.25) & (df_multi_kr['KOSPI_RSI7'] <= 50) & (df_multi_kr['FearGreedIndex'] <= 40) & (df_multi_kr['VKOSPI_Pct'] >= 0.40) & (df_multi_kr['VVIX_Pct'] >= 0.40)),
-            ((140 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 2 >= 6.0) & (df_multi_kr['FGI_Pct'] <= 0.35)),
-            ((df_multi_kr['KOSPI_%B'] <= 0.20) & (df_multi_kr['KOSPI_RSI7'] <= 50) & (df_multi_kr['FearGreedIndex'] <= 45) & (df_multi_kr['VKOSPI_Pct'] >= 0.40) & (df_multi_kr['VVIX_Pct'] >= 0.40)),
-            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 2 >= 5.0) & (df_multi_kr['FGI_Pct'] <= 0.35)),
-            (((40 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 25) & (df_multi_kr['VVIX_Pct'] >= 0.30) & (df_multi_kr['K_DD_Pct'] >= 0.50)),
-            (((35 - df_multi_kr['FearGreedIndex']) * (1.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 20) & (df_multi_kr['VVIX_Pct'] >= 0.30) & (df_multi_kr['K_DD_Pct'] >= 0.50)),
-            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.5) & (df_multi_kr['FearGreedIndex'] <= 18) & (df_multi_kr['KOSPI_DD'] >= 0.05)),
-            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.8) & (df_multi_kr['FearGreedIndex'] <= 18) & (df_multi_kr['KOSPI_DD'] >= 0.05))
+            (df_multi_kr['KOSPI_%B'] * (df_multi_kr['HYG_RSI'] / 100) <= 0.11) & (df_multi_kr['KOSPI_DD'] >= 0.038), 
+            (((df_multi_kr['FearGreedIndex'] <= 18) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.045))) & (np.exp(df_multi_kr['TNX_ROC'] * 2) / (df_multi_kr['VKOSPI'] + 1e-10) <= 0.12)), 
+            ((((df_multi_kr['FearGreedIndex'] - 50) / 20 if df_multi_kr['FearGreedIndex'].mean() != 50 else 0) + (df_multi_kr['KOSPI_RSI'] - 50) / 15 + (df_multi_kr['KOSPI_%B'] - 0.5) / 0.25 - df_multi_kr['VKOSPI_Z']) <= -1.5) & (df_multi_kr['KOSPI_DD'] >= 0.04), 
+            ((df_multi_kr['KOSPI_%B'] <= 0.22) & ((df_multi_kr['FearGreedIndex'] <= 18) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.045))) & (df_multi_kr['VKOSPI'] >= 22)), 
+            ((df_multi_kr['KOSPI_%B'] <= 0.18) & ((df_multi_kr['FearGreedIndex'] <= 22) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.045)))), 
+            ((df_multi_kr['슬로프10일합'] <= -70) & (df_multi_kr['VKOSPI'] >= 20) & ((df_multi_kr['FearGreedIndex'] <= 20) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04)))), 
+            ((df_multi_kr['슬로프40일합'] <= -130) & ((df_multi_kr['FearGreedIndex'] <= 20) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.045))) & (df_multi_kr['KOSPI_%B'] <= 0.16)), 
+            ((df_multi_kr['HYG_RSI'] <= 38) & (df_multi_kr['VKOSPI'] >= 22) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            (((df_multi_kr['FearGreedIndex'] <= 22) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.045))) & (df_multi_kr['VKOSPI'] >= 20) & (df_multi_kr['HYG_RSI'] <= 38)), 
+            ((df_multi_kr['슬로프5일합'] <= -30) & (df_multi_kr['KOSPI_RSI'] <= 40) & (df_multi_kr['VKOSPI'] >= 19) & (df_multi_kr['KOSPI_DD'] >= 0.035)), 
+            ((df_multi_kr['KOSPI_RSI7'] <= 33) & ((df_multi_kr['FearGreedIndex'] <= 26) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.035)))), 
+            ((df_multi_kr['KOSPI_RSI7'] <= 35) & ((df_multi_kr['FearGreedIndex'] <= 24) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.035)))), 
+            ((df_multi_kr['KOSPI_RSI7'] <= 37) & ((df_multi_kr['FearGreedIndex'] <= 24) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04)))), 
+            ((df_multi_kr['KOSPI_RSI7'] <= 39) & ((df_multi_kr['FearGreedIndex'] <= 24) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04)))), 
+            ((df_multi_kr['VVIX_Z'] >= 1.2) & ((df_multi_kr['FearGreedIndex'] <= 26) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.035)))), 
+            ((df_multi_kr['VVIX_Z'] >= 1.0) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04)))), 
+            ((df_multi_kr['VVIX_Pct'] >= 0.55) & ((df_multi_kr['FearGreedIndex'] <= 24) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04)))), 
+            ((df_multi_kr['VVIX_Pct'] >= 0.55) & (df_multi_kr['KOSPI_RSI7'] <= 40) & (df_multi_kr['KOSPI_DD'] >= 0.035)), 
+            (((df_multi_kr['FearGreedIndex'].diff(7) <= -6) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.035))) & (df_multi_kr['VKOSPI_Pct'] >= 0.65)),
+            (((50 - df_multi_kr['FearGreedIndex']) * (2.0 - df_multi_kr['KOSPI_%B']) >= 12) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['KOSPI_DD'] >= 0.035)), 
+            (((45 - df_multi_kr['FearGreedIndex']) * (2.0 - df_multi_kr['KOSPI_%B']) >= 9) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['KOSPI_DD'] >= 0.035)), 
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 2.0) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            (((df_multi_kr['VKOSPI'] * df_multi_kr['VVIX'] / 1000) >= 1.2) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.035))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            (((df_multi_kr['VKOSPI'] * df_multi_kr['VVIX'] / 1000) >= 1.2) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.03)), 
+            (((45 - df_multi_kr['FearGreedIndex']) * (2.0 - df_multi_kr['KOSPI_%B']) >= 10) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['KOSPI_DD'] >= 0.035)), 
+            (((40 - df_multi_kr['FearGreedIndex']) * (2.0 - df_multi_kr['KOSPI_%B']) >= 8) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['KOSPI_DD'] >= 0.035)), 
+            (((50 - df_multi_kr['FearGreedIndex']) * (2.0 - df_multi_kr['KOSPI_%B']) >= 12) & (df_multi_kr['VVIX_Pct'] >= 0.60) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            ((np.log(np.maximum(df_multi_kr['VVIX_Z'] + 5.0, 1e-5)) * df_multi_kr['VKOSPI_Pct'] >= 0.6) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_%B'] <= 0.30)), 
+            ((((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & np.exp(df_multi_kr['TNX_ROC'] * 3) <= 52) & (df_multi_kr['KOSPI_RSI7'] <= 40) & (df_multi_kr['VKOSPI_Pct'] >= 0.60)), 
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 1.6) & ((df_multi_kr['FearGreedIndex'] <= 32) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 1.4) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            ((df_multi_kr['KOSPI_%B'] <= 0.30) & (df_multi_kr['KOSPI_RSI7'] <= 40) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['VKOSPI_Pct'] >= 0.50) & (df_multi_kr['VVIX_Pct'] >= 0.50)), 
+            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 3 >= 4.5) & (df_multi_kr['FGI_Pct'] <= 0.40) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 4 >= 5.5) & (df_multi_kr['FGI_Pct'] <= 0.40) & (df_multi_kr['KOSPI_DD'] >= 0.045)), 
+            ((df_multi_kr['KOSPI_%B'] <= 0.32) & (df_multi_kr['KOSPI_RSI7'] <= 44) & ((df_multi_kr['FearGreedIndex'] <= 28) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['VKOSPI_Pct'] >= 0.50) & (df_multi_kr['VVIX_Pct'] >= 0.50)), 
+            (((50 - df_multi_kr['FearGreedIndex']) * (2.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 16) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['K_DD_Pct'] >= 0.50) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            (((55 - df_multi_kr['FearGreedIndex']) * (2.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 20) & (df_multi_kr['VVIX_Pct'] >= 0.50) & (df_multi_kr['K_DD_Pct'] >= 0.40) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.6) & ((df_multi_kr['FearGreedIndex'] <= 26) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.9) & ((df_multi_kr['FearGreedIndex'] <= 26) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 1.4) & ((df_multi_kr['FearGreedIndex'] <= 36) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            (((df_multi_kr['VVIX'] / (df_multi_kr['KOSPI_RSI7'] + 1e-5)) >= 1.6) & ((df_multi_kr['FearGreedIndex'] <= 42) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            ((df_multi_kr['KOSPI_%B'] <= 0.38) & (df_multi_kr['KOSPI_RSI7'] <= 48) & ((df_multi_kr['FearGreedIndex'] <= 36) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['VKOSPI_Pct'] >= 0.40) & (df_multi_kr['VVIX_Pct'] >= 0.40)), 
+            ((140 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 2 >= 2.8) & (df_multi_kr['FGI_Pct'] <= 0.45) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            ((df_multi_kr['KOSPI_%B'] <= 0.36) & (df_multi_kr['KOSPI_RSI7'] <= 48) & ((df_multi_kr['FearGreedIndex'] <= 38) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['VKOSPI_Pct'] >= 0.40) & (df_multi_kr['VVIX_Pct'] >= 0.40)), 
+            ((100 / (df_multi_kr['KOSPI_RSI7'] + 1e-5) + df_multi_kr['K_DD_Pct'] * 2 >= 2.8) & (df_multi_kr['FGI_Pct'] <= 0.45) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            (((75 - df_multi_kr['FearGreedIndex']) * (2.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 20) & (df_multi_kr['VVIX_Pct'] >= 0.32) & (df_multi_kr['K_DD_Pct'] >= 0.32) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            (((70 - df_multi_kr['FearGreedIndex']) * (2.5 - df_multi_kr['KOSPI_%B'] * 1.5) >= 16) & (df_multi_kr['VVIX_Pct'] >= 0.32) & (df_multi_kr['K_DD_Pct'] >= 0.32) & (df_multi_kr['KOSPI_DD'] >= 0.04)), 
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.38) & ((df_multi_kr['FearGreedIndex'] <= 32) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025)), 
+            ((df_multi_kr['VKOSPI_Z'] * df_multi_kr['VVIX_Z'] >= 0.45) & ((df_multi_kr['FearGreedIndex'] <= 32) | ((df_multi_kr['FearGreedIndex'] == 50) & (df_multi_kr['KOSPI_DD'] >= 0.04))) & (df_multi_kr['KOSPI_DD'] >= 0.025))  
         ]
         
         # 합산(개수 세기)
@@ -2227,37 +2301,38 @@ with tabs[0]:
 
             df_pre_kr['DD_Sq'] = df_pre_kr['KOSPI_DD'] ** 2
             df_pre_kr['FGI_Proxy'] = 100 - (df_pre_kr['VKOSPI'] / df_pre_kr['VKOSPI'].rolling(252).max() * 100)
-            if 'TNX_ROC' not in df_pre_kr.columns:
-                df_pre_kr['TNX_ROC'] = df_pre_kr['TNX'].pct_change(10)
-            if 'VKOSPI_Pct' not in df_pre_kr.columns:
-                df_pre_kr['VKOSPI_Pct'] = (df_pre_kr['VKOSPI'] - df_pre_kr['VKOSPI'].rolling(252).min()) / (df_pre_kr['VKOSPI'].rolling(252).max() - df_pre_kr['VKOSPI'].rolling(252).min() + 1e-5)
+            df_pre_kr['VKOSPI_Pct'] = (df_pre_kr['VKOSPI'] - df_pre_kr['VKOSPI'].rolling(252).min()) / (df_pre_kr['VKOSPI'].rolling(252).max() - df_pre_kr['VKOSPI'].rolling(252).min() + 1e-5)
 
-            macro1 = (df_pre_kr['SKEW_Z'] > 0.5) | (df_pre_kr['HYG_RSI'] <= 25)
-            micro1 = (df_pre_kr['MACD_Hist'] < -1.0) & (df_pre_kr['KOSPI_Slope10'] < -1.0)
-            c1_1 = (macro1 & micro1) | ((np.log(df_pre_kr['VVIX'] + 1e-5) * df_pre_kr['DD_Sq'] * 100 > 1.0) & (df_pre_kr['KOSPI_%B'] <= 0.02))
+            # [버전 2 통합지표 조건식]
+            # 1. 4종 통합(AND)
+            v2_macro = (df_pre_kr['SKEW_Z'] > 0.8) | (df_pre_kr['HYG_RSI'] <= 22)
+            v2_micro = (df_pre_kr['MACD_Hist'] < -1.2) & (df_pre_kr['KOSPI_Slope10'] < -1.2)
+            c1_1 = (v2_macro & v2_micro) | ((np.log(df_pre_kr['VVIX'] + 1e-5) * df_pre_kr['DD_Sq'] * 100 > 2.0) & (df_pre_kr['KOSPI_%B'] <= 0.01))
             
-            liq1 = (df_pre_kr['Vol_Z'] > 1.5) | (df_pre_kr['HYG_RSI'] < 20)
-            psy1 = (df_pre_kr['FearGreedIndex'] <= 15) | (df_pre_kr['VKOSPI_Pct'] >= 0.9)
-            dd_guard1 = df_pre_kr['KOSPI_DD'] >= 0.06
-            c2_1 = (liq1 & psy1 & dd_guard1) | ((df_pre_kr['VVIX_Vel'].diff(3) > 5.0) & (df_pre_kr['KOSPI_RSI7'] <= 25) & (df_pre_kr['KOSPI_DD'] >= 0.04))
+            v2_liq = (df_pre_kr['Vol_Z'] > 1.8) | (df_pre_kr['HYG_RSI'] < 15)
+            v2_psy = (df_pre_kr['FearGreedIndex'] <= 15) | ((df_pre_kr['FearGreedIndex'] == 50) & (df_pre_kr['KOSPI_DD'] >= 0.06)) | (df_pre_kr['VKOSPI_Pct'] >= 0.94)
+            v2_dd = df_pre_kr['KOSPI_DD'] >= 0.07
+            c2_1 = (v2_liq & v2_psy & v2_dd) | ((df_pre_kr['VVIX_Vel'].diff(3) > 6.0) & (df_pre_kr['KOSPI_RSI7'] <= 24) & (df_pre_kr['KOSPI_DD'] >= 0.05))
             
-            grav1 = (df_pre_kr['KOSPI_Accel'] < -0.015) & (df_pre_kr['DD_Sq'] * df_pre_kr['VVIX'] > 1.0)
-            vol_shock1 = (df_pre_kr['KOSPI_%B'] < 0.0) & (df_pre_kr['Vol_Z'] > 1.0) & (df_pre_kr['HYG_RSI'] <= 30)
-            c3_1 = (grav1 | vol_shock1) & (df_pre_kr['KOSPI_RSI14'] <= 45) & (df_pre_kr['KOSPI_DD'] >= 0.05)
+            v2_grav = (df_pre_kr['KOSPI_Accel'] < -0.018) & (df_pre_kr['DD_Sq'] * df_pre_kr['VVIX'] > 2.0)
+            v2_vol = (df_pre_kr['KOSPI_%B'] < 0.01) & (df_pre_kr['Vol_Z'] > 1.8) & (df_pre_kr['HYG_RSI'] <= 20)
+            c3_1 = (v2_grav | v2_vol) & (df_pre_kr['KOSPI_RSI14'] <= 35) & (df_pre_kr['KOSPI_DD'] >= 0.05)
             
-            opt1 = (df_pre_kr['VVIX_Z'] > 1.5) | (df_pre_kr['VKOSPI_Pct'] > 0.85)
-            rate1 = (df_pre_kr['TNX_ROC'] > 0.1) | (df_pre_kr['SKEW_Z'] > 1.0)
-            tech1 = (df_pre_kr['KOSPI_RSI7'] <= 35) | (df_pre_kr['KOSPI_%B'] <= 0.05)
-            c4_1 = (opt1 | rate1) & tech1 & (df_pre_kr['KOSPI_DD'] >= 0.04) & (df_pre_kr['FearGreedIndex'] <= 40)
+            v2_opt = (df_pre_kr['VVIX_Z'] > 2.0) | (df_pre_kr['VKOSPI_Pct'] > 0.90)
+            v2_rate = (df_pre_kr['TNX_ROC'] > 0.15) | (df_pre_kr['SKEW_Z'] > 1.8)
+            v2_tech = (df_pre_kr['KOSPI_RSI7'] <= 28) | (df_pre_kr['KOSPI_%B'] <= 0.03)
+            c4_1 = (v2_opt | v2_rate) & v2_tech & (df_pre_kr['KOSPI_DD'] >= 0.05) & ((df_pre_kr['FearGreedIndex'] <= 30) | (df_pre_kr['FearGreedIndex'] == 50))
             
-            c_all_1 = c1_1 & c2_1 & c3_1 & c4_1
+            c_all_1 = ((c1_1.astype(int) + c2_1.astype(int) + c3_1.astype(int) + c4_1.astype(int)) >= 3)
             
+            # 2. 물리학적 에너지
             ke2 = 0.5 * np.maximum(df_pre_kr['Vol_Z'], 0.1) * (np.abs(df_pre_kr['KOSPI_Vel']) * 100)**2
             pe2 = df_pre_kr['VKOSPI'] * (df_pre_kr['KOSPI_DD'] * 100)
-            c2_2 = (ke2*10 > pe2) & (df_pre_kr['Vol_Z'] > 0.5) & (df_pre_kr['KOSPI_%B'] <= 0.05)
+            c2_2 = (ke2*15 > pe2) & (df_pre_kr['Vol_Z'] > -0.2) & (df_pre_kr['KOSPI_%B'] <= 0.25)
             
+            # 3. 푸리에 변환 모방
             phase2 = np.sin((df_pre_kr['FGI_Proxy'] / 100) * np.pi) 
-            c4_2 = (phase2 < 0.5) & (df_pre_kr['KOSPI_Vel'] < -0.02) & (df_pre_kr['VKOSPI_Z'] > 1.0)
+            c4_2 = (phase2 < 0.6) & (df_pre_kr['KOSPI_Vel'] < -0.015) & (df_pre_kr['VKOSPI_Z'] > 0.8)
             
             c_or_final = c_all_1 | c2_2 | c4_2
 
@@ -2282,10 +2357,10 @@ with tabs[0]:
                 st.markdown(table_html, unsafe_allow_html=True)
             
             pre_conditions_kr = {
-                "**최종 3대 통합 괴물지표 (OR)**": (c_or_final, '4종 통합(AND) + 물리에너지 + 푸리에 파동'),
-                "4종 통합(AND)": (c_all_1, '연구 조건 4종 일치'),
-                "물리학적 에너지 역전 법칙": (c2_2, '투매 운동에너지 > 공포 응축에너지'),
-                "푸리에 변환 모방 위상 천이": (c4_2, '공포 삼각함수 파동 교차'),
+                "**최종 3대 통합 괴물지표 (OR)**": (c_or_final, "4종 통합(AND), 물리학적 에너지, 푸리에 변환 중 하나 이상 저점 신호 감지"),
+                "4종 통합(AND)": (c_all_1, "매크로/마이크로, 유동성/심리, 중력/변동성, 옵션/금리/기술적 4개 조건 중 3개 이상 동시 만족"),
+                "물리학적 에너지 역전 법칙": (c2_2, "Vol_Z기반 KOSPI 운동에너지가 VKOSPI & KOSPI_DD기반 위치에너지 이상으로 과도 분출"),
+                "푸리에 변환 모방 위상 천이": (c4_2, "한국 FGI Proxy 기반 위상 주기함수 주기 반전 구간 & KOSPI 하강 속도 & VKOSPI 급등 동시 만족"),
             }
 
             if active_period_days:
