@@ -64,13 +64,19 @@ def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_th
 
 def render_stats_table(stats_list, title):
     st.markdown(f"#### 📊 {title}")
-    tbl_md = """
-| 감지 조건 | 조건 세부 내용 | 발생 횟수 | 저점 적중 (Hit Rate) | 저점 포착 (Recall) | 종합 점수 |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-"""
+    tbl_html = '<div style="margin-right: 100px;"><table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
     for item in stats_list:
-        tbl_md += f"| {item['name']} | {item['desc']} | {item['triggered']} | {item['hit_rate']} | {item['recall']} | {item['score']} |\n"
-    st.markdown(tbl_md)
+        name_html = item['name'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        desc_html = item['desc'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        hit_rate_html = item['hit_rate'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        
+        name_html = name_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        desc_html = desc_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        hit_rate_html = hit_rate_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+
+        tbl_html += f'<tr><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{name_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{desc_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["triggered"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{hit_rate_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["recall"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["score"]}</td></tr>'
+    tbl_html += "</tbody></table></div>"
+    st.markdown(tbl_html, unsafe_allow_html=True)
 
 def calculate_top_stats(df_target, price_col, conditions, window=41, ru_threshold=0.10, local_max_factor=0.97):
     """
@@ -113,13 +119,19 @@ def calculate_top_stats(df_target, price_col, conditions, window=41, ru_threshol
 
 def render_top_stats_table(stats_list, title):
     st.markdown(f"#### 📊 {title}")
-    tbl_md = """
-| 감지 조건 | 조건 세부 내용 | 발생 횟수 | 고점 적중 (Hit Rate) | 고점 포착 (Recall) | 종합 점수 |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-"""
+    tbl_html = '<div style="margin-right: 100px;"><table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">고점 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">고점 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
     for item in stats_list:
-        tbl_md += f"| {item['name']} | {item['desc']} | {item['triggered']} | {item['hit_rate']} | {item['recall']} | {item['score']} |\n"
-    st.markdown(tbl_md)
+        name_html = item['name'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        desc_html = item['desc'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        hit_rate_html = item['hit_rate'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        
+        name_html = name_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        desc_html = desc_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+        hit_rate_html = hit_rate_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
+
+        tbl_html += f'<tr><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{name_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{desc_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["triggered"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{hit_rate_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["recall"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["score"]}</td></tr>'
+    tbl_html += "</tbody></table></div>"
+    st.markdown(tbl_html, unsafe_allow_html=True)
 
 def fmt_date_kor(dt):
     if isinstance(dt, str):
@@ -982,8 +994,8 @@ with st.spinner('데이터 로딩 중...'):
     df_dram = update_and_get_dram_history()
     df_mon = fetch_monitoring_data()
 
-# 탭 구성: 저점지표 / 모니터링 / 메모리 / 고점지표 / 임시비교
-tab_names = ['저점지표', '고점지표', '모니터링', '메모리', '임시비교']
+# 탭 구성: 저점지표 / 모니터링 / 메모리 / 고점지표
+tab_names = ['저점지표', '고점지표', '모니터링', '메모리']
 tabs = st.tabs(tab_names)
 
 # ── Tab 1: 저점지표 ──
@@ -1672,7 +1684,7 @@ with tabs[0]:
             }
             stats_slope_rainbow_kr = calculate_indicator_stats(df_kr, 'KOSPI', v2_slope_rainbow_verify_kr)
             st.markdown("<br>", unsafe_allow_html=True)
-            render_stats_table(stats_slope_rainbow_kr, "📊 슬로프합 최종본 다중 감지 검증 결과")
+            render_stats_table(stats_slope_rainbow_kr, "슬로프합 최종본 다중 감지 검증 결과")
 
 
     def render_bottom_multi_us():
@@ -3036,6 +3048,7 @@ with tabs[3]:
             
         st.markdown("<br>\n\n#### 현물가 상세", unsafe_allow_html=True)
         tbl_html = """
+        <div style="margin-right: 100px;">
         <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;">
             <thead>
                 <tr style="background:#1F4E79;color:white;">
@@ -3054,7 +3067,7 @@ with tabs[3]:
                 tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;font-weight:bold;'>{format_price(row[1])}</td>"
                 tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;'>{get_chg_badge(row[2])}</td>"
                 tbl_html += f"</tr>"
-        tbl_html += "</tbody></table>"
+        tbl_html += "</tbody></table></div>"
         st.markdown(tbl_html, unsafe_allow_html=True)
         
     else:
@@ -4274,357 +4287,13 @@ with tabs[1]:
             fig_top_final_kr.update_xaxes(type='category', **crosshair_xaxis())
             if initial_x_tt:
                 fig_top_final_kr.update_xaxes(range=initial_x_tt)
+            
+            st.plotly_chart(fig_top_final_kr, width='stretch', config=COMMON_CONFIG, key="top_chart_final_or_kr")
+            
             top_final_conditions_kr = {
                 "**최종 4대 통합 고점지표 (OR)**": (c_top_all_kr, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
             }
             stats_top_final_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_final_conditions_kr)
             render_top_stats_table(stats_top_final_kr, "통합 고점지표 검증 결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
-
-
-# ── Tab 5: 임시비교 ──
-with tabs[4]:
-    st.subheader("📊 한국 저점지표 양대 대안 비교")
-    st.info("💡 **한국 FGI + 결측치 우회 최종본**의 과거 백테스트 결과 및 신호 차이를 분야별로 확인해 보세요.")
-    
-    # 공통 비교 데이터 세트 구축
-    df_comp = df_kr.copy()
-    
-    # 보조 지표 계산
-    ema12_c = df_comp['KOSPI'].ewm(span=12, adjust=False).mean()
-    ema26_c = df_comp['KOSPI'].ewm(span=26, adjust=False).mean()
-    df_comp['MACD'] = ema12_c - ema26_c
-    df_comp['MACD_Signal'] = df_comp['MACD'].ewm(span=9, adjust=False).mean()
-    df_comp['MACD_Hist'] = df_comp['MACD'] - df_comp['MACD_Signal']
-    df_comp['SKEW_Z'] = (df_comp['SKEW'] - df_comp['SKEW'].rolling(252).mean()) / (df_comp['SKEW'].rolling(252).std() + 1e-5)
-    
-    # KOSPI Volume & Vol_Z
-    _vol_kr = yf.download('^KS11', start="2018-01-01", progress=False)
-    vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
-    if isinstance(vol_data_kr, pd.DataFrame): 
-        vol_data_kr = vol_data_kr.iloc[:, 0]
-    vol_data_kr.index = vol_data_kr.index.normalize()
-    df_comp['Volume'] = vol_data_kr.reindex(df_comp.index).ffill()
-    df_comp['Vol_Z'] = (df_comp['Volume'] - df_comp['Volume'].rolling(50).mean()) / (df_comp['Volume'].rolling(50).std() + 1e-5)
-    
-    # Velocity, Accel, VVIX_Vel
-    x_arr = np.arange(10)
-    var_x = np.var(x_arr)
-    def calc_slope(y):
-        if len(y) < 10: return 0
-        return np.cov(x_arr, y)[0,1] / var_x
-    df_comp['KOSPI_Slope10'] = df_comp['KOSPI'].rolling(10).apply(calc_slope, raw=True)
-    df_comp['KOSPI_Vel'] = df_comp['KOSPI'].pct_change(5)
-    df_comp['KOSPI_Accel'] = df_comp['KOSPI_Vel'].diff(3)
-    df_comp['VVIX_Vel'] = df_comp['VVIX'].diff(3)
-    
-    # RSI
-    delta_comp = df_comp['KOSPI'].diff()
-    up_comp = delta_comp.clip(lower=0)
-    down_comp = -1 * delta_comp.clip(upper=0)
-    rs14_comp = up_comp.rolling(14).mean() / (down_comp.rolling(14).mean() + 1e-5)
-    df_comp['KOSPI_RSI14'] = 100 - (100 / (1 + rs14_comp))
-    rs7_comp = up_comp.rolling(7).mean() / (down_comp.rolling(7).mean() + 1e-5)
-    df_comp['KOSPI_RSI7'] = 100 - (100 / (1 + rs7_comp))
-    
-    df_comp['DD_Sq'] = df_comp['KOSPI_DD'] ** 2
-    df_comp['FGI_Proxy'] = 100 - (df_comp['VKOSPI'] / df_comp['VKOSPI'].rolling(252).max() * 100)
-    df_comp['VKOSPI_Pct'] = (df_comp['VKOSPI'] - df_comp['VKOSPI'].rolling(252).min()) / (df_comp['VKOSPI'].rolling(252).max() - df_comp['VKOSPI'].rolling(252).min() + 1e-5)
-    
-    # 슬로프합 보조 연산
-    df_comp_s = df_comp.copy().reset_index()
-    df_comp_s.rename(columns={df_comp_s.columns[0]: 'Date'}, inplace=True)
-    df_comp_s['Date'] = pd.to_datetime(df_comp_s['Date'])
-    df_comp_s = df_comp_s.sort_values('Date').reset_index(drop=True)
-    df_comp_s['슬로프'] = df_comp_s['KOSPI'].diff()
-    sl_comp = df_comp_s['슬로프'].values
-    
-    df_comp['슬로프5일합'] = slope_sum_lagged(sl_comp, 5)
-    df_comp['슬로프10일합'] = slope_sum_lagged(sl_comp, 10)
-    df_comp['슬로프20일합'] = slope_sum_lagged(sl_comp, 20)
-    df_comp['슬로프30일합'] = slope_sum_lagged(sl_comp, 30)
-    df_comp['슬로프40일합'] = slope_sum_lagged(sl_comp, 40)
-    df_comp['슬로프50일합'] = slope_sum_lagged(sl_comp, 50)
-    df_comp['슬로프60일합'] = slope_sum_lagged(sl_comp, 60)
-    df_comp['슬로프70일합'] = slope_sum_lagged(sl_comp, 70)
-    
-    comp_sub_tabs = st.tabs(['공탐변동', '슬로프합', '다중지표', '통합지표'])
-    
-    # 분석 기간 필터링 적용용 x축 설정
-    if active_period_days:
-        target_date_c = datetime.date.today() - datetime.timedelta(days=active_period_days)
-        df_plot_c = df_comp[df_comp.index >= pd.to_datetime(target_date_c)]
-    else:
-        df_plot_c = df_comp.copy()
-    
-    kospi_yr_c = [float(df_plot_c['KOSPI'].min()) * 0.95, float(df_plot_c['KOSPI'].max()) * 1.05]
-    hd_comp = [fmt_date_kor(d) for d in df_plot_c.index]
-    
-    # ── 1. 공탐변동 최종본 ──
-    with comp_sub_tabs[0]:
-        st.markdown("### 🔍 공탐변동 최종본 (한국 FGI + 결측 우회)")
-        
-        v2_black = ((df_comp['FearGreedIndex'] <= 18) & (df_comp['VKOSPI'] >= 26)) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['VKOSPI'] >= 30) & (df_comp['KOSPI_%B'] <= 0.05))
-        v2_red = (((df_comp['FearGreedIndex'] >= 19) & (df_comp['FearGreedIndex'] <= 25)) & (df_comp['VKOSPI'] >= 22)) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['VKOSPI'] >= 24) & (df_comp['VKOSPI'] < 30) & (df_comp['KOSPI_%B'] <= 0.10))
-        v2_yellow = (((df_comp['FearGreedIndex'] >= 26) & (df_comp['FearGreedIndex'] <= 32)) & (df_comp['VKOSPI'] >= 18)) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['VKOSPI'] >= 20) & (df_comp['VKOSPI'] < 24) & (df_comp['KOSPI_%B'] <= 0.20))
-        v2_green = (((df_comp['FearGreedIndex'] >= 33) & (df_comp['FearGreedIndex'] <= 40)) & (df_comp['VKOSPI'] >= 14)) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['VKOSPI'] >= 20) & (df_comp['VKOSPI'] < 24) & (df_comp['KOSPI_%B'] <= 0.20))
-        
-        fig_v2 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_v2.add_trace(go.Scatter(x=hd_comp, y=df_plot_c['KOSPI'], name='KOSPI 가격', mode='lines', line=dict(color='gray', width=1.2)), secondary_y=False)
-        
-        for cond, color, name in [(v2_black, 'black', '검정'), (v2_red, 'red', '빨강'), (v2_yellow, 'orange', '노랑'), (v2_green, 'green', '초록')]:
-            fig_v2.add_trace(go.Bar(
-                x=hd_comp, 
-                y=cond.reindex(df_plot_c.index).fillna(False).astype(int) * kospi_yr_c[1],
-                name=name,
-                marker_color=color,
-                opacity=0.35,
-                showlegend=True,
-                marker_line_width=0
-            ), secondary_y=False)
-        
-        fig_v2.update_layout(**COMMON_LAYOUT, height=360, margin=dict(l=10,r=10,t=10,b=10), showlegend=True, barmode='overlay')
-        fig_v2.update_yaxes(range=kospi_yr_c, secondary_y=False)
-        st.plotly_chart(fig_v2, use_container_width=True, key="comp_chart_v2_fgi")
-        
-        v2_fg_verify = {
-            "**검정색** (극단적 패닉)": (v2_black, "극단적 패닉 (KR FGI <= 18 & VKOSPI >= 26)"),
-            "**빨간색** (강한 패닉)": (v2_red, "강한 패닉 (19 <= KR FGI <= 25 & VKOSPI >= 22)"),
-            "**노란색** (약세 패닉)": (v2_yellow, "약세 패닉 (26 <= KR FGI <= 32 & VKOSPI >= 18)"),
-            "**초록색** (주의 구간)": (v2_green, "주의 구간 (33 <= KR FGI <= 40 & VKOSPI >= 14)")
-        }
-        stats_v2 = calculate_indicator_stats(df_comp, 'KOSPI', v2_fg_verify)
-        render_stats_table(stats_v2, "버전 2 공탐변동 지표 검증 결과 (순수 한국 FGI + 결측 우회)")
-
-    # ── 2. 슬로프합 최종본 ──
-    with comp_sub_tabs[1]:
-        st.markdown("### 🔍 슬로프합 최종본 (중첩 감지 갯수별 빨주노초파남보)")
-        
-        v2_sl_conds = [
-            (df_comp['슬로프10일합'] <= -90),
-            (df_comp['슬로프20일합'] <= -140),
-            (df_comp['슬로프30일합'] <= -170),
-            (df_comp['슬로프40일합'] <= -200),
-            (df_comp['슬로프50일합'] <= -230),
-            (df_comp['슬로프60일합'] <= -260),
-            (df_comp['슬로프70일합'] <= -290)
-        ]
-        # 동시 감지된 조건의 개수 (0~7)
-        df_comp['slope_count'] = sum(c.fillna(False).astype(int) for c in v2_sl_conds)
-        
-        df_plot_c = df_comp[df_comp.index >= pd.to_datetime(target_date_c)] if active_period_days else df_comp.copy()
-        
-        fig_sl_rainbow = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_sl_rainbow.add_trace(go.Scatter(x=hd_comp, y=df_plot_c['KOSPI'], name='KOSPI 가격', mode='lines', line=dict(color='gray', width=1.2)), secondary_y=False)
-        
-        sl_colors_map = {
-            "빨강 (1개 감지)": (df_plot_c['slope_count'] == 1, 'red'),
-            "주황 (2개 감지)": (df_plot_c['slope_count'] == 2, 'orange'),
-            "노랑 (3개 감지)": (df_plot_c['slope_count'] == 3, 'yellow'),
-            "초록 (4개 감지)": (df_plot_c['slope_count'] == 4, 'green'),
-            "파랑 (5개 감지)": (df_plot_c['slope_count'] == 5, 'blue'),
-            "남색 (6개 감지)": (df_plot_c['slope_count'] == 6, 'navy'),
-            "보라 (7개 감지)": (df_plot_c['slope_count'] == 7, 'purple')
-        }
-        for name, (c, col) in sl_colors_map.items():
-            fig_sl_rainbow.add_trace(go.Bar(
-                x=hd_comp,
-                y=c.reindex(df_plot_c.index).fillna(False).astype(int) * kospi_yr_c[1],
-                name=name,
-                marker_color=col,
-                opacity=0.35,
-                marker_line_width=0
-            ), secondary_y=False)
-            
-        fig_sl_rainbow.update_layout(**COMMON_LAYOUT, height=360, margin=dict(l=10,r=10,t=10,b=10), showlegend=True, barmode='overlay')
-        fig_sl_rainbow.update_yaxes(range=kospi_yr_c, secondary_y=False)
-        st.plotly_chart(fig_sl_rainbow, use_container_width=True, key="comp_chart_slope_rainbow")
-        
-        v2_slope_rainbow_verify = {
-            "빨간색 (1개 감지)": (df_comp['slope_count'] == 1, "동시 감지 1개"),
-            "주황색 (2개 감지)": (df_comp['slope_count'] == 2, "동시 감지 2개"),
-            "노란색 (3개 감지)": (df_comp['slope_count'] == 3, "동시 감지 3개"),
-            "초록색 (4개 감지)": (df_comp['slope_count'] == 4, "동시 감지 4개"),
-            "파란색 (5개 감지)": (df_comp['slope_count'] == 5, "동시 감지 5개"),
-            "남색 (6개 감지)": (df_comp['slope_count'] == 6, "동시 감지 6개"),
-            "보라색 (7개 감지)": (df_comp['slope_count'] == 7, "동시 감지 7개")
-        }
-        stats_sl_rainbow = calculate_indicator_stats(df_comp, 'KOSPI', v2_slope_rainbow_verify)
-        render_stats_table(stats_sl_rainbow, "슬로프합 최종본 다중 감지 검증 결과")
-
-    # ── 3. 다중지표(49지표) 최종본 ──
-    with comp_sub_tabs[2]:
-        # 49개 조건 최종본 연산 (한국 FGI + 결측 우회 정밀 최적화 - 극단적 임계값 적용)
-        all_conditions_v2 = [
-            (df_comp['KOSPI_%B'] * (df_comp['HYG_RSI'] / 100) <= 0.11) & (df_comp['KOSPI_DD'] >= 0.038), 
-            (((df_comp['FearGreedIndex'] <= 18) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.045))) & (np.exp(df_comp['TNX_ROC'] * 2) / (df_comp['VKOSPI'] + 1e-10) <= 0.12)), 
-            ((((df_comp['FearGreedIndex'] - 50) / 20 if df_comp['FearGreedIndex'].mean() != 50 else 0) + (df_comp['KOSPI_RSI'] - 50) / 15 + (df_comp['KOSPI_%B'] - 0.5) / 0.25 - df_comp['VKOSPI_Z']) <= -1.5) & (df_comp['KOSPI_DD'] >= 0.04), 
-            ((df_comp['KOSPI_%B'] <= 0.22) & ((df_comp['FearGreedIndex'] <= 18) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.045))) & (df_comp['VKOSPI'] >= 22)), 
-            ((df_comp['KOSPI_%B'] <= 0.18) & ((df_comp['FearGreedIndex'] <= 22) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.045)))), 
-            ((df_comp['슬로프10일합'] <= -70) & (df_comp['VKOSPI'] >= 20) & ((df_comp['FearGreedIndex'] <= 20) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04)))), 
-            ((df_comp['슬로프40일합'] <= -130) & ((df_comp['FearGreedIndex'] <= 20) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.045))) & (df_comp['KOSPI_%B'] <= 0.16)), 
-            ((df_comp['HYG_RSI'] <= 38) & (df_comp['VKOSPI'] >= 22) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            (((df_comp['FearGreedIndex'] <= 22) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.045))) & (df_comp['VKOSPI'] >= 20) & (df_comp['HYG_RSI'] <= 38)), 
-            ((df_comp['슬로프5일합'] <= -30) & (df_comp['KOSPI_RSI'] <= 40) & (df_comp['VKOSPI'] >= 19) & (df_comp['KOSPI_DD'] >= 0.035)), 
-            ((df_comp['KOSPI_RSI7'] <= 33) & ((df_comp['FearGreedIndex'] <= 26) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.035)))), 
-            ((df_comp['KOSPI_RSI7'] <= 35) & ((df_comp['FearGreedIndex'] <= 24) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.035)))), 
-            ((df_comp['KOSPI_RSI7'] <= 37) & ((df_comp['FearGreedIndex'] <= 24) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04)))), 
-            ((df_comp['KOSPI_RSI7'] <= 39) & ((df_comp['FearGreedIndex'] <= 24) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04)))), 
-            ((df_comp['VVIX_Z'] >= 1.2) & ((df_comp['FearGreedIndex'] <= 26) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.035)))), 
-            ((df_comp['VVIX_Z'] >= 1.0) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04)))), 
-            ((df_comp['VVIX_Pct'] >= 0.55) & ((df_comp['FearGreedIndex'] <= 24) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04)))), 
-            ((df_comp['VVIX_Pct'] >= 0.55) & (df_comp['KOSPI_RSI7'] <= 40) & (df_comp['KOSPI_DD'] >= 0.035)), 
-            (((df_comp['FearGreedIndex'].diff(7) <= -6) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.035))) & (df_comp['VKOSPI_Pct'] >= 0.65)), 
-            (((50 - df_comp['FearGreedIndex']) * (2.0 - df_comp['KOSPI_%B']) >= 12) & (df_comp['VVIX_Pct'] >= 0.50) & (df_comp['KOSPI_DD'] >= 0.035)), 
-            (((45 - df_comp['FearGreedIndex']) * (2.0 - df_comp['KOSPI_%B']) >= 9) & (df_comp['VVIX_Pct'] >= 0.50) & (df_comp['KOSPI_DD'] >= 0.035)), 
-            (((df_comp['VVIX'] / (df_comp['KOSPI_RSI7'] + 1e-5)) >= 2.0) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            (((df_comp['VKOSPI'] * df_comp['VVIX'] / 1000) >= 1.2) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.035))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            (((df_comp['VKOSPI'] * df_comp['VVIX'] / 1000) >= 1.2) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.03)), 
-            (((45 - df_comp['FearGreedIndex']) * (2.0 - df_comp['KOSPI_%B']) >= 10) & (df_comp['VVIX_Pct'] >= 0.50) & (df_comp['KOSPI_DD'] >= 0.035)), 
-            (((40 - df_comp['FearGreedIndex']) * (2.0 - df_comp['KOSPI_%B']) >= 8) & (df_comp['VVIX_Pct'] >= 0.50) & (df_comp['KOSPI_DD'] >= 0.035)), 
-            (((50 - df_comp['FearGreedIndex']) * (2.0 - df_comp['KOSPI_%B']) >= 12) & (df_comp['VVIX_Pct'] >= 0.60) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            ((np.log(np.maximum(df_comp['VVIX_Z'] + 5.0, 1e-5)) * df_comp['VKOSPI_Pct'] >= 0.6) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_%B'] <= 0.30)), 
-            ((((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & np.exp(df_comp['TNX_ROC'] * 3) <= 52) & (df_comp['KOSPI_RSI7'] <= 40) & (df_comp['VKOSPI_Pct'] >= 0.60)), 
-            (((df_comp['VVIX'] / (df_comp['KOSPI_RSI7'] + 1e-5)) >= 1.6) & ((df_comp['FearGreedIndex'] <= 32) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            (((df_comp['VVIX'] / (df_comp['KOSPI_RSI7'] + 1e-5)) >= 1.4) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            ((df_comp['KOSPI_%B'] <= 0.30) & (df_comp['KOSPI_RSI7'] <= 40) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['VKOSPI_Pct'] >= 0.50) & (df_comp['VVIX_Pct'] >= 0.50)), 
-            ((100 / (df_comp['KOSPI_RSI7'] + 1e-5) + df_comp['K_DD_Pct'] * 3 >= 4.5) & (df_comp['FGI_Pct'] <= 0.40) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            ((100 / (df_comp['KOSPI_RSI7'] + 1e-5) + df_comp['K_DD_Pct'] * 4 >= 5.5) & (df_comp['FGI_Pct'] <= 0.40) & (df_comp['KOSPI_DD'] >= 0.045)), 
-            ((df_comp['KOSPI_%B'] <= 0.32) & (df_comp['KOSPI_RSI7'] <= 44) & ((df_comp['FearGreedIndex'] <= 28) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['VKOSPI_Pct'] >= 0.50) & (df_comp['VVIX_Pct'] >= 0.50)), 
-            (((50 - df_comp['FearGreedIndex']) * (2.5 - df_comp['KOSPI_%B'] * 1.5) >= 16) & (df_comp['VVIX_Pct'] >= 0.50) & (df_comp['K_DD_Pct'] >= 0.50) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            (((55 - df_comp['FearGreedIndex']) * (2.5 - df_comp['KOSPI_%B'] * 1.5) >= 20) & (df_comp['VVIX_Pct'] >= 0.50) & (df_comp['K_DD_Pct'] >= 0.40) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            ((df_comp['VKOSPI_Z'] * df_comp['VVIX_Z'] >= 0.6) & ((df_comp['FearGreedIndex'] <= 26) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            ((df_comp['VKOSPI_Z'] * df_comp['VVIX_Z'] >= 0.9) & ((df_comp['FearGreedIndex'] <= 26) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            (((df_comp['VVIX'] / (df_comp['KOSPI_RSI7'] + 1e-5)) >= 1.4) & ((df_comp['FearGreedIndex'] <= 36) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            (((df_comp['VVIX'] / (df_comp['KOSPI_RSI7'] + 1e-5)) >= 1.6) & ((df_comp['FearGreedIndex'] <= 42) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            ((df_comp['KOSPI_%B'] <= 0.38) & (df_comp['KOSPI_RSI7'] <= 48) & ((df_comp['FearGreedIndex'] <= 36) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['VKOSPI_Pct'] >= 0.40) & (df_comp['VVIX_Pct'] >= 0.40)), 
-            ((140 / (df_comp['KOSPI_RSI7'] + 1e-5) + df_comp['K_DD_Pct'] * 2 >= 2.8) & (df_comp['FGI_Pct'] <= 0.45) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            ((df_comp['KOSPI_%B'] <= 0.36) & (df_comp['KOSPI_RSI7'] <= 48) & ((df_comp['FearGreedIndex'] <= 38) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['VKOSPI_Pct'] >= 0.40) & (df_comp['VVIX_Pct'] >= 0.40)), 
-            ((100 / (df_comp['KOSPI_RSI7'] + 1e-5) + df_comp['K_DD_Pct'] * 2 >= 2.8) & (df_comp['FGI_Pct'] <= 0.45) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            (((75 - df_comp['FearGreedIndex']) * (2.5 - df_comp['KOSPI_%B'] * 1.5) >= 20) & (df_comp['VVIX_Pct'] >= 0.32) & (df_comp['K_DD_Pct'] >= 0.32) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            (((70 - df_comp['FearGreedIndex']) * (2.5 - df_comp['KOSPI_%B'] * 1.5) >= 16) & (df_comp['VVIX_Pct'] >= 0.32) & (df_comp['K_DD_Pct'] >= 0.32) & (df_comp['KOSPI_DD'] >= 0.04)), 
-            ((df_comp['VKOSPI_Z'] * df_comp['VVIX_Z'] >= 0.38) & ((df_comp['FearGreedIndex'] <= 32) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025)), 
-            ((df_comp['VKOSPI_Z'] * df_comp['VVIX_Z'] >= 0.45) & ((df_comp['FearGreedIndex'] <= 32) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.04))) & (df_comp['KOSPI_DD'] >= 0.025))  
-        ]
-        df_comp['multi_count_v2'] = sum(cond.fillna(False).astype(int) for cond in all_conditions_v2)
-
-        # 분석용 뷰 데이터 슬라이싱
-        df_plot_multi = df_comp[df_comp.index >= pd.to_datetime(target_date_c)] if active_period_days else df_comp.copy()
-        
-        # 단일 최종본(버전 2) 다중지표 차트 및 테이블 렌더링
-        st.markdown("### 🔍 다중지표 (49지표) 최종본 (한국 FGI 결측 정교화)")
-        
-        fig_multi_v2 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_multi_v2.add_trace(go.Scatter(x=hd_comp, y=df_plot_multi['KOSPI'], name='KOSPI 가격', mode='lines', line=dict(color='gray', width=1.2)), secondary_y=False)
-        
-        v2_colors_map = {
-            "빨강 (1~7)": ((df_plot_multi['multi_count_v2'] >= 1) & (df_plot_multi['multi_count_v2'] <= 7), 'red'),
-            "주황 (8~14)": ((df_plot_multi['multi_count_v2'] >= 8) & (df_plot_multi['multi_count_v2'] <= 14), 'orange'),
-            "노랑 (15~21)": ((df_plot_multi['multi_count_v2'] >= 15) & (df_plot_multi['multi_count_v2'] <= 21), 'yellow'),
-            "초록 (22~28)": ((df_plot_multi['multi_count_v2'] >= 22) & (df_plot_multi['multi_count_v2'] <= 28), 'green'),
-            "파랑 (29~35)": ((df_plot_multi['multi_count_v2'] >= 29) & (df_plot_multi['multi_count_v2'] <= 35), 'blue'),
-            "남색 (36~42)": ((df_plot_multi['multi_count_v2'] >= 36) & (df_plot_multi['multi_count_v2'] <= 42), 'navy'),
-            "보라 (43~49)": ((df_plot_multi['multi_count_v2'] >= 43) & (df_plot_multi['multi_count_v2'] <= 49), 'purple')
-        }
-        for name, (c, col) in v2_colors_map.items():
-            fig_multi_v2.add_trace(go.Bar(
-                x=hd_comp,
-                y=c.reindex(df_plot_multi.index).fillna(False).astype(int) * kospi_yr_c[1],
-                name=name,
-                marker_color=col,
-                opacity=0.35,
-                marker_line_width=0
-            ), secondary_y=False)
-        
-        fig_multi_v2.update_layout(**COMMON_LAYOUT, height=360, margin=dict(l=10,r=10,t=10,b=10), showlegend=True, barmode='overlay')
-        fig_multi_v2.update_yaxes(range=kospi_yr_c, secondary_y=False)
-        st.plotly_chart(fig_multi_v2, use_container_width=True, key="comp_chart_v2_multi_rainbow")
-        
-        v2_multi_verify = {
-            "빨간색 (1~7)": ((df_comp['multi_count_v2'] >= 1) & (df_comp['multi_count_v2'] <= 7), "약한 신호 (감지 1~7개)"),
-            "주황색 (8~14)": ((df_comp['multi_count_v2'] >= 8) & (df_comp['multi_count_v2'] <= 14), "보통 신호 (감지 8~14개)"),
-            "노란색 (15~21)": ((df_comp['multi_count_v2'] >= 15) & (df_comp['multi_count_v2'] <= 21), "강한 신호 (감지 15~21개)"),
-            "초록색 (22~28)": ((df_comp['multi_count_v2'] >= 22) & (df_comp['multi_count_v2'] <= 28), "매우 강한 신호 (감지 22~28개)"),
-            "파란색 (29~35)": ((df_comp['multi_count_v2'] >= 29) & (df_comp['multi_count_v2'] <= 35), "경고 신호 (감지 29~35개)"),
-            "남색 (36~42)": ((df_comp['multi_count_v2'] >= 36) & (df_comp['multi_count_v2'] <= 42), "극단적 신호 (감지 36~42개)"),
-            "보라색 (43~49)": ((df_comp['multi_count_v2'] >= 43) & (df_comp['multi_count_v2'] <= 49), "패닉 신호 (감지 43~49개)")
-        }
-        stats_multi_v2 = calculate_indicator_stats(df_comp, 'KOSPI', v2_multi_verify)
-        render_stats_table(stats_multi_v2, "다중지표 최종본 검증 결과 (순수 한국 FGI + 결측 우회)")
-
-    # ── 4. 통합지표 최종본 ──
-    with comp_sub_tabs[3]:
-        st.markdown("### 🔍 통합지표 최종본 (한국 FGI + 결측 우회)")
-        
-        # [버전 2 통합지표 조건식]
-        # 1. 4종 통합(AND)
-        v2_macro = (df_comp['SKEW_Z'] > 0.8) | (df_comp['HYG_RSI'] <= 22)
-        v2_micro = (df_comp['MACD_Hist'] < -1.2) & (df_comp['KOSPI_Slope10'] < -1.2)
-        v2_c1_1 = (v2_macro & v2_micro) | ((np.log(df_comp['VVIX'] + 1e-5) * df_comp['DD_Sq'] * 100 > 2.0) & (df_comp['KOSPI_%B'] <= 0.01))
-        
-        v2_liq = (df_comp['Vol_Z'] > 1.8) | (df_comp['HYG_RSI'] < 15)
-        v2_psy = (df_comp['FearGreedIndex'] <= 15) | ((df_comp['FearGreedIndex'] == 50) & (df_comp['KOSPI_DD'] >= 0.06)) | (df_comp['VKOSPI_Pct'] >= 0.94)
-        v2_dd = df_comp['KOSPI_DD'] >= 0.07
-        v2_c2_1 = (v2_liq & v2_psy & v2_dd) | ((df_comp['VVIX_Vel'].diff(3) > 6.0) & (df_comp['KOSPI_RSI7'] <= 24) & (df_comp['KOSPI_DD'] >= 0.05))
-        
-        v2_grav = (df_comp['KOSPI_Accel'] < -0.018) & (df_comp['DD_Sq'] * df_comp['VVIX'] > 2.0)
-        v2_vol = (df_comp['KOSPI_%B'] < 0.01) & (df_comp['Vol_Z'] > 1.8) & (df_comp['HYG_RSI'] <= 20)
-        v2_c3_1 = (v2_grav | v2_vol) & (df_comp['KOSPI_RSI14'] <= 35) & (df_comp['KOSPI_DD'] >= 0.05)
-        
-        v2_opt = (df_comp['VVIX_Z'] > 2.0) | (df_comp['VKOSPI_Pct'] > 0.90)
-        v2_rate = (df_comp['TNX_ROC'] > 0.15) | (df_comp['SKEW_Z'] > 1.8)
-        v2_tech = (df_comp['KOSPI_RSI7'] <= 28) | (df_comp['KOSPI_%B'] <= 0.03)
-        v2_c4_1 = (v2_opt | v2_rate) & v2_tech & (df_comp['KOSPI_DD'] >= 0.05) & ((df_comp['FearGreedIndex'] <= 30) | (df_comp['FearGreedIndex'] == 50))
-        
-        v2_unified_and = ((v2_c1_1.astype(int) + v2_c2_1.astype(int) + v2_c3_1.astype(int) + v2_c4_1.astype(int)) >= 3)
-        
-        # 2. 물리학적 에너지
-        ke2 = 0.5 * np.maximum(df_comp['Vol_Z'], 0.1) * (np.abs(df_comp['KOSPI_Vel']) * 100)**2
-        pe2 = df_comp['VKOSPI'] * (df_comp['KOSPI_DD'] * 100)
-        v2_unified_phys = (ke2*15 > pe2) & (df_comp['Vol_Z'] > -0.2) & (df_comp['KOSPI_%B'] <= 0.25)
-        
-        # 3. 푸리에 변환 모방
-        v2_phase = np.sin((df_comp['FGI_Proxy'] / 100) * np.pi) 
-        v2_unified_fourier = (v2_phase < 0.6) & (df_comp['KOSPI_Vel'] < -0.015) & (df_comp['VKOSPI_Z'] > 0.8)
-        
-        v2_unified_or = v2_unified_and | v2_unified_phys | v2_unified_fourier
-
-        df_plot_uni = df_comp[df_comp.index >= pd.to_datetime(target_date_c)] if active_period_days else df_comp.copy()
-        
-        # 단일 최종본(버전 2) 차트 및 테이블 렌더링
-        fig_uni_v2 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_uni_v2.add_trace(go.Scatter(x=hd_comp, y=df_plot_uni['KOSPI'], name='KOSPI 가격', mode='lines', line=dict(color='gray', width=1.2)), secondary_y=False)
-        
-        fig_uni_v2.add_trace(go.Bar(
-            x=hd_comp,
-            y=v2_unified_or.reindex(df_plot_uni.index).fillna(False).astype(int) * kospi_yr_c[1],
-            name='통합 저점 감지 (OR)',
-            marker_color='purple',
-            opacity=0.35,
-            marker_line_width=0
-        ), secondary_y=False)
-        
-        fig_uni_v2.update_layout(**COMMON_LAYOUT, height=360, margin=dict(l=10,r=10,t=10,b=10), showlegend=False)
-        fig_uni_v2.update_yaxes(range=kospi_yr_c, secondary_y=False)
-        st.plotly_chart(fig_uni_v2, use_container_width=True, key="comp_chart_v2_uni")
-        
-        v2_uni_verify = {
-            "4종 통합 (AND)": (v2_unified_and, "매크로/마이크로, 유동성/심리, 중력/변동성, 옵션/금리/기술적 4개 조건 중 3개 이상 동시 만족"),
-            "물리학적 에너지": (v2_unified_phys, "Vol_Z기반 KOSPI 운동에너지가 VKOSPI & KOSPI_DD기반 위치에너지 이상으로 과도 분출"),
-            "푸리에 변환 모방": (v2_unified_fourier, "한국 FGI Proxy 기반 위상 주기함수 주기 반전 구간 & KOSPI 하강 속도 & VKOSPI 급등 동시 만족"),
-            "통합 저점 감지 (OR)": (v2_unified_or, "4종 통합(AND), 물리학적 에너지, 푸리에 변환 중 하나 이상 저점 신호 감지")
-        }
-        stats_uni_v2 = calculate_indicator_stats(df_comp, 'KOSPI', v2_uni_verify)
-        render_stats_table(stats_uni_v2, "통합지표 최종본 검증 결과 (순수 한국 FGI + 결측 우회)")
-
-
-
-
-        
-
-        
-
-
-
-
 
 
