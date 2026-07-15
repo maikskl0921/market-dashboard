@@ -25,6 +25,87 @@ st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_
 
 KOR_WEEKDAY = ['월', '화', '수', '목', '금', '토', '일']
 
+def calculate_duration(period_str):
+    try:
+        start_str, end_str = period_str.split(' ~ ')
+        s_year, s_mon = map(int, start_str.split('.'))
+        if end_str == "진행중":
+            import datetime as dt_module
+            now = dt_module.date.today()
+            e_year, e_mon = now.year, now.month
+        else:
+            e_year, e_mon = map(int, end_str.split('.'))
+        total_months = (e_year - s_year) * 12 + (e_mon - s_mon)
+        if total_months <= 0:
+            total_months = 1
+        years = total_months // 12
+        months = total_months % 12
+        if years > 0:
+            if months > 0:
+                return f"{years}년 {months}개월"
+            else:
+                return f"{years}년"
+        else:
+            return f"{months}개월"
+    except:
+        return "-"
+
+def detect_recent_drawdowns(df_target, price_col='QQQ', dd_threshold=0.10):
+    """
+    가격 시계열에서 전고점 대비 낙폭이 dd_threshold 이상인 최근의 조정 국면을 자동으로 탐지합니다.
+    """
+    if df_target.empty or price_col not in df_target.columns:
+        return []
+    prices = df_target[price_col]
+    dates = df_target.index
+    events = []
+    in_drawdown = False
+    peak_val = -1
+    peak_date = None
+    trough_val = 999999
+    trough_date = None
+    for i in range(len(prices)):
+        p = prices.iloc[i]
+        d = dates[i]
+        rolling_max = prices.iloc[max(0, i-252):i+1].max()
+        dd = (rolling_max - p) / rolling_max
+        if not in_drawdown:
+            if dd >= dd_threshold:
+                in_drawdown = True
+                lookback = prices.iloc[max(0, i-60):i+1]
+                peak_val = lookback.max()
+                peak_date = lookback.idxmax()
+                trough_val = p
+                trough_date = d
+        else:
+            if p < trough_val:
+                trough_val = p
+                trough_date = d
+            if dd < 0.03:
+                fall_pct = (trough_val - peak_val) / peak_val * 100
+                if fall_pct <= -dd_threshold * 100:
+                    events.append({
+                        "title": "하락조정장",
+                        "period": f"{peak_date.strftime('%Y.%m')} ~ {trough_date.strftime('%Y.%m')}",
+                        "fall_rate": f"{int(round(fall_pct))}%"
+                    })
+                in_drawdown = False
+                peak_val = -1
+                peak_date = None
+                trough_val = 999999
+                trough_date = None
+    if in_drawdown:
+        # 진행 중인 사건의 경우 하락률을 현재가 기준으로 다시 계산
+        curr_price = prices.iloc[-1]
+        fall_pct = (curr_price - peak_val) / peak_val * 100
+        if fall_pct <= -dd_threshold * 100:
+            events.append({
+                "title": "하락조정장 (진행중)",
+                "period": f"{peak_date.strftime('%Y.%m')} ~ 진행중",
+                "fall_rate": f"{int(round(fall_pct))}%"
+            })
+    return events
+
 def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_threshold=0.05, local_min_factor=1.03):
     """
     지표의 역사적 저점 적중률, 포착률, 종합 점수를 실시간으로 계산하는 헬퍼 함수
@@ -64,7 +145,7 @@ def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_th
 
 def render_stats_table(stats_list, title):
     st.markdown(f"#### 📊 {title}")
-    tbl_html = '<div style="margin-right: 100px;"><table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
+    tbl_html = '<table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
     for item in stats_list:
         name_html = item['name'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
         desc_html = item['desc'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
@@ -75,7 +156,7 @@ def render_stats_table(stats_list, title):
         hit_rate_html = hit_rate_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
 
         tbl_html += f'<tr><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{name_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{desc_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["triggered"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{hit_rate_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["recall"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["score"]}</td></tr>'
-    tbl_html += "</tbody></table></div>"
+    tbl_html += "</tbody></table>"
     st.markdown(tbl_html, unsafe_allow_html=True)
 
 def calculate_top_stats(df_target, price_col, conditions, window=41, ru_threshold=0.10, local_max_factor=0.97):
@@ -119,19 +200,13 @@ def calculate_top_stats(df_target, price_col, conditions, window=41, ru_threshol
 
 def render_top_stats_table(stats_list, title):
     st.markdown(f"#### 📊 {title}")
-    tbl_html = '<div style="margin-right: 100px;"><table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">고점 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">고점 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
+    tbl_md = """
+| 감지 조건 | 조건 세부 내용 | 발생 횟수 | 고점 적중 (Hit Rate) | 고점 포착 (Recall) | 종합 점수 |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+"""
     for item in stats_list:
-        name_html = item['name'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-        desc_html = item['desc'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-        hit_rate_html = item['hit_rate'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-        
-        name_html = name_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-        desc_html = desc_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-        hit_rate_html = hit_rate_html.replace('**', '<strong>', 1).replace('**', '</strong>', 1)
-
-        tbl_html += f'<tr><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{name_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: left; font-size: 0.85rem;">{desc_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["triggered"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{hit_rate_html}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["recall"]}</td><td style="border: 1px solid #555; padding: 6px 8px; text-align: center; font-size: 0.85rem;">{item["score"]}</td></tr>'
-    tbl_html += "</tbody></table></div>"
-    st.markdown(tbl_html, unsafe_allow_html=True)
+        tbl_md += f"| {item['name']} | {item['desc']} | {item['triggered']} | {item['hit_rate']} | {item['recall']} | {item['score']} |\n"
+    st.markdown(tbl_md)
 
 def fmt_date_kor(dt):
     if isinstance(dt, str):
@@ -160,13 +235,16 @@ st.markdown("""
     
     /* 요소 간의 여백 최소화 */
     div[data-testid="element-container"] {
-        margin-top: 0.05rem !important;
-        margin-bottom: 0.05rem !important;
+        margin-top: 0.02rem !important;
+        margin-bottom: 0.02rem !important;
     }
     div[data-testid="stVerticalBlock"] > div:has(> .element-container) { padding-top: 0 !important; padding-bottom: 0 !important; }
+    div[data-testid="stVerticalBlock"] {
+        gap: 0.35rem !important;
+    }
     .main-header { font-size: 1.2rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.1; }
-    h3 { font-size: 0.85rem !important; margin: 0.4rem 0 0.2rem 0 !important; }
-    h4 { font-size: 0.75rem !important; margin: 0.3rem 0 0.2rem 0 !important; }
+    h3 { font-size: 0.85rem !important; margin: 0.15rem 0 0.05rem 0 !important; }
+    h4 { font-size: 0.75rem !important; margin: 0.1rem 0 0.05rem 0 !important; }
     .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
@@ -175,14 +253,12 @@ st.markdown("""
         width: 100% !important;
         max-width: 100% !important;
         border-collapse: collapse;
-        margin: 0 !important;
+        margin: 0 0 10px 0 !important;
     }
     table, th, td {
-        font-size: 0.51rem !important;
-        padding: 1px 2px !important;
-        letter-spacing: -0.06em !important;
-        font-stretch: ultra-condensed !important;
-        line-height: 1.1 !important;
+        font-size: 0.78rem !important;
+        padding: 4px 6px !important;
+        line-height: 1.25 !important;
     }
     
     div[data-testid="stHorizontalBlock"] {
@@ -190,7 +266,7 @@ st.markdown("""
     }
     
     .block-container {
-        padding-bottom: 50px !important;
+        padding-bottom: 80px !important;
     }
     
     .stPlotlyChart {
@@ -276,11 +352,16 @@ elif selected_period == "1M": active_period_days = 30
 
 # 고충격 역사적 사건 데이터베이스 정의 (하락률 칼럼 추가)
 static_historical_events = [
-    {"title": "코로나 19 팬데믹 폭락", "period": "2020.02 ~ 2020.03", "fall_rate": "-35%"},
-    {"title": "인플레이션 및 금리 인상 하락장", "period": "2021.11 ~ 2022.10", "fall_rate": "-37%"},
+    {"title": "미국-이란 전쟁발 우려 폭락", "period": "2026.01 ~ 2026.03", "fall_rate": "-12%"},
+    {"title": "미-중 무역 전쟁 재발 우려 폭락", "period": "2025.03 ~ 2025.04", "fall_rate": "-18%"},
+    {"title": "엔 캐리 트레이드 청산 우려 폭락", "period": "2024.07 ~ 2024.08", "fall_rate": "-14%"},
     {"title": "실리콘밸리 은행(SVB) 파산 사태", "period": "2023.03 ~ 2023.03", "fall_rate": "-9%"},
-    {"title": "엔 캐리 트레이드 청산 우려 폭락", "period": "2024.07 ~ 2024.08", "fall_rate": "-15%"},
-    {"title": "미-중 무역 전쟁 재발 우려 폭락", "period": "2025.03 ~ 2025.04", "fall_rate": "-18%"}
+    {"title": "미 국채 금리 급등발 기술주 밸류에이션 조정 폭락", "period": "2021.02 ~ 2021.03", "fall_rate": "-11%"},
+    {"title": "인플레이션 및 금리 인상 하락장", "period": "2021.11 ~ 2022.10", "fall_rate": "-37%"},
+    {"title": "코로나19 2차 대유행 및 미국 대선 불확실성 우려 폭락", "period": "2020.09 ~ 2020.10", "fall_rate": "-13%"},
+    {"title": "코로나 19 팬데믹 폭락", "period": "2020.02 ~ 2020.03", "fall_rate": "-35%"},
+    {"title": "미-중 무역 전쟁 관세 분쟁 갈등 폭락", "period": "2019.05 ~ 2019.06", "fall_rate": "-11%"},
+    {"title": "미 연준 금리 인상 및 미-중 무역 전쟁 우려 대폭락", "period": "2018.10 ~ 2018.12", "fall_rate": "-23%"}
 ]
 
 def parse_period(period_str):
@@ -1115,17 +1196,114 @@ with tabs[0]:
             )
         }
         stats = calculate_indicator_stats(df, 'QQQ', fgi_conditions)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         render_stats_table(stats, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
 
-        st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
+        
         st.markdown("#### 📌 역사적 대폭락/하락장 주요 사건 및 하락률")
         
-        # 하락률 컬럼이 추가된 역사적 사건 렌더링 (Google RSS 제외)
+        # 실시간 가격 데이터 기반 조정 감지 및 지능형 병합 알고리즘
+        detected_evs = detect_recent_drawdowns(df, 'QQQ', 0.10)
+        raw_list = static_historical_events.copy()
+        for dev in detected_evs:
+            # 기본 감지 명칭이 없으면 하락조정장 처리
+            if not dev.get('title'):
+                dev['title'] = "하락조정장"
+            raw_list.append(dev)
+            
+        # 연월 파싱용 헬퍼 함수
+        def parse_to_val(ym_str):
+            try:
+                y, m = map(int, ym_str.split('.'))
+                return y, m
+            except:
+                return 0, 0
+
+        # 중복/겹침 병합 수행
+        merged_list = []
+        # 날짜 순 정렬하여 병합 처리
+        def get_start_date_val(ev):
+            y, m = parse_to_val(ev['period'].split(' ~ ')[0])
+            return y * 12 + m
+        
+        sorted_raw = sorted(raw_list, key=get_start_date_val)
+        
+        for ev in sorted_raw:
+            if not merged_list:
+                merged_list.append(ev)
+                continue
+            
+            prev = merged_list[-1]
+            import datetime as dt_module
+            now_dt = dt_module.date.today()
+            
+            p_s_y, p_s_m = parse_to_val(prev['period'].split(' ~ ')[0])
+            p_end_str = prev['period'].split(' ~ ')[1]
+            if p_end_str == "진행중":
+                p_e_y, p_e_m = now_dt.year, now_dt.month
+            else:
+                p_e_y, p_e_m = parse_to_val(p_end_str)
+                
+            c_s_y, c_s_m = parse_to_val(ev['period'].split(' ~ ')[0])
+            c_end_str = ev['period'].split(' ~ ')[1]
+            if c_end_str == "진행중":
+                c_e_y, c_e_m = now_dt.year, now_dt.month
+            else:
+                c_e_y, c_e_m = parse_to_val(c_end_str)
+            
+            p_start = p_s_y * 12 + p_s_m
+            p_end = p_e_y * 12 + p_e_m
+            c_start = c_s_y * 12 + c_s_m
+            c_end = c_e_y * 12 + c_e_m
+            
+            # 기간이 겹치거나(Overlap), 연속하는 경우 병합
+            if c_start <= p_end + 1:
+                # 시작/끝 연월 범위 통합
+                min_start = min(p_start, c_start)
+                max_end = max(p_end, c_end)
+                
+                min_y, min_m = min_start // 12, min_start % 12
+                if min_m == 0:
+                    min_y -= 1
+                    min_m = 12
+                max_y, max_m = max_end // 12, max_end % 12
+                if max_m == 0:
+                    max_y -= 1
+                    max_m = 12
+                    
+                if p_end_str.strip() == "진행중" or c_end_str.strip() == "진행중":
+                    prev['period'] = f"{min_y}.{min_m:02d} ~ 진행중"
+                else:
+                    prev['period'] = f"{min_y}.{min_m:02d} ~ {max_y}.{max_m:02d}"
+                
+                # 명칭 통합: 구체적인 역사적 사건명을 우선 사용
+                # 둘 다 일반 하락조정장이면 하락조정장 유지
+                titles = [prev['title'], ev['title']]
+                specific_title = "하락조정장"
+                for t in titles:
+                    if "하락조정장" not in t:
+                        specific_title = t
+                        break
+                prev['title'] = specific_title
+                
+                # 하락률은 더 큰 하락률(더 마이너스인 값) 선택
+                try:
+                    p_rate = int(prev['fall_rate'].replace('%', ''))
+                    c_rate = int(ev['fall_rate'].replace('%', ''))
+                    prev['fall_rate'] = f"{min(p_rate, c_rate)}%"
+                except:
+                    pass
+            else:
+                merged_list.append(ev)
+                
+        # 최종 리스트를 최신순(역순)으로 재정렬
+        combined_events = sorted(merged_list, key=get_start_date_val, reverse=True)
+
         rows_html = ""
-        for idx, ev in enumerate(static_historical_events):
-            rows_html += f"<tr><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{ev['title']}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{ev['period']}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;color:#FF6B9D;font-weight:bold;'>{ev['fall_rate']}</td></tr>"
-        st.markdown(f"<div style='margin-right: 100px;'><table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>사건 내용</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>날짜</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>하락률</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
+        for idx, ev in enumerate(combined_events):
+            duration = calculate_duration(ev['period'])
+            rows_html += f"<tr><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{ev['period']}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{duration}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>{ev['title']}</td><td style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;color:#FF6B9D;font-weight:bold;'>{ev['fall_rate']}</td></tr>"
+        st.markdown(f"<div style='margin-right: 0px;'><table style='width:100%;border-collapse:collapse;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>날짜</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>하락기간</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>사건 내용</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>하락률</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
     def render_bottom_panic_kr():
         five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
@@ -1241,7 +1419,7 @@ with tabs[0]:
             )
         }
         stats_kr = calculate_indicator_stats(df_kr, 'KOSPI', fgi_conditions_kr)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         render_stats_table(stats_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
     # ── 소분류 1: 공탐변동 ──
@@ -1460,7 +1638,7 @@ with tabs[0]:
                 )
             }
             stats_slope = calculate_indicator_stats(df, 'QQQ', slope_conditions)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_stats_table(stats_slope, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
             
         elif selected_country == "한국":
@@ -1670,7 +1848,7 @@ with tabs[0]:
                 )
             }
             stats_slope_kr = calculate_indicator_stats(df_kr, 'KOSPI', slope_conditions_kr)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_stats_table(stats_slope_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
             
             v2_slope_rainbow_verify_kr = {
@@ -1683,7 +1861,7 @@ with tabs[0]:
                 "보라색 (7개 감지)": (df_kr['slope_detect_count'] == 7, "동시 감지 7개")
             }
             stats_slope_rainbow_kr = calculate_indicator_stats(df_kr, 'KOSPI', v2_slope_rainbow_verify_kr)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_stats_table(stats_slope_rainbow_kr, "슬로프합 최종본 다중 감지 검증 결과")
 
 
@@ -1872,7 +2050,7 @@ with tabs[0]:
             "**보라색**": (cond_map[6][0], cond_map[6][2]),
         }
         stats_multi = calculate_indicator_stats(df_multi, 'QQQ', multi_conditions)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         render_stats_table(stats_multi, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
 
     def render_bottom_multi_kr():
@@ -2099,7 +2277,7 @@ with tabs[0]:
             "**보라색**": (cond_map_kr[6][0], cond_map_kr[6][2]),
         }
         stats_multi_kr = calculate_indicator_stats(df_multi_kr, 'KOSPI', multi_conditions_kr)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         render_stats_table(stats_multi_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
 
@@ -2207,7 +2385,7 @@ with tabs[0]:
             </div>
             """
             st.markdown(table_html, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             
         pre_conditions = {
             "**최종 3대 통합 괴물지표 (OR)**": (c_or_final, '4종 통합(AND) + 물리에너지 + 푸리에 파동'),
@@ -2234,7 +2412,7 @@ with tabs[0]:
                 qqq_y_range = None
                 initial_x_range = None
         
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         
         fig_pre = make_subplots(specs=[[{"secondary_y": True}]])
         hd_pre = [fmt_date_kor(d) for d in df_pre_plot.index]
@@ -2393,7 +2571,7 @@ with tabs[0]:
                     kospi_y_range = None
                     initial_x_range = None
             
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             
             fig_pre = make_subplots(specs=[[{"secondary_y": True}]])
             hd_pre = [fmt_date_kor(d) for d in df_pre_plot.index]
@@ -2595,7 +2773,7 @@ with tabs[2]:
         with t3:
             st.markdown(build_monitoring_table_3(df_mon_latest), unsafe_allow_html=True)
             
-        st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
+        
         
         # 2. 3대 모니터링 시계열 차트 (슬로프합 스타일 동기화)
         if not df_mon.empty:
@@ -2722,7 +2900,7 @@ with tabs[2]:
     with c3:
         st.markdown(build_historical_breadth_table(ndx_b, "🇺🇸 나스닥 100 등락 현황 (최근 5일 - 상하한가 제외)", is_us=True), unsafe_allow_html=True)
         
-    st.markdown("<hr style='margin: 0.3rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
+    
     st.markdown("### 📈 대표 종목 기준 등락현황 시계열 추이 (최근 90영업일)")
 
     # ★ 3개 시장(코스피/코스닥/나스닥)의 날짜를 합쳐서 통합 category 배열 생성
@@ -2852,7 +3030,7 @@ with tabs[3]:
             f"</div>", unsafe_allow_html=True
         )
         
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         st.markdown("#### 현물가 장기 추이")
         
         # ETF KPI Data
@@ -3048,7 +3226,6 @@ with tabs[3]:
             
         st.markdown("<br>\n\n#### 현물가 상세", unsafe_allow_html=True)
         tbl_html = """
-        <div style="margin-right: 100px;">
         <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;">
             <thead>
                 <tr style="background:#1F4E79;color:white;">
@@ -3067,7 +3244,7 @@ with tabs[3]:
                 tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;font-weight:bold;'>{format_price(row[1])}</td>"
                 tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;'>{get_chg_badge(row[2])}</td>"
                 tbl_html += f"</tr>"
-        tbl_html += "</tbody></table></div>"
+        tbl_html += "</tbody></table>"
         st.markdown(tbl_html, unsafe_allow_html=True)
         
     else:
@@ -3246,7 +3423,7 @@ with tabs[1]:
                 )
             }
             stats_top1 = calculate_top_stats(df, 'QQQ', top_fgi_conditions)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_top1, "고점 지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
         
         # ── 소분류 2: 슬로프합 고점 ──
@@ -3443,7 +3620,7 @@ with tabs[1]:
                 )
             }
             stats_top_sl = calculate_top_stats(df, 'QQQ', slope_top_conditions)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_top_sl, "고점 지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
         
         # ── 소분류 3: 다중지표 고점 ──
@@ -3606,7 +3783,7 @@ with tabs[1]:
                 "**보라색**": (top_cond_map[6][0], top_cond_map[6][3]),
             }
             stats_top_multi = calculate_top_stats(df_top, 'QQQ', top_multi_verify)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_top_multi, "지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
         
         # ── 소분류 4: 통합지표 고점 ──
@@ -3651,7 +3828,7 @@ with tabs[1]:
                 </table>
                 </div>
                 """, unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             
             # 차트
             if active_period_days:
@@ -3859,7 +4036,7 @@ with tabs[1]:
                 "**초록색 (초기 과열)**": (color_cond_map_top_kr[3][0], "FGI 60~69 & VKOSPI 17~20"),
             }
             stats_kr_top = calculate_top_stats(df_top1_kr, 'KOSPI', fgi_conditions_kr_top)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_kr_top, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
             
         # ── 소분류 2: 슬로프합 고점 ──
@@ -3979,7 +4156,7 @@ with tabs[1]:
                         fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 100, 0, 1.0)', width=1.5),marker=dict(symbol='circle', color='white', size=1.3, opacity=0.5, line=dict(width=0)),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=df_top_kr[sc],name=f'슬로프 {days}일합계',line=dict(color='rgba(0, 0, 255, 0.75)',width=0.5),showlegend=True,hovertemplate=f'슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
                         fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=[-thresh]*len(hd_df_kr_top),name='하한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
-                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=[thresh]*len(hd_df_kr_top),name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='upper_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=[thresh]*len(hd_df_kr_top),name='상한선',line=dict(color='rgba(128, 0, 128, 0.75)',width=0.5,dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
                         
                         diff_pct = (df_top_kr[sc] - thresh) / abs(thresh)
                         bottom_cond_vals = [
@@ -4010,15 +4187,15 @@ with tabs[1]:
                 
                 shapes_kr = []
                 for idx in range(num_charts_kr_top):
-                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
-                    shapes_kr.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    y_ref = 'y domain' if idx == 0 else f'y{2*idx + 1} domain'
+                    shapes_kr.append(dict(type='rect', xref='paper', yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color='rgba(150, 150, 150, 0.4)', width=1.5)))
                     
                 fig_dsi_kr_top.update_layout(**layout_params_kr, height=chart_height_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
                 
                 for idx, choice in enumerate(selected_bottom_slopes_kr_top):
                     row_i = idx + 1
                     fig_dsi_kr_top.update_yaxes(range=[kmin_dsi*0.95,kmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
-                    if choice == "슬로프통합":
+                    if choice == '슬로프통합':
                         fig_dsi_kr_top.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
                     else:
                         fig_dsi_kr_top.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
@@ -4029,22 +4206,22 @@ with tabs[1]:
                     fig_dsi_kr_top.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_kr_top.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_kr_top, width='stretch', config=COMMON_CONFIG, key="tab4_kr_slope_chart_top")
+                st.plotly_chart(fig_dsi_kr_top, width='stretch', config=COMMON_CONFIG, key='tab4_kr_slope_chart_top')
                 
             slope_conditions_kr_top = {
-                "**10일합 이탈**": (df_top_kr['슬로프10일합'] >= 15, "10일슬로프합 >= 15"),
-                "**20일합 이탈**": (df_top_kr['슬로프20일합'] >= 20, "20일슬로프합 >= 20"),
-                "**30일합 이탈**": (df_top_kr['슬로프30일합'] >= 25, "30일슬로프합 >= 25"),
-                "**40일합 이탈**": (df_top_kr['슬로프40일합'] >= 30, "40일슬로프합 >= 30"),
-                "**50일합 이탈**": (df_top_kr['슬로프50일합'] >= 35, "50일슬로프합 >= 35"),
-                "**60일합 이탈**": (df_top_kr['슬로프60일합'] >= 40, "60일슬로프합 >= 40"),
-                "**70일합 이탈**": (df_top_kr['슬로프70일합'] >= 45, "70일슬로프합 >= 45"),
-                "**슬로프합 종합 감지**": (
+                '**10일합 이탈**': (df_top_kr['슬로프10일합'] >= 15, '10일슬로프합 >= 15'),
+                '**20일합 이탈**': (df_top_kr['슬로프20일합'] >= 20, '20일슬로프합 >= 20'),
+                '**30일합 이탈**': (df_top_kr['슬로프30일합'] >= 25, '30일슬로프합 >= 25'),
+                '**40일합 이탈**': (df_top_kr['슬로프40일합'] >= 30, '40일슬로프합 >= 30'),
+                '**50일합 이탈**': (df_top_kr['슬로프50일합'] >= 35, '50일슬로프합 >= 35'),
+                '**60일합 이탈**': (df_top_kr['슬로프60일합'] >= 40, '60일슬로프합 >= 40'),
+                '**70일합 이탈**': (df_top_kr['슬로프70일합'] >= 45, '70일슬로프합 >= 45'),
+                '**슬로프합 종합 감지**': (
                     ((df_top_kr['슬로프10일합'] >= 15) | (df_top_kr['슬로프20일합'] >= 20) | (df_top_kr['슬로프30일합'] >= 25) | 
                      (df_top_kr['슬로프40일합'] >= 30) | (df_top_kr['슬로프50일합'] >= 35) | (df_top_kr['슬로프60일합'] >= 40) | (df_top_kr['슬로프70일합'] >= 45)) & _not_bottom_kr,
-                    "1개 이상 지표 이탈"
+                    '1개 이상 지표 이탈'
                 ),
-                "**슬로프합 강력 이탈**": (
+                '**슬로프합 강력 이탈**': (
                     (((df_top_kr['슬로프10일합'] >= 15).astype(int) + 
                       (df_top_kr['슬로프20일합'] >= 20).astype(int) + 
                       (df_top_kr['슬로프30일합'] >= 25).astype(int) + 
@@ -4052,12 +4229,12 @@ with tabs[1]:
                       (df_top_kr['슬로프50일합'] >= 35).astype(int) + 
                       (df_top_kr['슬로프60일합'] >= 40).astype(int) + 
                       (df_top_kr['슬로프70일합'] >= 45).astype(int)) >= 4) & _not_bottom_kr,
-                    "4개 이상 지표 동시 이탈"
+                    '4개 이상 지표 동시 이탈'
                 )
             }
             stats_slope_kr_top = calculate_top_stats(df_top_kr, 'KOSPI', slope_conditions_kr_top)
-            st.markdown("<br>", unsafe_allow_html=True)
-            render_top_stats_table(stats_slope_kr_top, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            st.markdown('<br>', unsafe_allow_html=True)
+            render_top_stats_table(stats_slope_kr_top, '지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)')
             
         # ── 소분류 3: 다중지표 고점 ──
         with top_sub_tabs_kr[2]:
@@ -4209,7 +4386,7 @@ with tabs[1]:
                 "**보라색**": (top_cond_map_kr[6][0], top_cond_map_kr[6][3]),
             }
             stats_top_multi_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_multi_verify_kr)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_top_multi_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
             
         # ── 소분류 4: 통합지표 고점 ──
@@ -4295,5 +4472,3 @@ with tabs[1]:
             }
             stats_top_final_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_final_conditions_kr)
             render_top_stats_table(stats_top_final_kr, "통합 고점지표 검증 결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
-
-
