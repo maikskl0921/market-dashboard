@@ -256,9 +256,10 @@ st.markdown("""
         margin: 0 0 10px 0 !important;
     }
     table, th, td {
-        font-size: 0.78rem !important;
-        padding: 4px 6px !important;
-        line-height: 1.25 !important;
+        font-size: 0.6rem !important;
+        padding: 3px 5px !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
     }
     
     div[data-testid="stHorizontalBlock"] {
@@ -428,8 +429,8 @@ def color_bg(cnt):
     return "#A9D08E", "#000"
 
 TS = "width:100%;border-collapse:collapse;"
-TH = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;"
-TD = "text-align:center;padding:2px 4px;border:1px solid #555;"
+TH = "border:1px solid #555;padding:1px 2px;text-align:center;background:#1F4E79;color:white;"
+TD = "text-align:center;padding:1px 2px;border:1px solid #555;"
 
 def crosshair_xaxis(**kwargs):
     return dict(
@@ -1101,7 +1102,7 @@ with tabs[0]:
                 date_color_map[d] = (bg, fg)
         all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:100]
 
-        TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+        TH_SIG = "border:1px solid #555;padding:1px 2px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
         TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
         
         date_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted]) if all_detected_sorted else ""
@@ -1327,7 +1328,7 @@ with tabs[0]:
                 date_color_map_kr[d] = (bg, fg)
         all_detected_sorted_kr = sorted(date_color_map_kr.keys(), reverse=True)[:100]
 
-        TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+        TH_SIG = "border:1px solid #555;padding:1px 2px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
         TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
         
         date_cells_kr = "".join([f"<td style='background:{date_color_map_kr[d][0]};color:{date_color_map_kr[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted_kr]) if all_detected_sorted_kr else ""
@@ -1463,7 +1464,7 @@ with tabs[0]:
                     # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
                     bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
                     fg = "#FFF" if cnt in [1, 2, 5, 6, 7] else "#000"
-                    dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
                     detected_items = []
                     for _, days, sc_col, th in SLOPE_BOTTOM_CHARTS:
@@ -1483,7 +1484,7 @@ with tabs[0]:
                             detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
                     
                     val_str = "<br>".join(detected_items)
-                    counts_row_sl.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                    counts_row_sl.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -1673,7 +1674,7 @@ with tabs[0]:
                     # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
                     bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
                     fg = "#FFF" if cnt in [1, 2, 5, 6, 7] else "#000"
-                    dates_row_sl_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    dates_row_sl_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
                     detected_items = []
                     for _, days, sc_col, th in SLOPE_BOTTOM_CHARTS_KR:
@@ -1693,7 +1694,7 @@ with tabs[0]:
                             detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
                     
                     val_str = "<br>".join(detected_items)
-                    counts_row_sl_kr.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                    counts_row_sl_kr.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -1974,8 +1975,8 @@ with tabs[0]:
                 
                 fg = "#FFF" if bg in ['#E06666', '#000080', '#800080', '#87CEEB'] else "#000"
                 
-                dates_row_multi.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                counts_row_multi.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
+                dates_row_multi.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                counts_row_multi.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
                 
             top_html_multi = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -2209,8 +2210,8 @@ with tabs[0]:
                 cnt = df_sig_kr.loc[dt, 'multi_count']
                 bg_color = '#E06666' if cnt <= 7 else '#FF8C00' if cnt <= 14 else '#FFFF99' if cnt <= 21 else '#A9D08E' if cnt <= 28 else '#87CEEB' if cnt <= 35 else '#000080' if cnt <= 42 else '#800080'
                 fg_color = '#FFFFFF' if cnt <= 14 or cnt >= 36 else '#000000'
-                dates_row_tm_kr.append(f"<td style='background:{bg_color};color:{fg_color};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                counts_row_tm_kr.append(f"<td style='background:{bg_color};color:{fg_color};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{cnt}개</td>")
+                dates_row_tm_kr.append(f"<td style='background:{bg_color};color:{fg_color};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                counts_row_tm_kr.append(f"<td style='background:{bg_color};color:{fg_color};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{cnt}개</td>")
             
             st.markdown(f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -2371,7 +2372,7 @@ with tabs[0]:
         if len(recent_100) > 0:
             dates_row = ""
             for dt in recent_100:
-                dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
             
             table_html = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -2531,7 +2532,7 @@ with tabs[0]:
             if len(recent_100) > 0:
                 dates_row = ""
                 for dt in recent_100:
-                    dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                    dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
                 
                 table_html = f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -3022,9 +3023,9 @@ with tabs[3]:
             f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
             f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;'>"
             f"<tr style='background:transparent !important;border:none !important;'>"
-            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>DXI 지수</td>"
-            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{int(round(dxi.get('value', 0))):,}</td>"
-            f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(dxi.get('chg', 0))}</td>"
+            f"  <td style='border:none !important;padding:1px 2px !important;font-size:0.75rem;color:#8b93a3;'>DXI 지수</td>"
+            f"  <td style='border:none !important;padding:1px 2px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{int(round(dxi.get('value', 0))):,}</td>"
+            f"  <td style='border:none !important;padding:1px 2px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(dxi.get('chg', 0))}</td>"
             f"</tr>"
             f"</table>"
             f"</div>", unsafe_allow_html=True
@@ -3347,7 +3348,7 @@ with tabs[1]:
                     date_color_map_top[d] = (bg, fg)
             all_detected_top = sorted(date_color_map_top.keys(), reverse=True)[:100]
             
-            TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+            TH_SIG = "border:1px solid #555;padding:1px 2px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
             TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
             
             if all_detected_top:
@@ -3459,7 +3460,7 @@ with tabs[1]:
                     # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
                     bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
                     fg = "#FFF" if cnt>=6 else "#000"
-                    dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
                     detected_items = []
                     for _, days, sc_col, th in SLOPE_TOP_CHARTS:
@@ -3478,7 +3479,7 @@ with tabs[1]:
                             detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
                     
                     val_str = "<br>".join(detected_items)
-                    counts_row_sl.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                    counts_row_sl.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -3728,8 +3729,8 @@ with tabs[1]:
                             bg = tbl_c
                             break
                     fg = "#FFF" if bg in ['#E06666', '#000080', '#800080'] else "#000"
-                    dates_row_tm.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                    counts_row_tm.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
+                    dates_row_tm.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    counts_row_tm.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -3815,7 +3816,7 @@ with tabs[1]:
                     cnt = int(c_top_1.loc[dt]) + int(c_top_2.loc[dt]) + int(c_top_3.loc[dt]) + int(c_top_4.loc[dt])
                     bg = '#800080' if cnt >= 3 else '#E06666' if cnt >= 2 else '#FF8C00'
                     fg = '#FFF'
-                    dates_row_top += f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                    dates_row_top += f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -3967,7 +3968,7 @@ with tabs[1]:
                     date_color_map_top_kr[d] = (bg, fg)
             all_detected_sorted_top_kr = sorted(date_color_map_top_kr.keys(), reverse=True)[:100]
             
-            TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+            TH_SIG = "border:1px solid #555;padding:1px 2px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
             TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
             
             date_cells_top_kr = "".join([f"<td style='background:{date_color_map_top_kr[d][0]};color:{date_color_map_top_kr[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted_top_kr]) if all_detected_sorted_top_kr else ""
@@ -4069,7 +4070,7 @@ with tabs[1]:
                     cnt = dc_top_sl_kr_top.get(dt, 1)
                     bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else "#FFFF99" if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
                     fg = "#FFF" if cnt in [1, 2, 5, 6, 7] else "#000"
-                    dates_row_sl_kr_top.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    dates_row_sl_kr_top.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
                     detected_items = []
                     for _, days, sc_col, th in SLOPE_TOP_CHARTS_KR:
@@ -4088,7 +4089,7 @@ with tabs[1]:
                             detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
                     
                     val_str = "<br>".join(detected_items)
-                    counts_row_sl_kr_top.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
+                    counts_row_sl_kr_top.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{val_str}</td>")
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -4333,8 +4334,8 @@ with tabs[1]:
                             bg = tbl_c
                             break
                     fg = "#FFF" if bg in ['#E06666', '#000080', '#800080'] else "#000"
-                    dates_row_tm_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
-                    counts_row_tm_kr.append(f"<td style='text-align:center;padding:2px 4px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
+                    dates_row_tm_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    counts_row_tm_kr.append(f"<td style='text-align:center;padding:1px 2px;border:1px solid #555;vertical-align:middle;line-height:1.15;white-space:nowrap;'>{int(cnt)}</td>")
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -4409,7 +4410,7 @@ with tabs[1]:
             if len(recent_100_top_kr) > 0:
                 dates_row_top_kr = ""
                 for dt in recent_100_top_kr:
-                    dates_row_top_kr += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:2px 4px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                    dates_row_top_kr += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;padding:1px 2px;border:1px solid #555;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
                 
                 table_html_top_kr = f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
