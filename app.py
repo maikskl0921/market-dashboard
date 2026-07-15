@@ -245,7 +245,7 @@ st.markdown("""
     .main-header { font-size: 1.2rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.1; }
     h3 { font-size: 0.85rem !important; margin: 0.15rem 0 0.05rem 0 !important; }
     h4 { font-size: 0.75rem !important; margin: 0.1rem 0 0.05rem 0 !important; }
-    .stTabs [data-baseweb="tab-list"] button p { font-size: 0.78rem; }
+    .stTabs [data-baseweb="tab-list"] button p { font-size: 0.585rem !important; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
     /* 모든 표의 크기 */
