@@ -2190,7 +2190,7 @@ with tabs[0]:
                 
                 TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
                 dates_row_multi.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                counts_row_multi.append(f"<td style='color:white;font-weight:bold;{TD_SIG}'>{int(cnt)}</td>")
+                counts_row_multi.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{int(cnt)}</td>")
                 
             top_html_multi = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -4051,13 +4051,43 @@ with tabs[1]:
             dc_top_fv5_sl = Counter(all_top_fv5_sl)
             parent_dates_fv5_sl = sorted(list(set(all_top_fv5_sl)), reverse=True)
             
+            # 당일(실시간) 임시 판정
+            temp_slope_vals_fv5 = {}
+            for _, days, _, th in SLOPE_FV5_HIGH_CHARTS:
+                # FV5 변동에 대해 당일 포함 가격 차이 계산
+                val_today = float(df['(FGI-VIX)/5'].iloc[-1] - df['(FGI-VIX)/5'].iloc[-1 - days])
+                temp_slope_vals_fv5[days] = val_today
+            
+            cnt_today_fv5 = sum(1 for _, days, _, th in SLOPE_FV5_HIGH_CHARTS if temp_slope_vals_fv5[days] >= th and _not_bottom.iloc[-1])
+            bg_today_fv5 = "#E06666" if cnt_today_fv5==1 else "#FF8C00" if cnt_today_fv5==2 else '#FFD700' if cnt_today_fv5==3 else "#A9D08E" if cnt_today_fv5==4 else "#87CEEB" if cnt_today_fv5==5 else "#000080" if cnt_today_fv5==6 else "#800080" if cnt_today_fv5 >= 7 else "transparent"
+            fg_today_fv5 = "#FFF" if cnt_today_fv5 > 0 else "#000"
+            date_cell_today_fv5 = f"<td style='background:{bg_today_fv5};color:{fg_today_fv5};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;font-size:0.55rem;white-space:nowrap;'>당일(실시간)</td>"
+            
+            detected_items_today_fv5 = []
+            for _, days, _, th in SLOPE_FV5_HIGH_CHARTS:
+                val_t = temp_slope_vals_fv5[days]
+                if val_t >= th and _not_bottom.iloc[-1]:
+                    val_diff_pct = (val_t - th) / abs(th)
+                    if 0.0 <= val_diff_pct <= 0.40:
+                        color = '#A9D08E'
+                    elif 0.40 < val_diff_pct <= 0.60:
+                        color = '#FFD700'
+                    elif 0.60 < val_diff_pct <= 0.80:
+                        color = '#E06666'
+                    else:
+                        color = '#595959'
+                    detected_items_today_fv5.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                else:
+                    detected_items_today_fv5.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+            val_str_today_fv5 = "<br>".join(detected_items_today_fv5)
+            count_cell_today_fv5 = f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str_today_fv5}</td>"
+
             if parent_dates_fv5_sl:
                 r100_sl = parent_dates_fv5_sl[:100]
                 dates_row_sl = []
                 counts_row_sl = []
                 for dt in r100_sl:
                     cnt = dc_top_fv5_sl.get(dt, 1)
-                    # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(파랑), 6개(남색), 7개(보라)
                     bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
                     fg = "#FFF"
                     dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
@@ -4065,16 +4095,15 @@ with tabs[1]:
                     detected_items = []
                     for _, days, sc_col, th in SLOPE_FV5_HIGH_CHARTS:
                         if dt in df.index and df.loc[dt, sc_col] >= th:
-                            # 초과율(%) 계산: (슬로프합 - 상한선) / abs(상한선)
                             val_diff_pct = (df.loc[dt, sc_col] - th) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#A9D08E' # 초록
+                                color = '#A9D08E'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFD700' # 노랑
+                                color = '#FFD700'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#E06666' # 빨강
+                                color = '#E06666'
                             else:
-                                color = '#595959' # 검정
+                                color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
                         else:
                             detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
@@ -4084,15 +4113,15 @@ with tabs[1]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 고점 과열 감지 날짜 (최근 100개, 저점 감지일 제외)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 고점 과열 감지 날짜 (최근 100개, 저점 감지일 제외, 당일 포함)</span>
                 <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
-                        {"".join(dates_row_sl)}
+                        {"".join([date_cell_today_fv5] + dates_row_sl)}
                     </tr>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>감지</th>
-                        {"".join(counts_row_sl)}
+                        {"".join([count_cell_today_fv5] + counts_row_sl)}
                     </tr>
                 </table>
                 </div>
@@ -4224,35 +4253,36 @@ with tabs[1]:
                 
                 st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG, key="top_fv5_slope_chart")
             
-            # 고점 검증결과 표
-            _nb = _not_bottom
+            # 고점 검증결과 표 (슬로프합 지표이므로 당일 제외 계산)
+            df_past = df[df.index < pd.to_datetime(datetime.date.today())]
+            _nb_past = _not_bottom[df.index < pd.to_datetime(datetime.date.today())]
             top_fv5_conditions = {
-                "**10일합 돌파**": ((df['FV5_슬로프10일합'] >= round(6.8 * fv5_factor, 2)) & _nb, f"10일슬로프합 >= {round(6.8 * fv5_factor, 2)}"),
-                "**20일합 돌파**": ((df['FV5_슬로프20일합'] >= round(9.8 * fv5_factor, 2)) & _nb, f"20일슬로프합 >= {round(9.8 * fv5_factor, 2)}"),
-                "**30일합 돌파**": ((df['FV5_슬로프30일합'] >= round(10.3 * fv5_factor, 2)) & _nb, f"30일슬로프합 >= {round(10.3 * fv5_factor, 2)}"),
-                "**40일합 돌파**": ((df['FV5_슬로프40일합'] >= round(11.0 * fv5_factor, 2)) & _nb, f"40일슬로프합 >= {round(11.0 * fv5_factor, 2)}"),
-                "**50일합 돌파**": ((df['FV5_슬로프50일합'] >= round(10.4 * fv5_factor, 2)) & _nb, f"50일슬로프합 >= {round(10.4 * fv5_factor, 2)}"),
-                "**60일합 돌파**": ((df['FV5_슬로프60일합'] >= round(11.3 * fv5_factor, 2)) & _nb, f"60일슬로프합 >= {round(11.3 * fv5_factor, 2)}"),
-                "**70일합 돌파**": ((df['FV5_슬로프70일합'] >= round(12.3 * fv5_factor, 2)) & _nb, f"70일슬로프합 >= {round(12.3 * fv5_factor, 2)}"),
+                "**10일합 돌파**": ((df_past['FV5_슬로프10일합'] >= round(6.8 * fv5_factor, 2)) & _nb_past, f"10일슬로프합 >= {round(6.8 * fv5_factor, 2)}"),
+                "**20일합 돌파**": ((df_past['FV5_슬로프20일합'] >= round(9.8 * fv5_factor, 2)) & _nb_past, f"20일슬로프합 >= {round(9.8 * fv5_factor, 2)}"),
+                "**30일합 돌파**": ((df_past['FV5_슬로프30일합'] >= round(10.3 * fv5_factor, 2)) & _nb_past, f"30일슬로프합 >= {round(10.3 * fv5_factor, 2)}"),
+                "**40일합 돌파**": ((df_past['FV5_슬로프40일합'] >= round(11.0 * fv5_factor, 2)) & _nb_past, f"40일슬로프합 >= {round(11.0 * fv5_factor, 2)}"),
+                "**50일합 돌파**": ((df_past['FV5_슬로프50일합'] >= round(10.4 * fv5_factor, 2)) & _nb_past, f"50일슬로프합 >= {round(10.4 * fv5_factor, 2)}"),
+                "**60일합 돌파**": ((df_past['FV5_슬로프60일합'] >= round(11.3 * fv5_factor, 2)) & _nb_past, f"60일슬로프합 >= {round(11.3 * fv5_factor, 2)}"),
+                "**70일합 돌파**": ((df_past['FV5_슬로프70일합'] >= round(12.3 * fv5_factor, 2)) & _nb_past, f"70일슬로프합 >= {round(12.3 * fv5_factor, 2)}"),
                 "**슬로프합 종합 감지**": (
-                    ((df['FV5_슬로프10일합'] >= round(6.8 * fv5_factor, 2)) | (df['FV5_슬로프20일합'] >= round(9.8 * fv5_factor, 2)) | (df['FV5_슬로프30일합'] >= round(10.3 * fv5_factor, 2)) | 
-                     (df['FV5_슬로프40일합'] >= round(11.0 * fv5_factor, 2)) | (df['FV5_슬로프50일합'] >= round(10.4 * fv5_factor, 2)) | (df['FV5_슬로프60일합'] >= round(11.3 * fv5_factor, 2)) | (df['FV5_슬로프70일합'] >= round(12.3 * fv5_factor, 2))) & _nb,
+                    ((df_past['FV5_슬로프10일합'] >= round(6.8 * fv5_factor, 2)) | (df_past['FV5_슬로프20일합'] >= round(9.8 * fv5_factor, 2)) | (df_past['FV5_슬로프30일합'] >= round(10.3 * fv5_factor, 2)) | 
+                     (df_past['FV5_슬로프40일합'] >= round(11.0 * fv5_factor, 2)) | (df_past['FV5_슬로프50일합'] >= round(10.4 * fv5_factor, 2)) | (df_past['FV5_슬로프60일합'] >= round(11.3 * fv5_factor, 2)) | (df_past['FV5_슬로프70일합'] >= round(12.3 * fv5_factor, 2))) & _nb_past,
                     "1개 이상 지표 돌파"
                 ),
                 "**슬로프합 강력 돌파**": (
-                    (((df['FV5_슬로프10일합'] >= round(6.8 * fv5_factor, 2)).astype(int) + 
-                      (df['FV5_슬로프20일합'] >= round(9.8 * fv5_factor, 2)).astype(int) + 
-                      (df['FV5_슬로프30일합'] >= round(10.3 * fv5_factor, 2)).astype(int) + 
-                      (df['FV5_슬로프40일합'] >= round(11.0 * fv5_factor, 2)).astype(int) + 
-                      (df['FV5_슬로프50일합'] >= round(10.4 * fv5_factor, 2)).astype(int) + 
-                      (df['FV5_슬로프60일합'] >= round(11.3 * fv5_factor, 2)).astype(int) + 
-                      (df['FV5_슬로프70일합'] >= round(12.3 * fv5_factor, 2)).astype(int)) >= 4) & _nb,
+                    (((df_past['FV5_슬로프10일합'] >= round(6.8 * fv5_factor, 2)).astype(int) + 
+                      (df_past['FV5_슬로프20일합'] >= round(9.8 * fv5_factor, 2)).astype(int) + 
+                      (df_past['FV5_슬로프30일합'] >= round(10.3 * fv5_factor, 2)).astype(int) + 
+                      (df_past['FV5_슬로프40일합'] >= round(11.0 * fv5_factor, 2)).astype(int) + 
+                      (df_past['FV5_슬로프50일합'] >= round(10.4 * fv5_factor, 2)).astype(int) + 
+                      (df_past['FV5_슬로프60일합'] >= round(11.3 * fv5_factor, 2)).astype(int) + 
+                      (df_past['FV5_슬로프70일합'] >= round(12.3 * fv5_factor, 2)).astype(int)) >= 4) & _nb_past,
                     "4개 이상 지표 동시 돌파"
                 )
             }
-            stats_top1 = calculate_top_stats(df, 'QQQ', top_fv5_conditions)
+            stats_top1 = calculate_top_stats(df_past, 'QQQ', top_fv5_conditions)
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
-            render_top_stats_table(stats_top1, "지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
+            render_top_stats_table(stats_top1, "지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외 - 당일 제외)")
         
         # ── 소분류 2: 슬로프합 고점 ──
         with top_sub_tabs[1]:
