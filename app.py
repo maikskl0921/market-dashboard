@@ -605,7 +605,7 @@ def fetch_index_prices():
 
 @st.cache_data(ttl=3600)
 def fetch_and_process_data():
-    start_date_str = "2018-10-01"
+    start_date_str = "2020-01-01"
     qqq = yf.download('QQQ', start=start_date_str, progress=False)
     if isinstance(qqq.columns, pd.MultiIndex): qqq.columns = qqq.columns.get_level_values(0)
     qqq_df = qqq[['Close']].rename(columns={'Close': 'QQQ'}) if not qqq.empty and 'Close' in qqq.columns else pd.DataFrame(columns=['QQQ'])
@@ -636,7 +636,7 @@ def fetch_and_process_data():
     if isinstance(tlt.columns, pd.MultiIndex): tlt.columns = tlt.columns.get_level_values(0)
     tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'}) if not tlt.empty and 'Close' in tlt.columns else pd.DataFrame(columns=['TLT'])
 
-    url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2018-10-01"
+    url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2020-01-01"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     backup_file = "cnn_fgi_backup.json"
     data = None
@@ -1036,10 +1036,17 @@ def fetch_korean_market_data_v2(df_us=None):
         
     return df_kr_s
 
-@st.cache_data(ttl=3600)
-def fetch_monitoring_data(num_pages=80):
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_monitoring_data_v2(num_pages=25):
     headers = {'User-Agent': 'Mozilla/5.0'}
-    today_str = datetime.date.today().strftime('%Y%m%d')
+    try:
+        r_k1 = requests.get('https://finance.naver.com/sise/sise_index_day.naver?code=KOSPI&page=1', headers=headers, timeout=5)
+        dfs_k1 = pd.read_html(StringIO(r_k1.text), encoding='euc-kr')
+        df_k1 = dfs_k1[0].dropna(how='all')
+        latest_dt = pd.to_datetime(df_k1.iloc[0, 0], format='%Y.%m.%d', errors='coerce')
+        bizdate_str = latest_dt.strftime('%Y%m%d') if pd.notna(latest_dt) else datetime.date.today().strftime('%Y%m%d')
+    except Exception:
+        bizdate_str = datetime.date.today().strftime('%Y%m%d')
     
     def fetch_page_deposit(page):
         url = f'https://finance.naver.com/sise/sise_deposit.naver?page={page}'
@@ -1058,7 +1065,7 @@ def fetch_monitoring_data(num_pages=80):
         return pd.DataFrame()
 
     def fetch_page_investor(page):
-        url = f'https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={today_str}&sosok=01&page={page}'
+        url = f'https://finance.naver.com/sise/investorDealTrendDay.naver?bizdate={bizdate_str}&sosok=01&page={page}'
         try:
             r = requests.get(url, headers=headers, timeout=5)
             dfs = pd.read_html(StringIO(r.text), encoding='euc-kr')
@@ -1110,6 +1117,26 @@ def fetch_monitoring_data(num_pages=80):
     
     df_merged = df_kos.join([df_dep, df_inv], how='outer').sort_index()
     
+    # yfinance로 2020년부터 전체 KOSPI/KOSDAQ 지수 일괄 로드
+    yf_kospi = yf.download('^KS11', start="2020-01-01", progress=False)
+    if isinstance(yf_kospi.columns, pd.MultiIndex): yf_kospi.columns = yf_kospi.columns.get_level_values(0)
+    if not yf_kospi.empty and getattr(yf_kospi.index, 'tz', None) is not None:
+        yf_kospi.index = yf_kospi.index.tz_localize(None)
+        
+    yf_kosdaq = yf.download('^KQ11', start="2020-01-01", progress=False)
+    if isinstance(yf_kosdaq.columns, pd.MultiIndex): yf_kosdaq.columns = yf_kosdaq.columns.get_level_values(0)
+    if not yf_kosdaq.empty and getattr(yf_kosdaq.index, 'tz', None) is not None:
+        yf_kosdaq.index = yf_kosdaq.index.tz_localize(None)
+    
+    if not yf_kospi.empty:
+        # 네이버 KOSPI 지수 대신 yfinance KOSPI 지수로 덮어쓰거나 채움 (과거 데이터 확보)
+        df_merged = df_merged.join(yf_kospi[['Close']].rename(columns={'Close': 'yf_KOSPI'}), how='outer')
+        df_merged['KOSPI'] = df_merged['yf_KOSPI'].combine_first(df_merged['KOSPI'])
+        df_merged.drop(columns=['yf_KOSPI'], inplace=True)
+    
+    if not yf_kosdaq.empty:
+        df_merged = df_merged.join(yf_kosdaq[['Close']].rename(columns={'Close': 'KOSDAQ'}), how='outer')
+        
     df_merged['Retail_Cum'] = df_merged['Retail'].fillna(0).cumsum()
     df_merged['Foreign_Cum'] = df_merged['Foreign'].fillna(0).cumsum()
     df_merged['Institution_Cum'] = df_merged['Institution'].fillna(0).cumsum()
@@ -1120,16 +1147,18 @@ def fetch_monitoring_data(num_pages=80):
         if pd.notna(min_date):
             start_date_str = min_date.strftime('%Y-%m-%d')
         else:
-            start_date_str = "2018-01-01"
+            start_date_str = "2020-01-01"
             
         sec = yf.download('005930.KS', start=start_date_str, progress=False)
         if isinstance(sec.columns, pd.MultiIndex): sec.columns = sec.columns.get_level_values(0)
+        if not sec.empty and getattr(sec.index, 'tz', None) is not None: sec.index = sec.index.tz_localize(None)
         if not sec.empty and 'Volume' in sec.columns:
             sec.loc[sec['Volume'] < 10000, 'Volume'] = np.nan
             sec['Volume'] = sec['Volume'].ffill()
         
         hynix = yf.download('000660.KS', start=start_date_str, progress=False)
         if isinstance(hynix.columns, pd.MultiIndex): hynix.columns = hynix.columns.get_level_values(0)
+        if not hynix.empty and getattr(hynix.index, 'tz', None) is not None: hynix.index = hynix.index.tz_localize(None)
         if not hynix.empty and 'Volume' in hynix.columns:
             hynix.loc[hynix['Volume'] < 10000, 'Volume'] = np.nan
             hynix['Volume'] = hynix['Volume'].ffill()
@@ -1217,7 +1246,7 @@ with st.spinner('데이터 로딩 중...'):
     df = fetch_and_process_data()
     df_kr = fetch_korean_market_data_v2(df)
     df_dram = update_and_get_dram_history()
-    df_mon = fetch_monitoring_data()
+    df_mon = fetch_monitoring_data_v2()
 
 # 탭 구성: 저점지표 / 고점지표 / 모니터링
 tab_names = ['저점지표', '고점지표', '모니터링']
@@ -1229,7 +1258,7 @@ with tabs[0]:
     bottom_sub_tabs = st.tabs(bottom_sub_tab_names)
     
     def render_bottom_panic_us():
-        five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
+        five_years_ago = pd.to_datetime('2020-01-01')
         df1 = df[df.index >= five_years_ago]
 
         color_cond_map = [
@@ -1450,7 +1479,7 @@ with tabs[0]:
         st.markdown(f"<div style='margin-right: 0px;'><table style='width:100%;border-collapse:collapse;text-align:center;'><thead style='background:#1F4E79;color:white;'><tr><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>날짜</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>하락기간</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>사건 내용</th><th style='border:1px solid #555;padding:4px;text-align:center;white-space:nowrap;'>하락률</th></tr></thead><tbody>{rows_html}</tbody></table></div>", unsafe_allow_html=True)
 
     def render_bottom_panic_kr():
-        five_years_ago = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=5*365))
+        five_years_ago = pd.to_datetime('2020-01-01')
         df1_kr = df_kr[df_kr.index >= five_years_ago]
         
         v2_black = ((df1_kr['FearGreedIndex'] <= 18) & (df1_kr['VKOSPI'] >= 26)) | ((df1_kr['FearGreedIndex'] == 50) & (df1_kr['VKOSPI'] >= 30) & (df1_kr['KOSPI_%B'] <= 0.05))
@@ -1808,24 +1837,23 @@ with tabs[0]:
                     "4개 이상 지표 동시 이탈"
                 )
             }
-            df_past = df[df.index < pd.to_datetime(datetime.date.today())]
-            stats_slope_new = calculate_indicator_stats(df_past, 'QQQ', slope_conditions_new)
+            stats_slope_new = calculate_indicator_stats(df, 'QQQ', slope_conditions_new)
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
-            render_stats_table(stats_slope_new, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트 - 당일 제외)")
+            render_stats_table(stats_slope_new, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
             
             # 빨주노초파남보 다중 감지 검증 결과 추가
             v2_slope_rainbow_verify_us = {
-                "빨간색 (1개 감지)": (df_past['slope_detect_count_new'] == 1, "동시 감지 1개"),
-                "주황색 (2개 감지)": (df_past['slope_detect_count_new'] == 2, "동시 감지 2개"),
-                "노란색 (3개 감지)": (df_past['slope_detect_count_new'] == 3, "동시 감지 3개"),
-                "초록색 (4개 감지)": (df_past['slope_detect_count_new'] == 4, "동시 감지 4개"),
-                "파란색 (5개 감지)": (df_past['slope_detect_count_new'] == 5, "동시 감지 5개"),
-                "남색 (6개 감지)": (df_past['slope_detect_count_new'] == 6, "동시 감지 6개"),
-                "보라색 (7개 감지)": (df_past['slope_detect_count_new'] == 7, "동시 감지 7개")
+                "빨간색 (1개 감지)": (df['slope_detect_count_new'] == 1, "동시 감지 1개"),
+                "주황색 (2개 감지)": (df['slope_detect_count_new'] == 2, "동시 감지 2개"),
+                "노란색 (3개 감지)": (df['slope_detect_count_new'] == 3, "동시 감지 3개"),
+                "초록색 (4개 감지)": (df['slope_detect_count_new'] == 4, "동시 감지 4개"),
+                "파란색 (5개 감지)": (df['slope_detect_count_new'] == 5, "동시 감지 5개"),
+                "남색 (6개 감지)": (df['slope_detect_count_new'] == 6, "동시 감지 6개"),
+                "보라색 (7개 감지)": (df['slope_detect_count_new'] == 7, "동시 감지 7개")
             }
-            stats_slope_rainbow_us = calculate_indicator_stats(df_past, 'QQQ', v2_slope_rainbow_verify_us)
+            stats_slope_rainbow_us = calculate_indicator_stats(df, 'QQQ', v2_slope_rainbow_verify_us)
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
-            render_stats_table(stats_slope_rainbow_us, "슬로프합 최종본 다중 감지 검증 결과 (당일 제외)")
+            render_stats_table(stats_slope_rainbow_us, "슬로프합 최종본 다중 감지 검증 결과")
             
             
         elif selected_country == "한국":
@@ -1850,37 +1878,6 @@ with tabs[0]:
                 all_top_sl_kr.extend(df_kr[_cond_sl].index.tolist())
             dc_top_sl_kr = Counter(all_top_sl_kr)
             parent_dates_sl_kr = sorted(list(set(all_top_sl_kr)), reverse=True)
-            
-            # 당일(실시간) 임시 판정
-            temp_slope_vals_kr = {}
-            for _, days, _, th in SLOPE_BOTTOM_CHARTS_KR:
-                val_today = float(df_kr['KOSPI'].iloc[-1] - df_kr['KOSPI'].iloc[-1 - days])
-                temp_slope_vals_kr[days] = val_today
-            
-            cnt_today_kr = sum(1 for _, days, _, th in SLOPE_BOTTOM_CHARTS_KR if temp_slope_vals_kr[days] <= th)
-            bg_today_kr = "#E06666" if cnt_today_kr==1 else "#FF8C00" if cnt_today_kr==2 else '#FFD700' if cnt_today_kr==3 else "#A9D08E" if cnt_today_kr==4 else "#87CEEB" if cnt_today_kr==5 else "#000080" if cnt_today_kr==6 else "#800080" if cnt_today_kr >= 7 else "transparent"
-            fg_today_kr = "#FFF" if cnt_today_kr > 0 else "#000"
-            date_cell_today_kr = f"<td style='background:{bg_today_kr};color:{fg_today_kr};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;font-size:0.55rem;white-space:nowrap;'>당일(실시간)</td>"
-            
-            detected_items_today_kr = []
-            for _, days, _, th in SLOPE_BOTTOM_CHARTS_KR:
-                val_t = temp_slope_vals_kr[days]
-                if val_t <= th:
-                    val_diff_pct = (th - val_t) / abs(th)
-                    if 0.0 <= val_diff_pct <= 0.40:
-                        color = '#A9D08E'
-                    elif 0.40 < val_diff_pct <= 0.60:
-                        color = '#FFD700'
-                    elif 0.60 < val_diff_pct <= 0.80:
-                        color = '#E06666'
-                    else:
-                        color = '#595959'
-                    detected_items_today_kr.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
-                else:
-                    detected_items_today_kr.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
-            val_str_today_kr = "<br>".join(detected_items_today_kr)
-            count_cell_today_kr = f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str_today_kr}</td>"
-
             if parent_dates_sl_kr:
                 r100_sl_kr = parent_dates_sl_kr[:100]
                 dates_row_sl_kr = []
@@ -1912,15 +1909,15 @@ with tabs[0]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개, 당일 포함)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
                 <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
-                        {"".join([date_cell_today_kr] + dates_row_sl_kr)}
+                        {"".join(dates_row_sl_kr)}
                     </tr>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>이탈</th>
-                        {"".join([count_cell_today_kr] + counts_row_sl_kr)}
+                        {"".join(counts_row_sl_kr)}
                     </tr>
                 </table>
                 </div>
@@ -2190,7 +2187,7 @@ with tabs[0]:
                 
                 TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
                 dates_row_multi.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                counts_row_multi.append(f"<td style='color:white;font-weight:bold;{TD_SIG}'>{int(cnt)}</td>")
+                counts_row_multi.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{int(cnt)}</td>")
                 
             top_html_multi = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -2288,7 +2285,7 @@ with tabs[0]:
         df_multi_kr['SKEW_Z'] = (df_multi_kr['SKEW'] - df_multi_kr['SKEW'].rolling(252).mean()) / (df_multi_kr['SKEW'].rolling(252).std() + 1e-5)
         
         # KOSPI Volume & Vol_Z
-        _vol_kr = yf.download('^KS11', start="2018-01-01", progress=False)
+        _vol_kr = yf.download('^KS11', start="2020-01-01", progress=False)
         vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
         if isinstance(vol_data_kr, pd.DataFrame): 
             vol_data_kr = vol_data_kr.iloc[:, 0]
@@ -2524,7 +2521,7 @@ with tabs[0]:
         with st.spinner("통합지표 데이터를 계산 중입니다..."):
             df_pre = df.copy()
             
-            _vol = yf.download('QQQ', start="2018-10-01", progress=False)
+            _vol = yf.download('QQQ', start="2020-01-01", progress=False)
             vol_data = _vol['Volume'] if not _vol.empty and 'Volume' in _vol.columns else pd.Series()
             if isinstance(vol_data, pd.DataFrame): 
                 vol_data = vol_data.iloc[:, 0]
@@ -2686,7 +2683,7 @@ with tabs[0]:
         with st.spinner("통합지표 데이터를 계산 중입니다..."):
             df_pre_kr = df_kr.copy()
             
-            _vol_kr = yf.download('^KS11', start="2018-01-01", progress=False)
+            _vol_kr = yf.download('^KS11', start="2020-01-01", progress=False)
             vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
             if isinstance(vol_data_kr, pd.DataFrame): 
                 vol_data_kr = vol_data_kr.iloc[:, 0]
@@ -2850,1104 +2847,1107 @@ with tabs[0]:
 
 # ── Tab 3: 모니터링 ──
 with tabs[2]:
-    if selected_country == '한국':
-        st.info('모니터링 탭은 **미국 탭**에서만 확인 가능합니다. 미국으로 전환 후 이용해 주세요.')
-    else:
-        sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '메모리']
-        sub_tabs = st.tabs(sub_tab_names)
+    sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '메모리']
+    sub_tabs = st.tabs(sub_tab_names)
 
-        # ── 소분류 1: 매매동향 ──
-        with sub_tabs[0]:
-            st.markdown("### 국내 증시 자금 및 매매동향 모니터링")
+    # ── 소분류 1: 매매동향 ──
+    with sub_tabs[0]:
+        st.markdown("### 국내 증시 자금 및 매매동향 모니터링")
+    
+        # 1. 3대 모니터링 요약 표 (상단 가로 배치)
+        if not df_mon.empty:
+            df_mon_latest = df_mon.dropna(subset=['KOSPI']).tail(6)
         
-            # 1. 3대 모니터링 요약 표 (상단 가로 배치)
-            if not df_mon.empty:
-                df_mon_latest = df_mon.dropna(subset=['KOSPI']).tail(6)
+            def format_change_cell(val_today, val_yesterday, divisor, unit):
+                if pd.isna(val_today) or pd.isna(val_yesterday):
+                    return "<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>-</td>"
+                diff = val_today - val_yesterday
+                pct = (diff / abs(val_yesterday)) * 100 if val_yesterday != 0 else 0
             
-                def format_change_cell(val_today, val_yesterday, divisor, unit):
-                    if pd.isna(val_today) or pd.isna(val_yesterday):
-                        return "<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>-</td>"
-                    diff = val_today - val_yesterday
-                    pct = (diff / abs(val_yesterday)) * 100 if val_yesterday != 0 else 0
-                
-                    color = "red" if diff > 0 else "blue" if diff < 0 else "#ccc"
-                    diff_val = diff / divisor
-                
-                    if divisor != 1:
-                        diff_str = f"{diff_val:.2f}{unit}"
-                    else:
-                        diff_str = f"{int(diff_val):,d}{unit}"
-                    
-                    display_str = f"{diff_str} ({pct:.2f}%)"
-                    return f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;color:{color};'>{display_str}</td>"
-                
-                def build_monitoring_table_1(df):
-                    rows = []
-                    for i in range(len(df) - 1, 0, -1):
-                        row_today = df.iloc[i]
-                        row_yesterday = df.iloc[i - 1]
-                        date_str = df.index[i].strftime('%Y-%m-%d')
-                    
-                        margin_today = f"{row_today['Margin']/10000:.2f}조" if pd.notna(row_today['Margin']) else "-"
-                        deposit_today = f"{row_today['Deposit']/10000:.2f}조" if pd.notna(row_today['Deposit']) else "-"
-                    
-                        margin_change_td = format_change_cell(row_today['Margin'], row_yesterday['Margin'], 10000, "조")
-                        deposit_change_td = format_change_cell(row_today['Deposit'], row_yesterday['Deposit'], 10000, "조")
-                    
-                        rows.append(
-                            f"<tr>"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{margin_today}</td>"
-                            f"{margin_change_td}"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{deposit_today}</td>"
-                            f"{deposit_change_td}"
-                            f"</tr>"
-                        )
-                    return (
-                        f"<div style='margin-bottom: 0.5rem;'>"
-                        f"<span style='font-size:0.75rem; font-weight:600;'>📊 1. 신용잔고 · 고객예탁금 (최근 5일)</span>"
-                        f"<table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;line-height:1.2;text-align:center;'>"
-                        f"<thead>"
-                        f"<tr style='background:#1F4E79;color:white;'>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>날짜</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>신용잔고</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>신용잔고 증감</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>예탁금</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>예탁금 증감</th>"
-                        f"</tr>"
-                        f"</thead>"
-                        f"<tbody>{''.join(rows)}</tbody>"
-                        f"</table>"
-                        f"</div>"
-                    )
-                
-                def build_monitoring_table_2(df):
-                    rows = []
-                    for i in range(len(df) - 1, 0, -1):
-                        row_today = df.iloc[i]
-                        row_yesterday = df.iloc[i - 1]
-                        date_str = df.index[i].strftime('%Y-%m-%d')
-                    
-                        val_today = f"{row_today['TradingValue']/1000000:.2f}조" if pd.notna(row_today['TradingValue']) else "-"
-                        change_td = format_change_cell(row_today['TradingValue'], row_yesterday['TradingValue'], 1000000, "조")
-                    
-                        rows.append(
-                            f"<tr>"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{val_today}</td>"
-                            f"{change_td}"
-                            f"</tr>"
-                        )
-                    return (
-                        f"<div style='margin-bottom: 0.5rem;'>"
-                        f"<span style='font-size:0.75rem; font-weight:600;'>📊 2. 일일거래대금 (최근 5일)</span>"
-                        f"<table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;line-height:1.2;text-align:center;'>"
-                        f"<thead>"
-                        f"<tr style='background:#1F4E79;color:white;'>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>날짜</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>거래대금</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>거래대금 증감</th>"
-                        f"</tr>"
-                        f"</thead>"
-                        f"<tbody>{''.join(rows)}</tbody>"
-                        f"</table>"
-                        f"</div>"
-                    )
-    
-                def build_monitoring_table_3(df):
-                    rows = []
-                    for i in range(len(df) - 1, 0, -1):
-                        row_today = df.iloc[i]
-                        row_yesterday = df.iloc[i - 1]
-                        date_str = df.index[i].strftime('%Y-%m-%d')
-                    
-                        def val_str(v):
-                            if pd.isna(v): return "-"
-                            return f"{int(v):,d}억"
-                        
-                        r_today = val_str(row_today['Retail'])
-                        f_today = val_str(row_today['Foreign'])
-                        i_today = val_str(row_today['Institution'])
-                    
-                        r_change = format_change_cell(row_today['Retail'], row_yesterday['Retail'], 1, "억")
-                        f_change = format_change_cell(row_today['Foreign'], row_yesterday['Foreign'], 1, "억")
-                        i_change = format_change_cell(row_today['Institution'], row_yesterday['Institution'], 1, "억")
-                    
-                        rows.append(
-                            f"<tr>"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{r_today}</td>"
-                            f"{r_change}"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{f_today}</td>"
-                            f"{f_change}"
-                            f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{i_today}</td>"
-                            f"{i_change}"
-                            f"</tr>"
-                        )
-                    return (
-                        f"<div style='margin-bottom: 0.5rem;'>"
-                        f"<span style='font-size:0.75rem; font-weight:600;'>📊 3. 투자자별 일일 순매수 (최근 5일)</span>"
-                        f"<table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;line-height:1.2;text-align:center;'>"
-                        f"<thead>"
-                        f"<tr style='background:#1F4E79;color:white;'>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>날짜</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>개인</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>개인증감</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>외국인</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>외국인 증감</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>기관</th>"
-                        f"<th style='padding:3px 6px;border:1px solid #444;'>기관 증감</th>"
-                        f"</tr>"
-                        f"</thead>"
-                        f"<tbody>{''.join(rows)}</tbody>"
-                        f"</table>"
-                        f"</div>"
-                    )
-                if not df_mon.empty:
-                    df_mon_plot = df_mon.copy()
-                    hd_mon = [fmt_date_kor(d) for d in df_mon_plot.index]
-                    if active_period_days:
-                        target_start = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                        detected_indices = [i for i, d in enumerate(df_mon_plot.index) if d >= target_start]
-                        initial_x_range_mon = [detected_indices[0], len(hd_mon) - 1] if detected_indices else None
-                    else:
-                        initial_x_range_mon = None
-                    
-                    if active_period_days and detected_indices:
-                        k_prices = df_mon_plot['KOSPI'].iloc[detected_indices[0]:]
-                        kmin, kmax = float(k_prices.min()), float(k_prices.max())
-                    else:
-                        kmin, kmax = float(df_mon_plot['KOSPI'].min()), float(df_mon_plot['KOSPI'].max())
-
-                    # Helper to add KOSPI trace
-                    def add_kospi_trace(fig, row=1, show_leg=False):
-                        fig.add_trace(go.Scatter(
-                            x=hd_mon, y=df_mon_plot['KOSPI'], 
-                            name="코스피 지수", mode='lines+markers',
-                            line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                            marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                            showlegend=show_leg,
-                            hovertemplate='코스피: %{y:,.2f}<extra></extra>'
-                        ), row=row, col=1, secondary_y=False)
-
-                    # --- 1. 신용잔고 / 예탁금 ---
-                    st.markdown(build_monitoring_table_1(df_mon_latest), unsafe_allow_html=True)
-                    fig_mon1 = make_subplots(specs=[[{"secondary_y": True}]])
-                    add_kospi_trace(fig_mon1)
-                    fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Margin']/10000, name="신용잔고 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='신용잔고: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                    fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Deposit']/10000, name="고객예탁금 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='고객예탁금: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                    fig_mon1.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
-                    fig_mon1.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
-                    fig_mon1.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
-                    fig_mon1.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-                    fig_mon1.update_xaxes(type='category', **crosshair_xaxis())
-                    if initial_x_range_mon: fig_mon1.update_xaxes(range=initial_x_range_mon)
-                    st.plotly_chart(fig_mon1, width='stretch', config=COMMON_CONFIG, key="mon_fig1")
-
-                    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-
-                    # --- 2. 거래대금 (기존 거래대금 탭 그래프 2개) ---
-                    st.markdown(build_monitoring_table_2(df_mon_latest), unsafe_allow_html=True)
-                
-                    fig_value = make_subplots(
-                        rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
-                        specs=[[{"secondary_y": True}], [{"secondary_y": True}]],
-                        subplot_titles=("코스피 지수 & 일일거래대금 추이", "코스피 지수 & 삼닉/그외 비율 추이")
-                    )
-                
-                    # Row 1: 거래대금
-                    add_kospi_trace(fig_value, row=1)
-                    fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['TradingValue']/1000000.0, name="코스피 거래대금", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="코스피 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
-                    fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['SEC_HYNIX_Val']/1000000.0, name="삼닉 거래대금", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate="삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
-                    fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['KOSPI_ex_SEC_HYNIX_Val']/1000000.0, name="코스피-삼닉 거래대금", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate="코스피-삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
-                
-                    # Row 2: 비율
-                    add_kospi_trace(fig_value, row=2)
-                    raw_ratio = df_mon_plot['SEC_HYNIX_Val'] / (df_mon_plot['KOSPI_ex_SEC_HYNIX_Val'] + 1e-10)
-                    fig_value.add_trace(go.Scatter(x=hd_mon, y=raw_ratio, name="삼닉/그외 비율", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="삼닉/그외 비율: %{y:.4f}<extra></extra>"), row=2, col=1, secondary_y=True)
-                    fig_value.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, row=2, col=1, secondary_y=True)
-                
-                    # Layout setting
-                    fig_value.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
-                    fig_value.update_annotations(font_size=10)
-                
-                    for r_idx in [1, 2]:
-                        fig_value.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=r_idx, col=1)
-                        fig_value.update_yaxes(range=[0, kmax * 1.1], **crosshair_yaxis(), secondary_y=False, row=r_idx, col=1)
-                        fig_value.update_xaxes(type="category", **crosshair_xaxis(), row=r_idx, col=1)
-                
-                    fig_value.update_yaxes(range=[0, 120], **crosshair_yaxis(), secondary_y=True, row=1, col=1)
-                    fig_value.update_yaxes(range=[0, 5], **crosshair_yaxis(), secondary_y=True, row=2, col=1)
-                
-                    if initial_x_range_mon:
-                        fig_value.update_xaxes(range=initial_x_range_mon, row=2, col=1)
-                    
-                    st.plotly_chart(fig_value, width="stretch", config=COMMON_CONFIG, key="value_subplots")
-
-                    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-
-                    # --- 3. 투자자별 순매수 ---
-                    st.markdown(build_monitoring_table_3(df_mon_latest), unsafe_allow_html=True)
-                    fig_mon3 = make_subplots(specs=[[{"secondary_y": True}]])
-                    add_kospi_trace(fig_mon3)
-                    fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Retail_Cum']/10000, name="개인 누적 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='개인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                    fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Foreign_Cum']/10000, name="외국인 누적 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='외국인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                    fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Institution_Cum']/10000, name="기관 누적 (조원)", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate='기관 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                    fig_mon3.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
-                    fig_mon3.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
-                    fig_mon3.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
-                    fig_mon3.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-                    fig_mon3.update_xaxes(type='category', **crosshair_xaxis())
-                    if initial_x_range_mon: fig_mon3.update_xaxes(range=initial_x_range_mon)
-                    st.plotly_chart(fig_mon3, width='stretch', config=COMMON_CONFIG, key="mon_fig3")
+                color = "red" if diff > 0 else "blue" if diff < 0 else "#ccc"
+                diff_val = diff / divisor
+            
+                if divisor != 1:
+                    diff_str = f"{diff_val:.2f}{unit}"
                 else:
-                    st.info("모니터링 데이터가 없습니다.")
-
-    
-
-        # ── 소분류 2: 등락현황 ──
-        with sub_tabs[1]:
-            st.markdown("### 국내외 증시 등락 현황")
-            with st.spinner("국내외 등락현황 데이터를 가져오는 중..."):
-                kp_b, kd_b, ndx_b = fetch_historical_breadth()
-                kp_p, kd_p, qqq_p = fetch_index_prices()
-            def build_historical_breadth_table(df_b, title, is_us=False):
-                df_sub = df_b.tail(5)
-                headers = ["<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>날짜</th>"]
-                cols = ['상한가', '상승', '보합', '하락', '하한가'] if not is_us else ['상승', '보합', '하락']
-                for col in cols:
-                    headers.append(f"<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>{col}</th>")
-                headers.append("<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>상하비율</th>")
+                    diff_str = f"{int(diff_val):,d}{unit}"
+                
+                display_str = f"{diff_str} ({pct:.2f}%)"
+                return f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;color:{color};'>{display_str}</td>"
             
+            def build_monitoring_table_1(df):
                 rows = []
-                CM = {'상한가':'#CC0000','상승':'#FF6B9D','보합':'#DDDDDD','하락':'#87CEEB','하한가':'#3399FF'}
-                for idx, row in df_sub.iloc[::-1].iterrows():
-                    date_str = pd.to_datetime(idx).strftime('%Y-%m-%d')
-                    row_html = [f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"]
-                    for col in cols:
-                        val = row.get(col, 0)
-                        c = CM.get(col, '#FFF')
-                        row_html.append(f"<td style='padding:3px 6px;border:1px solid #444;font-weight:bold;color:{c};text-align:center;'>{int(val) if pd.notna(val) else '0'}</td>")
+                for i in range(len(df) - 1, 0, -1):
+                    row_today = df.iloc[i]
+                    row_yesterday = df.iloc[i - 1]
+                    date_str = df.index[i].strftime('%Y-%m-%d')
                 
-                    # 상하비율 계산
-                    if not is_us:
-                        up_val = row.get('상한가', 0) + row.get('상승', 0)
-                        dn_val = row.get('하락', 0) + row.get('하한가', 0)
-                    else:
-                        up_val = row.get('상승', 0)
-                        dn_val = row.get('하락', 0)
+                    margin_today = f"{row_today['Margin']/10000:.2f}조" if pd.notna(row_today['Margin']) else "-"
+                    deposit_today = f"{row_today['Deposit']/10000:.2f}조" if pd.notna(row_today['Deposit']) else "-"
                 
-                    ratio = up_val - dn_val
-                    r_color = '#FF6B9D' if ratio >= 1 else '#87CEEB'
-                    row_html.append(f"<td style='padding:3px 6px;border:1px solid #444;font-weight:bold;color:{r_color};text-align:center;'>{ratio:.2f}</td>")
+                    margin_change_td = format_change_cell(row_today['Margin'], row_yesterday['Margin'], 10000, "조")
+                    deposit_change_td = format_change_cell(row_today['Deposit'], row_yesterday['Deposit'], 10000, "조")
                 
-                    rows.append(f"<tr>{''.join(row_html)}</tr>")
-                return f"""
-                <div style='margin-bottom: 0.5rem;'>
-                    <span style='font-size:0.75rem; font-weight:600;'>{title}</span>
-                    <table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;text-align:center;'>
-                        <thead><tr>{''.join(headers)}</tr></thead>
-                        <tbody>{''.join(rows)}</tbody>
-                    </table>
-                </div>
-                """
-    
-            c1, c2, c3 = st.columns(3, gap="small")
-            with c1:
-                st.markdown(build_historical_breadth_table(kp_b, "🇰🇷 코스피 등락 현황 (최근 5일)"), unsafe_allow_html=True)
-            with c2:
-                st.markdown(build_historical_breadth_table(kd_b, "🇰🇷 코스닥 등락 현황 (최근 5일)"), unsafe_allow_html=True)
-            with c3:
-                st.markdown(build_historical_breadth_table(ndx_b, "🇺🇸 나스닥 100 등락 현황 (최근 5일 - 상하한가 제외)", is_us=True), unsafe_allow_html=True)
+                    rows.append(
+                        f"<tr>"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{margin_today}</td>"
+                        f"{margin_change_td}"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{deposit_today}</td>"
+                        f"{deposit_change_td}"
+                        f"</tr>"
+                    )
+                return (
+                    f"<div style='margin-bottom: 0.5rem;'>"
+                    f"<span style='font-size:0.75rem; font-weight:600;'>📊 1. 신용잔고 · 고객예탁금 (최근 5일)</span>"
+                    f"<table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;line-height:1.2;text-align:center;'>"
+                    f"<thead>"
+                    f"<tr style='background:#1F4E79;color:white;'>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>날짜</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>신용잔고</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>신용잔고 증감</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>예탁금</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>예탁금 증감</th>"
+                    f"</tr>"
+                    f"</thead>"
+                    f"<tbody>{''.join(rows)}</tbody>"
+                    f"</table>"
+                    f"</div>"
+                )
             
-        
-            st.markdown("### 📈 대표 종목 기준 등락현황 시계열 추이 (최근 90영업일)")
-    
-            # ★ 3개 시장(코스피/코스닥/나스닥)의 날짜를 합쳐서 통합 category 배열 생성
-            # 한국/미국 거래일이 달라 shared_xaxes + category에서 충돌 방지용
-            all_breadth_dates = set()
-            for _df_tmp in [kp_b, kd_b, ndx_b]:
-                if not _df_tmp.empty:
-                    all_breadth_dates.update(pd.to_datetime(_df_tmp.index))
-            unified_breadth_dates = sorted(list(all_breadth_dates))
-            unified_breadth_hd = [fmt_date_kor(d) for d in unified_breadth_dates]
-    
-            fig_breadth = make_subplots(
-                rows=3, cols=1,
-                shared_xaxes=True,
-                vertical_spacing=0.06,
-                subplot_titles=(
-                    "코스피 대표 종목 등락현황 추이 (꺾은선형)",
-                    "코스닥 대표 종목 등락현황 추이 (꺾은선형)",
-                    "나스닥 100 대표 종목 등락현황 추이 (꺾은선형 - 상하한 제외)"
-                ),
-                specs=[[{"secondary_y": True}], [{"secondary_y": True}], [{"secondary_y": True}]]
-            )
-    
-            def add_breadth_traces(row_idx, df_b, ps, pname, is_us):
-                if df_b.empty: return
-                dfp = df_b.copy()
-                dfp.index = pd.to_datetime(dfp.index)
-                hd = [fmt_date_kor(d) for d in dfp.index]
-            
-                if ps is not None and len(ps) > 0:
-                    ps_aligned = ps.reindex(dfp.index, method='nearest', tolerance=pd.Timedelta('3 days'))
-                    fig_breadth.add_trace(go.Scatter(
-                        x=hd, y=ps_aligned.values, name=pname,
-                        mode='lines+markers',
-                        line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                        marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                        hovertemplate=f'{pname}: %{{y:,.2f}}<extra></extra>',
-                        showlegend=False
-                    ), row=row_idx, col=1, secondary_y=False)
+            def build_monitoring_table_2(df):
+                rows = []
+                for i in range(len(df) - 1, 0, -1):
+                    row_today = df.iloc[i]
+                    row_yesterday = df.iloc[i - 1]
+                    date_str = df.index[i].strftime('%Y-%m-%d')
                 
-                if not is_us:
-                    up_val = dfp.get('상한가', 0).fillna(0) + dfp.get('상승', 0).fillna(0)
-                    dn_val = dfp.get('하락', 0).fillna(0) + dfp.get('하한가', 0).fillna(0)
-                else:
-                    up_val = dfp.get('상승', 0).fillna(0)
-                    dn_val = dfp.get('하락', 0).fillna(0)
+                    val_today = f"{row_today['TradingValue']/1000000:.2f}조" if pd.notna(row_today['TradingValue']) else "-"
+                    change_td = format_change_cell(row_today['TradingValue'], row_yesterday['TradingValue'], 1000000, "조")
                 
-                ratio_s = up_val - dn_val
-            
-                fig_breadth.add_trace(go.Scatter(
-                    x=hd, y=ratio_s.values, name='상하비율',
-                    mode='lines',
-                    line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
-                    hovertemplate='상하비율: %{y:.2f}<extra></extra>',
-                    showlegend=False
-                ), row=row_idx, col=1, secondary_y=True)
-            
-                fig_breadth.add_hline(y=0.0, line_dash='dash', line_color='gray', line_width=1.0, row=row_idx, col=1, secondary_y=True)
-            
-                if ps is not None and len(ps) > 0:
-                    p_min, p_max = float(ps_aligned.min()), float(ps_aligned.max())
-                    fig_breadth.update_yaxes(range=[p_min*0.95, p_max*1.05], **crosshair_yaxis(), secondary_y=False, row=row_idx, col=1)
-                
-                r_min, r_max = float(ratio_s.min()), float(ratio_s.max())
-                r_range = max(r_max - r_min, 1)
-                fig_breadth.update_yaxes(range=[r_min - r_range*0.05, r_max + r_range*0.05], **crosshair_yaxis(), secondary_y=True, row=row_idx, col=1)
-                fig_breadth.update_xaxes(type='category', **crosshair_xaxis(), row=row_idx, col=1)
-            
-                fig_breadth.add_shape(type='rect', xref='x domain', yref='y domain', x0=0, y0=0, x1=1, y1=1, line=dict(color='rgba(150, 150, 150, 0.4)', width=1.2), row=row_idx, col=1)
-            add_breadth_traces(1, kp_b, kp_p, "코스피", is_us=False)
-            add_breadth_traces(2, kd_b, kd_p, "코스닥", is_us=False)
-            add_breadth_traces(3, ndx_b, qqq_p, "QQQ", is_us=True)
-    
-            # X범위 계산 (통합 category 인덱스 기반)
-            initial_x_range_3 = None
-            if unified_breadth_dates and active_period_days:
-                target_date_3 = pd.Timestamp(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                detected_3 = [i for i, d in enumerate(unified_breadth_dates) if d >= target_date_3]
-                initial_x_range_3 = [detected_3[0], len(unified_breadth_hd) - 1] if detected_3 else None
-    
-            fig_breadth.update_layout(
-                **COMMON_LAYOUT,
-                height=850,
-                margin=dict(l=0, r=50, t=30, b=10),
-                showlegend=False
-            )
-            fig_breadth.update_annotations(font_size=10)
-    
-            for i in range(1, 4):
-                fig_breadth.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=i, col=1)
-                fig_breadth.update_yaxes(**crosshair_yaxis(), secondary_y=False, row=i, col=1)
-                fig_breadth.update_yaxes(**crosshair_yaxis(), secondary_y=True, row=i, col=1)
-                # ★ 통합 categoryarray 명시 지정으로 shared_xaxes 충돌 방지
-                fig_breadth.update_xaxes(
-                    type='category',
-                    categoryorder='array',
-                    categoryarray=unified_breadth_hd,
-                    **crosshair_xaxis(),
-                    row=i, col=1
+                    rows.append(
+                        f"<tr>"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{val_today}</td>"
+                        f"{change_td}"
+                        f"</tr>"
+                    )
+                return (
+                    f"<div style='margin-bottom: 0.5rem;'>"
+                    f"<span style='font-size:0.75rem; font-weight:600;'>📊 2. 일일거래대금 (최근 5일)</span>"
+                    f"<table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;line-height:1.2;text-align:center;'>"
+                    f"<thead>"
+                    f"<tr style='background:#1F4E79;color:white;'>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>날짜</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>거래대금</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>거래대금 증감</th>"
+                    f"</tr>"
+                    f"</thead>"
+                    f"<tbody>{''.join(rows)}</tbody>"
+                    f"</table>"
+                    f"</div>"
                 )
     
-            if initial_x_range_3:
-                fig_breadth.update_xaxes(range=initial_x_range_3, row=3, col=1)
-    
-            st.plotly_chart(fig_breadth, width='stretch', config=COMMON_CONFIG, key="tab5_breadth_subplots")
-    
-        # ── 소분류 4: 감마풋콜 ──
-        with sub_tabs[2]:
-            if not df.empty:
-                df_gex = df.copy()
-                hd_gex = [fmt_date_kor(d) for d in df_gex.index]
-
-                # Determine X range based on active_period_days or entire range
+            def build_monitoring_table_3(df):
+                rows = []
+                for i in range(len(df) - 1, 0, -1):
+                    row_today = df.iloc[i]
+                    row_yesterday = df.iloc[i - 1]
+                    date_str = df.index[i].strftime('%Y-%m-%d')
+                
+                    def val_str(v):
+                        if pd.isna(v): return "-"
+                        return f"{int(v):,d}억"
+                    
+                    r_today = val_str(row_today['Retail'])
+                    f_today = val_str(row_today['Foreign'])
+                    i_today = val_str(row_today['Institution'])
+                
+                    r_change = format_change_cell(row_today['Retail'], row_yesterday['Retail'], 1, "억")
+                    f_change = format_change_cell(row_today['Foreign'], row_yesterday['Foreign'], 1, "억")
+                    i_change = format_change_cell(row_today['Institution'], row_yesterday['Institution'], 1, "억")
+                
+                    rows.append(
+                        f"<tr>"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{r_today}</td>"
+                        f"{r_change}"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{f_today}</td>"
+                        f"{f_change}"
+                        f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;'>{i_today}</td>"
+                        f"{i_change}"
+                        f"</tr>"
+                    )
+                return (
+                    f"<div style='margin-bottom: 0.5rem;'>"
+                    f"<span style='font-size:0.75rem; font-weight:600;'>📊 3. 투자자별 일일 순매수 (최근 5일)</span>"
+                    f"<table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;line-height:1.2;text-align:center;'>"
+                    f"<thead>"
+                    f"<tr style='background:#1F4E79;color:white;'>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>날짜</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>개인</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>개인증감</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>외국인</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>외국인 증감</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>기관</th>"
+                    f"<th style='padding:3px 6px;border:1px solid #444;'>기관 증감</th>"
+                    f"</tr>"
+                    f"</thead>"
+                    f"<tbody>{''.join(rows)}</tbody>"
+                    f"</table>"
+                    f"</div>"
+                )
+            if not df_mon.empty:
+                df_mon_plot = df_mon.copy()
+                hd_mon = [fmt_date_kor(d) for d in df_mon_plot.index]
                 if active_period_days:
                     target_start = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                    detected_indices = [i for i, d in enumerate(df_gex.index) if d >= target_start]
-                    initial_x_range_gex = [detected_indices[0], len(hd_gex) - 1] if detected_indices else None
+                    detected_indices = [i for i, d in enumerate(df_mon_plot.index) if d >= target_start]
+                    initial_x_range_mon = [detected_indices[0], len(hd_mon) - 1] if detected_indices else None
                 else:
-                    initial_x_range_gex = None
-
-                # QQQ Y-range calculation for better scaling
+                    initial_x_range_mon = None
+                
                 if active_period_days and detected_indices:
-                    q_prices = df_gex['QQQ'].iloc[detected_indices[0]:]
-                    qmin, qmax = float(q_prices.min()), float(q_prices.max())
+                    k_prices = df_mon_plot['KOSPI'].iloc[detected_indices[0]:]
+                    kmin, kmax = float(k_prices.min()), float(k_prices.max())
                 else:
-                    qmin, qmax = float(df_gex['QQQ'].min()), float(df_gex['QQQ'].max())
+                    kmin, kmax = float(df_mon_plot['KOSPI'].min()), float(df_mon_plot['KOSPI'].max())
 
-                # ── 1. 감마풋콜 단독 저점/고점 감지 날짜 통합 표 (최근 100개) ──
-                single_bottom_df = pd.DataFrame(index=df_gex[df_gex['GammaPutCall_Bottom_Signal']].index)
-                single_bottom_df['type'] = '저점'
-                single_top_df = pd.DataFrame(index=df_gex[df_gex['GammaPutCall_Top_Signal']].index)
-                single_top_df['type'] = '고점'
-                
-                combined_single = pd.concat([single_bottom_df, single_top_df]).sort_index(ascending=False)[:100]
-                
-                TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;vertical-align:middle;"
-                
-                if not combined_single.empty:
-                    cs_dates_row = []
-                    cs_types_row = []
-                    for dt, row in combined_single.iterrows():
-                        t = row['type']
-                        bg = '#A9D08E' if t == '저점' else '#E06666'
-                        cs_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                        cs_types_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{t}</td>")
-                        
-                    cs_table_html = f"""
-                    <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                    <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 감마풋콜 단독 저점/고점 감지 날짜 (최근 100개)</span>
-                    <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
-                        <tr>
-                            <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>날짜</th>
-                            {"".join(cs_dates_row)}
-                        </tr>
-                        <tr>
-                            <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>구분</th>
-                            {"".join(cs_types_row)}
-                        </tr>
-                    </table>
-                    </div>
-                    """
-                    st.markdown(cs_table_html, unsafe_allow_html=True)
-
-                # ── 2. 감마풋콜 단독 차트 통합 (하나의 차트로 표시) ──
-                fig_single_combined = make_subplots(specs=[[{"secondary_y": True}]])
-
-                # 저점 신호 감지막대 배경
-                fig_single_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, 0),
-                        name="저점 신호 감지",
-                        marker_color="rgba(46, 204, 113, 0.25)",
-                        marker_line_width=0, hoverinfo="skip", showlegend=False
-                    ),
-                    secondary_y=False
-                )
-                # 고점 신호 감지막대 배경
-                fig_single_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, 0),
-                        name="고점 신호 감지",
-                        marker_color="rgba(231, 76, 60, 0.25)",
-                        marker_line_width=0, hoverinfo="skip", showlegend=False
-                    ),
-                    secondary_y=False
-                )
-
-                # QQQ 가격 (왼쪽 y축)
-                fig_single_combined.add_trace(
-                    go.Scatter(
-                        x=hd_gex, y=df_gex['QQQ'],
-                        name="QQQ 가격", mode="lines+markers",
+                # Helper to add KOSPI trace
+                def add_kospi_trace(fig, row=1, show_leg=False):
+                    fig.add_trace(go.Scatter(
+                        x=hd_mon, y=df_mon_plot['KOSPI'], 
+                        name="코스피 지수", mode='lines+markers',
                         line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
                         marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                        hovertemplate="QQQ: %{y:,.2f}<extra></extra>", showlegend=False
-                    ),
-                    secondary_y=False
-                )
+                        showlegend=show_leg,
+                        hovertemplate='코스피: %{y:,.2f}<extra></extra>'
+                    ), row=row, col=1, secondary_y=False)
 
-                # GEX (오른쪽 y축)
-                fig_single_combined.add_trace(
-                    go.Scatter(
-                        x=hd_gex, y=df_gex['GEX_Bil'] / 10.0,
-                        name="감마익스포저 (십억)",
-                        line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
-                        hovertemplate="GEX: %{y:.2f}B<extra></extra>", showlegend=False
-                    ),
-                    secondary_y=True
-                )
-
-                # PCR (오른쪽 y축)
-                fig_single_combined.add_trace(
-                    go.Scatter(
-                        x=hd_gex, y=df_gex['PutCallRatio'],
-                        name="풋콜레이쇼",
-                        line=dict(color='rgba(0, 0, 255, 0.8)', width=1),
-                        hovertemplate="PCR: %{y:.2f}<extra></extra>", showlegend=False
-                    ),
-                    secondary_y=True
-                )
-
-                fig_single_combined.update_layout(
-                    **COMMON_LAYOUT,
-                    height=500,
-                    margin=dict(l=0, r=50, t=30, b=10),
-                    showlegend=False,
-                    barmode='overlay'
-                )
-
-                fig_single_combined.add_shape(
-                    type="rect", xref="x domain", yref="y domain",
-                    x0=0, y0=0, x1=1, y1=1,
-                    line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2)
-                )
-
-                fig_single_combined.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), secondary_y=False)
-                fig_single_combined.update_yaxes(range=[-0.75, 2.25], **crosshair_yaxis(), secondary_y=True)
-                fig_single_combined.update_xaxes(type="category", **crosshair_xaxis())
-
-                if initial_x_range_gex:
-                    fig_single_combined.update_xaxes(range=initial_x_range_gex)
-
-                fig_single_combined.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, secondary_y=True)
-                st.plotly_chart(fig_single_combined, width="stretch", config=COMMON_CONFIG, key="single_combined_subplots")
-
-                # 접기(expander) 형태로 GEX 설명 노출 (기본값: False 닫힘)
-                with st.expander("💡 감마 익스포저(GEX) 및 풋콜레이쇼(PCR) 지표 설명 및 활용 가이드", expanded=False):
-                    st.markdown("""
-                    - **감마 익스포저 (Gamma Exposure, GEX)**: 옵션 마켓메이커(딜러)들의 포지션 변동으로 인한 헤지 압력을 수치화한 지표입니다.
-                      - **양의 감마 (Positive Gamma, GEX > 0)**: 시장 변동성을 낮춥니다. 주가 변동 시 마켓메이커들이 반대 매매로 대처하여 주가가 박스권에 머무는 성향이 있습니다.
-                      - **음의 감마 (Negative Gamma, GEX < 0)**: 시장 변동성을 폭발적으로 확장시킵니다. 하락장에서 마켓메이커들의 헤지용 매도가 쏟아지기 때문에 폭락 속도를 더 빠르게 만드는 경향이 있습니다. 역사적 통계에 따라 GEX가 **-8.0B(하위 10% 수준) 이하**로 추락하는 지점은 극단적 매도세의 정점으로, **최적의 분할 저점 매수 기회**를 의미합니다.
-                    - **풋콜레이쇼 (Put/Call Ratio, PCR)**: 콜옵션 거래량 대비 풋옵션 거래량 비율로, 공포 심리를 파악하는 마인드셋 지표입니다.
-                      - **PCR 1.1 이상 (고공 행진)**: 시장의 하방 두려움이 극에 달해 풋옵션 매수가 넘치는 상황으로, 단기 바닥 영역(저점) 매수 조건에 충족됩니다.
-                      - **PCR 0.7 이하 (바닥권)**: 극도의 낙관주의로 콜옵션이 과매수 상태이며, 주가 상승세 둔화 및 하방 변곡점(고점) 매도 조건에 충족됩니다.
-
-                    ※ 본 모니터링 화면의 GEX는 S&P 500 GEX 데이터를 QQQ의 신뢰성 높은 대용 지표로 연계하여 실시간 렌더링하고 있으며, 풋콜레이쇼(PCR)는 CBOE 옵션 시장 $CPC 데이터를 충실히 재현한 실시간 프록시 지표입니다.
-                    """)
-
-                st.markdown("<hr style='margin: 1.0rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
-
-                # 저점/고점 검증결과 단일 표 통합 노출
-                st.markdown("### 📊 감마풋콜 지표 성능 검증")
-                bottom_conditions = {
-                    "**감마풋콜 저점**": (df_gex['GammaPutCall_Bottom_Signal'], "GEX <= -0.5B & PCR >= 1.08")
-                }
-                stats_bottom = calculate_indicator_stats(df_gex, 'QQQ', bottom_conditions, window=41, dd_threshold=0.05)
-
-                top_conditions = {
-                    "**감마풋콜 고점**": (df_gex['GammaPutCall_Top_Signal'], "GEX >= 1.0B & PCR <= 0.72")
-                }
-                stats_top = calculate_top_stats(df_gex, 'QQQ', top_conditions, window=41, ru_threshold=0.10)
-
-                rows = []
-                for item in stats_bottom:
-                    rows.append({
-                        "감지 조건": item['name'],
-                        "조건 세부 내용": item['desc'],
-                        "발생 횟수": item['triggered'],
-                        "적중률 (Hit Rate)": item['hit_rate'],
-                        "포착률 (Recall)": item['recall'],
-                        "종합 점수": item['score']
-                    })
-                for item in stats_top:
-                    rows.append({
-                        "감지 조건": item['name'],
-                        "조건 세부 내용": item['desc'],
-                        "발생 횟수": item['triggered'],
-                        "적중률 (Hit Rate)": item['hit_rate'],
-                        "포착률 (Recall)": item['recall'],
-                        "종합 점수": item['score']
-                    })
-                combined_stats = pd.DataFrame(rows)
-                render_gamma_stats_table(combined_stats, '감마풋콜 단독 지표 검증 결과')
-
-                st.markdown("<hr style='margin: 1.5rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
-
-                # ── 3. 감마풋콜기타 혼합 저점/고점 차트 통합 (x축 연동) 및 감지표 세로 배치 ──
-                # ── 감마풋콜기타 혼합 저점 7단계 감지 날짜 표 ──
-                hb_sig_dates = df_gex[df_gex['Score_Bottom'] >= 14.0].index.sort_values(ascending=False)[:100]
-                if not hb_sig_dates.empty:
-                    hb_dates_row = []
-                    hb_levels_row = []
-                    for dt in hb_sig_dates:
-                        cnt = df_gex.loc[dt, 'Score_Bottom']
-                        bg = '#800080' if cnt >= 20.0 else '#000080' if cnt >= 19.0 else '#87CEEB' if cnt >= 18.0 else '#A9D08E' if cnt >= 17.0 else '#FFD700' if cnt >= 16.0 else '#FF8C00' if cnt >= 15.0 else '#E06666'
-                        lvl = "7단계" if cnt >= 20.0 else "6단계" if cnt >= 19.0 else "5단계" if cnt >= 18.0 else "4단계" if cnt >= 17.0 else "3단계" if cnt >= 16.0 else "2단계" if cnt >= 15.0 else "1단계"
-
-                        hb_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                        hb_levels_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{lvl}</td>")
-
-                    hb_table_html = f"""
-                    <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                    <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 혼합 저점 신호 감지 날짜 (최근 100개)</span>
-                    <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
-                        <tr>
-                            <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>날짜</th>
-                            {"".join(hb_dates_row)}
-                        </tr>
-                        <tr>
-                            <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>단계</th>
-                            {"".join(hb_levels_row)}
-                        </tr>
-                    </table>
-                    </div>
-                    """
-                    st.markdown(hb_table_html, unsafe_allow_html=True)
-
-                # ── 감마풋콜기타 혼합 고점 7단계 감지 날짜 표 ──
-                ht_sig_dates = df_gex[df_gex['Score_Top'] >= 13.5].index.sort_values(ascending=False)[:100]
-                if not ht_sig_dates.empty:
-                    ht_dates_row = []
-                    ht_levels_row = []
-                    for dt in ht_sig_dates:
-                        cnt = df_gex.loc[dt, 'Score_Top']
-                        bg = '#800080' if cnt >= 16.5 else '#000080' if cnt >= 16.0 else '#87CEEB' if cnt >= 15.5 else '#A9D08E' if cnt >= 15.0 else '#FFD700' if cnt >= 14.5 else '#FF8C00' if cnt >= 14.0 else '#E06666'
-                        lvl = "7단계" if cnt >= 16.5 else "6단계" if cnt >= 16.0 else "5단계" if cnt >= 15.5 else "4단계" if cnt >= 15.0 else "3단계" if cnt >= 14.5 else "2단계" if cnt >= 14.0 else "1단계"
-
-                        ht_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                        ht_levels_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{lvl}</td>")
-
-                    ht_table_html = f"""
-                    <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                    <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 혼합 고점 신호 감지 날짜 (최근 100개)</span>
-                    <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
-                        <tr>
-                            <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>날짜</th>
-                            {"".join(ht_dates_row)}
-                        </tr>
-                        <tr>
-                            <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>단계</th>
-                            {"".join(ht_levels_row)}
-                        </tr>
-                    </table>
-                    </div>
-                    """
-                    st.markdown(ht_table_html, unsafe_allow_html=True)
-
-                # 차트 통합 생성
-                fig_hybrid_combined = make_subplots(
-                    rows=2, cols=1, 
-                    shared_xaxes=True, 
-                    vertical_spacing=0.08, 
-                    subplot_titles=["📊 \"감마풋콜기타 혼합 저점\" 지표 및 7단계(빨주노초파남보) 감지 시각화", "📊 \"감마풋콜기타 혼합 고점\" 지표 및 7단계(빨주노초파남보) 감지 시각화"],
-                    specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
-                )
-
-                # Row 1 (저점 7단계)
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 14.0, qmax * 1.5, 0),
-                        name="저점 1단계 (빨강)", marker_color="rgba(224, 102, 102, 0.45)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 15.0, qmax * 1.5, 0),
-                        name="저점 2단계 (주황)", marker_color="rgba(255, 140, 0, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 16.0, qmax * 1.5, 0),
-                        name="저점 3단계 (노랑)", marker_color="rgba(255, 255, 153, 0.45)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 17.0, qmax * 1.5, 0),
-                        name="저점 4단계 (초록)", marker_color="rgba(0, 128, 0, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 18.0, qmax * 1.5, 0),
-                        name="저점 5단계 (하늘)", marker_color="rgba(135, 206, 235, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 19.0, qmax * 1.5, 0),
-                        name="저점 6단계 (남색)", marker_color="rgba(0, 0, 128, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, 0),
-                        name="저점 7단계 (보라)", marker_color="rgba(128, 0, 128, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-                # QQQ 가격 (Row 1)
-                fig_hybrid_combined.add_trace(
-                    go.Scatter(
-                        x=hd_gex, y=df_gex['QQQ'],
-                        name="QQQ 가격", mode="lines+markers",
-                        line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                        marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                        hovertemplate="QQQ: %{y:,.2f}<extra></extra>", showlegend=False
-                    ), row=1, col=1, secondary_y=False
-                )
-
-                # Row 2 (고점 7단계)
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 13.5, qmax * 1.5, 0),
-                        name="고점 1단계 (빨강)", marker_color="rgba(224, 102, 102, 0.45)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.0, qmax * 1.5, 0),
-                        name="고점 2단계 (주황)", marker_color="rgba(255, 140, 0, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.5, qmax * 1.5, 0),
-                        name="고점 3단계 (노랑)", marker_color="rgba(255, 255, 153, 0.45)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.0, qmax * 1.5, 0),
-                        name="고점 4단계 (초록)", marker_color="rgba(0, 128, 0, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.5, qmax * 1.5, 0),
-                        name="고점 5단계 (하늘)", marker_color="rgba(135, 206, 235, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.0, qmax * 1.5, 0),
-                        name="고점 6단계 (남색)", marker_color="rgba(0, 0, 128, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                fig_hybrid_combined.add_trace(
-                    go.Bar(
-                        x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, 0),
-                        name="고점 7단계 (보라)", marker_color="rgba(128, 0, 128, 0.3)",
-                        marker_line_width=0.5, marker_line_color='white',
-                        hoverinfo="skip", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-                # QQQ 가격 (Row 2)
-                fig_hybrid_combined.add_trace(
-                    go.Scatter(
-                        x=hd_gex, y=df_gex['QQQ'],
-                        name="QQQ 가격", mode="lines+markers",
-                        line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                        marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                        hovertemplate="QQQ: %{y:,.2f}<extra></extra>", showlegend=False
-                    ), row=2, col=1, secondary_y=False
-                )
-
-                fig_hybrid_combined.update_layout(
-                    **COMMON_LAYOUT,
-                    height=750,
-                    margin=dict(l=0, r=50, t=30, b=10),
-                    showlegend=False,
-                    barmode='overlay'
-                )
-
-                fig_hybrid_combined.update_annotations(font_size=10)
-
-                fig_hybrid_combined.add_shape(
-                    type="rect", xref="x domain", yref="y domain",
-                    x0=0, y0=0, x1=1, y1=1,
-                    line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2),
-                    row=1, col=1
-                )
-                fig_hybrid_combined.add_shape(
-                    type="rect", xref="x domain", yref="y domain",
-                    x0=0, y0=0, x1=1, y1=1,
-                    line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2),
-                    row=2, col=1
-                )
-
-                fig_hybrid_combined.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), row=1, col=1, secondary_y=False)
-                fig_hybrid_combined.update_yaxes(**crosshair_yaxis(), row=1, col=1, secondary_y=True)
-                fig_hybrid_combined.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), row=2, col=1, secondary_y=False)
-                fig_hybrid_combined.update_yaxes(**crosshair_yaxis(), row=2, col=1, secondary_y=True)
-
-                fig_hybrid_combined.update_xaxes(type="category", **crosshair_xaxis())
-
-                if initial_x_range_gex:
-                    fig_hybrid_combined.update_xaxes(range=initial_x_range_gex)
-
-                st.plotly_chart(fig_hybrid_combined, width="stretch", config=COMMON_CONFIG, key="hybrid_combined_subplots")
+                # --- 1. 신용잔고 / 예탁금 ---
+                st.markdown(build_monitoring_table_1(df_mon_latest), unsafe_allow_html=True)
+                fig_mon1 = make_subplots(specs=[[{"secondary_y": True}]])
+                add_kospi_trace(fig_mon1)
+                fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Margin']/10000, name="신용잔고 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='신용잔고: %{y:.2f}조<extra></extra>', connectgaps=True), secondary_y=True)
+                fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Deposit']/10000, name="고객예탁금 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='고객예탁금: %{y:.2f}조<extra></extra>', connectgaps=True), secondary_y=True)
+                fig_mon1.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_mon1.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
+                fig_mon1.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
+                fig_mon1.update_yaxes(**crosshair_yaxis(), secondary_y=True)
+                fig_mon1.update_xaxes(type='category', **crosshair_xaxis())
+                if initial_x_range_mon: fig_mon1.update_xaxes(range=initial_x_range_mon)
+                st.plotly_chart(fig_mon1, width='stretch', config=COMMON_CONFIG, key="mon_fig1")
 
                 st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-        with sub_tabs[3]:
-            if selected_country == "미국":
-                dram_data = fetch_dram_dashboard_data()
-                if dram_data:
-                    as_of = dram_data.get('as_of', '')
-                    st.markdown(f"### 메모리 가격 · DRAM <span style='font-size:0.75rem;color:#8b93a3;float:right;'>기준일: {as_of}</span>", unsafe_allow_html=True)
-        
-                    dxi = dram_data.get('dxi', {'value': 0, 'chg': 0})
-                    spot_groups = dram_data.get('spot', [])
-        
-                    def get_chg_badge(chg):
-                        if chg is None: return "-"
-                        color = "#ff5b5b" if chg >= 0 else "#3b82f6"
-                        arrow = "▲" if chg >= 0 else "▼"
-                        bg = "rgba(255,91,91,.12)" if chg >= 0 else "rgba(59,130,246,.12)"
-                        return f"<span style='color:{color};background:{bg};padding:1px 5px;border-radius:4px;font-weight:600;'>{arrow} {abs(chg):.2f}%</span>"
-            
-                    st.markdown(
-                        f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
-                        f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;text-align:center;'>"
-                        f"<tr style='background:transparent !important;border:none !important;'>"
-                        f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>DXI 지수</td>"
-                        f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{int(round(dxi.get('value', 0))):,}</td>"
-                        f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(dxi.get('chg', 0))}</td>"
-                        f"</tr>"
-                        f"</table>"
-                        f"</div>", unsafe_allow_html=True
-                    )
-        
-                    st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
-                    st.markdown("#### 현물가 장기 추이")
-        
-                    # ETF KPI Data
-                    net_flow = 0
-                    flow_color = "#ff5b5b"
-                    flow_arrow = "+"
-                    price = 0
-                    premium = 0
-                    etf_tmp = dram_data.get('etf', {})
-                    if etf_tmp:
-                        net_flow = etf_tmp.get('net_flow', 0)
-                        flow_color = "#ff5b5b" if net_flow >= 0 else "#3b82f6"
-                        flow_arrow = "+" if net_flow >= 0 else ""
-                        price = etf_tmp.get('price', 0)
-                        nav = etf_tmp.get('nav', 1)
-                        premium = ((price - nav) / nav) * 100
-        
-                    # Data parsing
-                    monthly_data = dram_data.get('monthly', {})
-                    dr_m = monthly_data.get('dram', {}) or monthly_data.get('ddr4_8gb', {}) or {'m': [], 'v': []}
-                    na_m = monthly_data.get('nand', {}) or {'m': [], 'v': []}
-        
-                    customs = dram_data.get('customs', {})
-                    dr_c = customs.get('dram', {}) if customs else {'m': [], 'v': []}
-                    na_c = customs.get('nand', {}) if customs else {'m': [], 'v': []}
-        
-                    etf = dram_data.get('etf', {})
-                    etf_series = etf.get('series', {}) if etf else {'d': [], 'px': []}
-        
-                    five_years_ago_kr = pd.to_datetime('2018-01-01')
-                    df1_kr = df_kr[df_kr.index >= five_years_ago_kr]
-        
-                    year_prefix = as_of[:4] if as_of else "2026"
-                    kospi_prices_for_etf = []
-                    for d_str in etf_series.get('d', []):
-                        target_dt = pd.to_datetime(f"{year_prefix}-{d_str}")
-                        if target_dt in df1_kr.index:
-                            kospi_prices_for_etf.append(df1_kr.loc[target_dt, 'KOSPI'])
-                        else:
-                            avail_dates = df1_kr.index[df1_kr.index <= target_dt]
-                            if not avail_dates.empty:
-                                kospi_prices_for_etf.append(df1_kr.loc[avail_dates[-1], 'KOSPI'])
-                            else:
-                                kospi_prices_for_etf.append(None)
-        
-                    if active_period_days:
-                        start_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                    else:
-                        start_date = pd.to_datetime('2025-01-01')
-            
-                    df_filtered = df1_kr[df1_kr.index >= start_date]
-                    if not df_filtered.empty:
-                        k_min, k_max = df_filtered['KOSPI'].min(), df_filtered['KOSPI'].max()
-                        kospi_y_range = [k_min * 0.95, k_max * 1.05]
-                    else:
-                        kospi_y_range = None
 
-                    # 1) 개요 (Overview)
-                    st.markdown("##### 메모리 차트")
-        
-                    # Collect all unique dates to form a sorted category array for x-axis
-                    monthly_dates = [pd.to_datetime(m + "-01") for m in dr_m.get('m', [])]
-                    customs_dates = [pd.to_datetime(m + "-01") for m in dr_c.get('m', [])]
-        
-                    all_dates = set(df1_kr.index)
-                    all_dates.update(monthly_dates)
-                    all_dates.update(customs_dates)
-        
-                    # Spot dates
-                    parsed_spot_dict = {}
-                    for grp in spot_groups:
-                        for row in grp[2]:
-                            tid = row[3]
-                            series_data = dram_data.get('series', {}).get(str(tid), {'d': [], 'v': []})
-                            spot_d = series_data.get('d', [])
-                            parsed = []
-                            for dt_str in spot_d:
-                                if len(dt_str) == 5:
-                                    d_obj = pd.to_datetime(f"{datetime.date.today().year}-{dt_str}")
-                                else:
-                                    d_obj = pd.to_datetime(dt_str)
-                                parsed.append(d_obj)
-                                all_dates.add(d_obj)
-                            parsed_spot_dict[tid] = parsed
+                # --- 2. 거래대금 (기존 거래대금 탭 그래프 2개) ---
+                st.markdown(build_monitoring_table_2(df_mon_latest), unsafe_allow_html=True)
+            
+                fig_value = make_subplots(
+                    rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+                    specs=[[{"secondary_y": True}], [{"secondary_y": True}]],
+                    subplot_titles=("코스피 지수 & 일일거래대금 추이", "코스피 지수 & 삼닉/그외 비율 추이")
+                )
+            
+                # Row 1: 거래대금
+                add_kospi_trace(fig_value, row=1)
+                fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['TradingValue']/1000000.0, name="코스피 거래대금", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="코스피 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
+                fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['SEC_HYNIX_Val']/1000000.0, name="삼닉 거래대금", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate="삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
+                fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['KOSPI_ex_SEC_HYNIX_Val']/1000000.0, name="코스피-삼닉 거래대금", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate="코스피-삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
+            
+                # Row 2: 비율
+                add_kospi_trace(fig_value, row=2)
+                raw_ratio = df_mon_plot['SEC_HYNIX_Val'] / (df_mon_plot['KOSPI_ex_SEC_HYNIX_Val'] + 1e-10)
+                fig_value.add_trace(go.Scatter(x=hd_mon, y=raw_ratio, name="삼닉/그외 비율", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="삼닉/그외 비율: %{y:.4f}<extra></extra>"), row=2, col=1, secondary_y=True)
+                fig_value.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, row=2, col=1, secondary_y=True)
+            
+                # Layout setting
+                fig_value.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_value.update_annotations(font_size=10)
+            
+                for r_idx in [1, 2]:
+                    fig_value.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=r_idx, col=1)
+                    fig_value.update_yaxes(range=[0, kmax * 1.1], **crosshair_yaxis(), secondary_y=False, row=r_idx, col=1)
+                    fig_value.update_xaxes(type="category", **crosshair_xaxis(), row=r_idx, col=1)
+            
+                fig_value.update_yaxes(range=[0, 120], **crosshair_yaxis(), secondary_y=True, row=1, col=1)
+                fig_value.update_yaxes(range=[0, 5], **crosshair_yaxis(), secondary_y=True, row=2, col=1)
+            
+                if initial_x_range_mon:
+                    fig_value.update_xaxes(range=initial_x_range_mon, row=2, col=1)
                 
-                    sorted_dates = sorted(list(all_dates))
-                    hd_mem = [fmt_date_kor(d) for d in sorted_dates]
-        
-                    # Determine initial range indices based on active_period_days or 2025-01-01
-                    if active_period_days:
-                        target_start = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                    else:
-                        target_start = pd.to_datetime('2025-01-01')
-            
-                    detected_indices = [i for i, d in enumerate(sorted_dates) if d >= target_start]
-                    initial_x_range_idx = [detected_indices[0], len(sorted_dates)-1] if detected_indices else [0, len(sorted_dates)-1]
-        
-                    titles = ["개요"] + [grp[1] for grp in spot_groups]
-                    fig_mem = make_subplots(
-                        rows=1+len(spot_groups), cols=1, 
-                        shared_xaxes=True, vertical_spacing=0.03,
-                        subplot_titles=titles, 
-                        specs=[[{"secondary_y": True}]] * (1+len(spot_groups))
-                    )
-        
-                    # 1) Overview Row
-                    kospi_hd = [fmt_date_kor(d) for d in df1_kr.index]
-                    fig_mem.add_trace(go.Scatter(
-                        x=kospi_hd, y=df1_kr['KOSPI'], name='KOSPI 지수',
-                        mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                        marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                        hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
-                    ), row=1, col=1, secondary_y=False)
-        
-                    m_hd = [fmt_date_kor(d) for d in monthly_dates]
-                    fig_mem.add_trace(go.Scatter(
-                        x=m_hd, y=dr_m.get('v'), name='DRAM 현물 ($)', mode='lines', line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
-                        hovertemplate='DRAM 현물: $%{y:.2f}<extra></extra>'
-                    ), row=1, col=1, secondary_y=True)
-                    fig_mem.add_trace(go.Scatter(
-                        x=m_hd, y=na_m.get('v'), name='NAND 웨이퍼 ($)', mode='lines', line=dict(color='rgba(255, 255, 0, 0.8)', width=1),
-                        hovertemplate='NAND 웨이퍼: $%{y:.2f}<extra></extra>'
-                    ), row=1, col=1, secondary_y=True)
-        
-                    c_hd = [fmt_date_kor(d) for d in customs_dates]
-                    fig_mem.add_trace(go.Scatter(
-                        x=c_hd, y=dr_c.get('v'), name='수출 DRAM (k$/kg)', mode='lines', line=dict(color='gray', width=1),
-                        hovertemplate='수출 DRAM: %{y:.2f}k/kg<extra></extra>'
-                    ), row=1, col=1, secondary_y=True)
-                    fig_mem.add_trace(go.Scatter(
-                        x=c_hd, y=na_c.get('v'), name='수출 NAND (k$/kg)', mode='lines', line=dict(color='gray', width=1),
-                        hovertemplate='수출 NAND: %{y:.2f}k/kg<extra></extra>'
-                    ), row=1, col=1, secondary_y=True)
-        
-                    # 2) 6 Spot Group Rows
-                    colors = ['#ff5b5b', '#3b82f6', '#d99a2b', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4', '#6366f1']
-                    for idx, grp in enumerate(spot_groups):
-                        row_idx = idx + 2
-            
-                        # KOSPI on left
-                        fig_mem.add_trace(go.Scatter(
-                            x=kospi_hd, y=df1_kr['KOSPI'], name=f'KOSPI ({grp[1]})',
-                            mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                            marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                            hovertemplate='KOSPI: %{y:.2f}<extra></extra>', showlegend=False
-                        ), row=row_idx, col=1, secondary_y=False)
-            
-                        # Series items on right
-                        for c_idx, row in enumerate(grp[2]):
-                            item_name = row[0]
-                            tid = row[3]
-                            series_data = dram_data.get('series', {}).get(str(tid), {'v': []})
-                            spot_v = series_data.get('v', [])
-                            parsed_dates = parsed_spot_dict[tid]
-                            s_hd = [fmt_date_kor(d) for d in parsed_dates]
-                            c = colors[c_idx % len(colors)]
-                
-                            mem_palette = ['rgba(255, 0, 0, 0.8)', 'rgba(255, 255, 0, 0.8)', 'rgba(0, 128, 0, 0.8)', 'rgba(0, 0, 128, 0.8)', 'rgba(128, 0, 128, 0.8)', 'rgba(165, 42, 42, 0.8)', 'rgba(135, 206, 235, 0.8)']
-                            fig_mem.add_trace(go.Scatter(
-                                x=s_hd, y=spot_v, name=item_name, mode='lines', line=dict(color=mem_palette[c_idx % len(mem_palette)], width=1),
-                                hovertemplate=f'{item_name}: %{{y:.3f}}<extra></extra>', showlegend=False
-                            ), row=row_idx, col=1, secondary_y=True)
+                st.plotly_chart(fig_value, width="stretch", config=COMMON_CONFIG, key="value_subplots")
 
-                    fig_mem.update_layout(
-                        **COMMON_LAYOUT,
-                        height=2000, 
-                        margin=dict(l=0, r=0, t=30, b=10),
-                        showlegend=False,
-                    )
-                    fig_mem.update_annotations(font_size=10)
-                    # Set layout properties
-        
-                    for i in range(1, 8):
-                        # Apply rectangle shape to each row
-                        fig_mem.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=i, col=1)
-            
-                        # Apply crosshair configs to X and Y axes of each subplot
-                        fig_mem.update_xaxes(type='category', categoryorder='array', categoryarray=hd_mem, **crosshair_xaxis(), row=i, col=1)
-                        if kospi_y_range:
-                            fig_mem.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, row=i, col=1)
-                        else:
-                            fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False, row=i, col=1)
-                        fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True, row=i, col=1)
+                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
 
-                    # Set initial range for the shared x-axis
-                    fig_mem.update_xaxes(range=initial_x_range_idx, row=7, col=1)
+                # --- 3. 투자자별 순매수 ---
+                st.markdown(build_monitoring_table_3(df_mon_latest), unsafe_allow_html=True)
+                fig_mon3 = make_subplots(specs=[[{"secondary_y": True}]])
+                add_kospi_trace(fig_mon3)
+                fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Retail_Cum']/10000, name="개인 누적 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='개인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
+                fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Foreign_Cum']/10000, name="외국인 누적 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='외국인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
+                fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Institution_Cum']/10000, name="기관 누적 (조원)", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate='기관 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
+                fig_mon3.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_mon3.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
+                fig_mon3.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
+                fig_mon3.update_yaxes(**crosshair_yaxis(), secondary_y=True)
+                fig_mon3.update_xaxes(type='category', **crosshair_xaxis())
+                if initial_x_range_mon: fig_mon3.update_xaxes(range=initial_x_range_mon)
+                st.plotly_chart(fig_mon3, width='stretch', config=COMMON_CONFIG, key="mon_fig3")
+            else:
+                st.info("모니터링 데이터가 없습니다.")
+
+    
+
+    # ── 소분류 2: 등락현황 ──
+    with sub_tabs[1]:
+        st.markdown("### 국내외 증시 등락 현황")
+        with st.spinner("국내외 등락현황 데이터를 가져오는 중..."):
+            kp_b, kd_b, ndx_b = fetch_historical_breadth()
+            kp_p, kd_p, qqq_p = fetch_index_prices()
+        def build_historical_breadth_table(df_b, title, is_us=False):
+            df_sub = df_b.tail(5)
+            headers = ["<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>날짜</th>"]
+            cols = ['상한가', '상승', '보합', '하락', '하한가'] if not is_us else ['상승', '보합', '하락']
+            for col in cols:
+                headers.append(f"<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>{col}</th>")
+            headers.append("<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>상하비율</th>")
         
-                    st.plotly_chart(fig_mem, width='stretch', config=COMMON_CONFIG, key="tab4_merged_all_chart")
-        
-                    # 3. 현물가 상세 표
-                    def format_price(p):
-                        if p is None: return "-"
-                        return f"${p:,.2f}" if p >= 100 else f"${p:.3f}" if p < 20 else f"${p:.2f}"
+            rows = []
+            CM = {'상한가':'#CC0000','상승':'#FF6B9D','보합':'#DDDDDD','하락':'#87CEEB','하한가':'#3399FF'}
+            for idx, row in df_sub.iloc[::-1].iterrows():
+                date_str = pd.to_datetime(idx).strftime('%Y-%m-%d')
+                row_html = [f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"]
+                for col in cols:
+                    val = row.get(col, 0)
+                    c = CM.get(col, '#FFF')
+                    row_html.append(f"<td style='padding:3px 6px;border:1px solid #444;font-weight:bold;color:{c};text-align:center;'>{int(val) if pd.notna(val) else '0'}</td>")
             
-                    st.markdown("<br>\n\n#### 현물가 상세", unsafe_allow_html=True)
-                    tbl_html = """
-                    <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;text-align:center;">
-                        <thead>
-                            <tr style="background:#1F4E79;color:white;">
-                                <th style="padding:2px;border:1px solid #444;">품목명</th>
-                                <th style="padding:2px;border:1px solid #444;text-align:right;">가격</th>
-                                <th style="padding:2px;border:1px solid #444;text-align:right;">변동률</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    """
-                    for grp in spot_groups:
-                        tbl_html += f"<tr><td colspan='3' style='background:#171a21;font-weight:bold;padding:3px;border:1px solid #444;font-size:0.65rem !important;'>{grp[1]}</td></tr>"
-                        for row in grp[2]:
-                            tbl_html += f"<tr>"
-                            tbl_html += f"<td style='padding:2px;border:1px solid #444;'>{row[0]}</td>"
-                            tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;font-weight:bold;'>{format_price(row[1])}</td>"
-                            tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;'>{get_chg_badge(row[2])}</td>"
-                            tbl_html += f"</tr>"
-                    tbl_html += "</tbody></table>"
-                    st.markdown(tbl_html, unsafe_allow_html=True)
-            
+                # 상하비율 계산
+                if not is_us:
+                    up_val = row.get('상한가', 0) + row.get('상승', 0)
+                    dn_val = row.get('하락', 0) + row.get('하한가', 0)
                 else:
-                    st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
+                    up_val = row.get('상승', 0)
+                    dn_val = row.get('하락', 0)
+            
+                ratio = up_val - dn_val
+                r_color = '#FF6B9D' if ratio >= 1 else '#87CEEB'
+                row_html.append(f"<td style='padding:3px 6px;border:1px solid #444;font-weight:bold;color:{r_color};text-align:center;'>{ratio:.2f}</td>")
+            
+                rows.append(f"<tr>{''.join(row_html)}</tr>")
+            return f"""
+            <div style='margin-bottom: 0.5rem;'>
+                <span style='font-size:0.75rem; font-weight:600;'>{title}</span>
+                <table style='border-collapse:collapse;width:100%;margin-top:2px;font-size:0.7rem;text-align:center;'>
+                    <thead><tr>{''.join(headers)}</tr></thead>
+                    <tbody>{''.join(rows)}</tbody>
+                </table>
+            </div>
+            """
+    
+        c1, c2, c3 = st.columns(3, gap="small")
+        with c1:
+            st.markdown(build_historical_breadth_table(kp_b, "🇰🇷 코스피 등락 현황 (최근 5일)"), unsafe_allow_html=True)
+        with c2:
+            st.markdown(build_historical_breadth_table(kd_b, "🇰🇷 코스닥 등락 현황 (최근 5일)"), unsafe_allow_html=True)
+        with c3:
+            st.markdown(build_historical_breadth_table(ndx_b, "🇺🇸 나스닥 100 등락 현황 (최근 5일 - 상하한가 제외)", is_us=True), unsafe_allow_html=True)
+        
+    
+        st.markdown("### 📈 대표 종목 기준 등락현황 시계열 추이 (최근 90영업일)")
+    
+        # ★ 3개 시장(코스피/코스닥/나스닥)의 날짜를 합쳐서 통합 category 배열 생성
+        # 한국/미국 거래일이 달라 shared_xaxes + category에서 충돌 방지용
+        all_breadth_dates = set()
+        for _df_tmp in [kp_b, kd_b, ndx_b]:
+            if not _df_tmp.empty:
+                all_breadth_dates.update(pd.to_datetime(_df_tmp.index))
+        unified_breadth_dates = sorted(list(all_breadth_dates))
+        unified_breadth_hd = [fmt_date_kor(d) for d in unified_breadth_dates]
+    
+        fig_breadth = make_subplots(
+            rows=3, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.06,
+            subplot_titles=(
+                "코스피 대표 종목 등락현황 추이 (꺾은선형)",
+                "코스닥 대표 종목 등락현황 추이 (꺾은선형)",
+                "나스닥 100 대표 종목 등락현황 추이 (꺾은선형 - 상하한 제외)"
+            ),
+            specs=[[{"secondary_y": True}], [{"secondary_y": True}], [{"secondary_y": True}]]
+        )
+    
+        def add_breadth_traces(row_idx, df_b, ps, pname, is_us):
+            if df_b.empty: return
+            dfp = df_b.copy()
+            dfp.index = pd.to_datetime(dfp.index)
+            hd = [fmt_date_kor(d) for d in dfp.index]
+        
+            if ps is not None and len(ps) > 0:
+                ps_aligned = ps.reindex(dfp.index, method='nearest', tolerance=pd.Timedelta('3 days'))
+                fig_breadth.add_trace(go.Scatter(
+                    x=hd, y=ps_aligned.values, name=pname,
+                    mode='lines+markers',
+                    line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate=f'{pname}: %{{y:,.2f}}<extra></extra>',
+                    showlegend=False
+                ), row=row_idx, col=1, secondary_y=False)
+            
+            if not is_us:
+                up_val = dfp.get('상한가', 0).fillna(0) + dfp.get('상승', 0).fillna(0)
+                dn_val = dfp.get('하락', 0).fillna(0) + dfp.get('하한가', 0).fillna(0)
+            else:
+                up_val = dfp.get('상승', 0).fillna(0)
+                dn_val = dfp.get('하락', 0).fillna(0)
+            
+            ratio_s = up_val - dn_val
+        
+            fig_breadth.add_trace(go.Scatter(
+                x=hd, y=ratio_s.values, name='상하비율',
+                mode='lines',
+                line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
+                hovertemplate='상하비율: %{y:.2f}<extra></extra>',
+                showlegend=False
+            ), row=row_idx, col=1, secondary_y=True)
+        
+            fig_breadth.add_hline(y=0.0, line_dash='dash', line_color='gray', line_width=1.0, row=row_idx, col=1, secondary_y=True)
+        
+            if ps is not None and len(ps) > 0:
+                p_min, p_max = float(ps_aligned.min()), float(ps_aligned.max())
+                fig_breadth.update_yaxes(range=[p_min*0.95, p_max*1.05], **crosshair_yaxis(), secondary_y=False, row=row_idx, col=1)
+            
+            r_min, r_max = float(ratio_s.min()), float(ratio_s.max())
+            r_range = max(r_max - r_min, 1)
+            fig_breadth.update_yaxes(range=[r_min - r_range*0.05, r_max + r_range*0.05], **crosshair_yaxis(), secondary_y=True, row=row_idx, col=1)
+            fig_breadth.update_xaxes(type='category', **crosshair_xaxis(), row=row_idx, col=1)
+        
+            fig_breadth.add_shape(type='rect', xref='x domain', yref='y domain', x0=0, y0=0, x1=1, y1=1, line=dict(color='rgba(150, 150, 150, 0.4)', width=1.2), row=row_idx, col=1)
+        add_breadth_traces(1, kp_b, kp_p, "코스피", is_us=False)
+        add_breadth_traces(2, kd_b, kd_p, "코스닥", is_us=False)
+        add_breadth_traces(3, ndx_b, qqq_p, "QQQ", is_us=True)
+    
+        # X범위 계산 (통합 category 인덱스 기반)
+        initial_x_range_3 = None
+        if unified_breadth_dates and active_period_days:
+            target_date_3 = pd.Timestamp(datetime.date.today() - datetime.timedelta(days=active_period_days))
+            detected_3 = [i for i, d in enumerate(unified_breadth_dates) if d >= target_date_3]
+            initial_x_range_3 = [detected_3[0], len(unified_breadth_hd) - 1] if detected_3 else None
+    
+        fig_breadth.update_layout(
+            **COMMON_LAYOUT,
+            height=850,
+            margin=dict(l=0, r=50, t=30, b=10),
+            showlegend=False
+        )
+        fig_breadth.update_annotations(font_size=10)
+    
+        for i in range(1, 4):
+            fig_breadth.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=i, col=1)
+            fig_breadth.update_yaxes(**crosshair_yaxis(), secondary_y=False, row=i, col=1)
+            fig_breadth.update_yaxes(**crosshair_yaxis(), secondary_y=True, row=i, col=1)
+            # ★ 통합 categoryarray 명시 지정으로 shared_xaxes 충돌 방지
+            fig_breadth.update_xaxes(
+                type='category',
+                categoryorder='array',
+                categoryarray=unified_breadth_hd,
+                **crosshair_xaxis(),
+                row=i, col=1
+            )
+    
+        if initial_x_range_3:
+            fig_breadth.update_xaxes(range=initial_x_range_3, row=3, col=1)
+    
+        st.plotly_chart(fig_breadth, width='stretch', config=COMMON_CONFIG, key="tab5_breadth_subplots")
+    
+    # ── 소분류 4: 감마풋콜 ──
+    with sub_tabs[2]:
+        if not df.empty:
+            df_gex = df.copy()
+            hd_gex = [fmt_date_kor(d) for d in df_gex.index]
+
+            # Determine X range based on active_period_days or entire range
+            if active_period_days:
+                target_start = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                detected_indices = [i for i, d in enumerate(df_gex.index) if d >= target_start]
+                initial_x_range_gex = [detected_indices[0], len(hd_gex) - 1] if detected_indices else None
+            else:
+                initial_x_range_gex = None
+
+            # QQQ Y-range calculation for better scaling
+            if active_period_days and detected_indices:
+                q_prices = df_gex['QQQ'].iloc[detected_indices[0]:]
+                qmin, qmax = float(q_prices.min()), float(q_prices.max())
+            else:
+                qmin, qmax = float(df_gex['QQQ'].min()), float(df_gex['QQQ'].max())
+
+            # ── 1. 감마풋콜 단독 저점/고점 감지 날짜 통합 표 (최근 100개) ──
+            single_bottom_df = pd.DataFrame(index=df_gex[df_gex['GammaPutCall_Bottom_Signal']].index)
+            single_bottom_df['type'] = '저점'
+            single_top_df = pd.DataFrame(index=df_gex[df_gex['GammaPutCall_Top_Signal']].index)
+            single_top_df['type'] = '고점'
+            
+            combined_single = pd.concat([single_bottom_df, single_top_df]).sort_index(ascending=False)[:100]
+            
+            TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;vertical-align:middle;"
+            
+            if not combined_single.empty:
+                cs_dates_row = []
+                cs_types_row = []
+                for dt, row in combined_single.iterrows():
+                    t = row['type']
+                    bg = '#A9D08E' if t == '저점' else '#E06666'
+                    cs_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
+                    cs_types_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{t}</td>")
+                    
+                cs_table_html = f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 감마풋콜 단독 저점/고점 감지 날짜 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>날짜</th>
+                        {"".join(cs_dates_row)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>구분</th>
+                        {"".join(cs_types_row)}
+                    </tr>
+                </table>
+                </div>
+                """
+                st.markdown(cs_table_html, unsafe_allow_html=True)
+
+            # ── 2. 감마풋콜 단독 차트 통합 (하나의 차트로 표시) ──
+            fig_single_combined = make_subplots(specs=[[{"secondary_y": True}]])
+
+            # 저점 신호 감지막대 배경
+            fig_single_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, 0),
+                    name="저점 신호 감지",
+                    marker_color="rgba(46, 204, 113, 0.25)",
+                    marker_line_width=0, hoverinfo="skip", showlegend=False
+                ),
+                secondary_y=False
+            )
+            # 고점 신호 감지막대 배경
+            fig_single_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, 0),
+                    name="고점 신호 감지",
+                    marker_color="rgba(231, 76, 60, 0.25)",
+                    marker_line_width=0, hoverinfo="skip", showlegend=False
+                ),
+                secondary_y=False
+            )
+
+            # QQQ 가격 (왼쪽 y축)
+            fig_single_combined.add_trace(
+                go.Scatter(
+                    x=hd_gex, y=df_gex['QQQ'],
+                    name="QQQ 가격", mode="lines+markers",
+                    line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate="QQQ: %{y:,.2f}<extra></extra>", showlegend=False
+                ),
+                secondary_y=False
+            )
+
+            # GEX (오른쪽 y축)
+            fig_single_combined.add_trace(
+                go.Scatter(
+                    x=hd_gex, y=df_gex['GEX_Bil'] / 10.0,
+                    name="감마익스포저 (십억)",
+                    line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
+                    hovertemplate="GEX: %{y:.2f}B<extra></extra>", showlegend=False
+                ),
+                secondary_y=True
+            )
+
+            # PCR (오른쪽 y축)
+            fig_single_combined.add_trace(
+                go.Scatter(
+                    x=hd_gex, y=df_gex['PutCallRatio'],
+                    name="풋콜레이쇼",
+                    line=dict(color='rgba(0, 0, 255, 0.8)', width=1),
+                    hovertemplate="PCR: %{y:.2f}<extra></extra>", showlegend=False
+                ),
+                secondary_y=True
+            )
+
+            fig_single_combined.update_layout(
+                **COMMON_LAYOUT,
+                height=500,
+                margin=dict(l=0, r=50, t=30, b=10),
+                showlegend=False,
+                barmode='overlay'
+            )
+
+            fig_single_combined.add_shape(
+                type="rect", xref="x domain", yref="y domain",
+                x0=0, y0=0, x1=1, y1=1,
+                line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2)
+            )
+
+            fig_single_combined.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), secondary_y=False)
+            fig_single_combined.update_yaxes(range=[-0.75, 2.25], **crosshair_yaxis(), secondary_y=True)
+            fig_single_combined.update_xaxes(type="category", **crosshair_xaxis())
+
+            if initial_x_range_gex:
+                fig_single_combined.update_xaxes(range=initial_x_range_gex)
+
+            fig_single_combined.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, secondary_y=True)
+            st.plotly_chart(fig_single_combined, width="stretch", config=COMMON_CONFIG, key="single_combined_subplots")
+
+            # 접기(expander) 형태로 GEX 설명 노출 (기본값: False 닫힘)
+            with st.expander("💡 감마 익스포저(GEX) 및 풋콜레이쇼(PCR) 지표 설명 및 활용 가이드", expanded=False):
+                st.markdown("""
+                - **감마 익스포저 (Gamma Exposure, GEX)**: 옵션 마켓메이커(딜러)들의 포지션 변동으로 인한 헤지 압력을 수치화한 지표입니다.
+                  - **양의 감마 (Positive Gamma, GEX > 0)**: 시장 변동성을 낮춥니다. 주가 변동 시 마켓메이커들이 반대 매매로 대처하여 주가가 박스권에 머무는 성향이 있습니다.
+                  - **음의 감마 (Negative Gamma, GEX < 0)**: 시장 변동성을 폭발적으로 확장시킵니다. 하락장에서 마켓메이커들의 헤지용 매도가 쏟아지기 때문에 폭락 속도를 더 빠르게 만드는 경향이 있습니다. 역사적 통계에 따라 GEX가 **-8.0B(하위 10% 수준) 이하**로 추락하는 지점은 극단적 매도세의 정점으로, **최적의 분할 저점 매수 기회**를 의미합니다.
+                - **풋콜레이쇼 (Put/Call Ratio, PCR)**: 콜옵션 거래량 대비 풋옵션 거래량 비율로, 공포 심리를 파악하는 마인드셋 지표입니다.
+                  - **PCR 1.1 이상 (고공 행진)**: 시장의 하방 두려움이 극에 달해 풋옵션 매수가 넘치는 상황으로, 단기 바닥 영역(저점) 매수 조건에 충족됩니다.
+                  - **PCR 0.7 이하 (바닥권)**: 극도의 낙관주의로 콜옵션이 과매수 상태이며, 주가 상승세 둔화 및 하방 변곡점(고점) 매도 조건에 충족됩니다.
+
+                ※ 본 모니터링 화면의 GEX는 S&P 500 GEX 데이터를 QQQ의 신뢰성 높은 대용 지표로 연계하여 실시간 렌더링하고 있으며, 풋콜레이쇼(PCR)는 CBOE 옵션 시장 $CPC 데이터를 충실히 재현한 실시간 프록시 지표입니다.
+                """)
+
+            st.markdown("<hr style='margin: 1.0rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
+
+            # 저점/고점 검증결과 단일 표 통합 노출
+            st.markdown("### 📊 감마풋콜 지표 성능 검증")
+            bottom_conditions = {
+                "**감마풋콜 저점**": (df_gex['GammaPutCall_Bottom_Signal'], "GEX <= -0.5B & PCR >= 1.08")
+            }
+            stats_bottom = calculate_indicator_stats(df_gex, 'QQQ', bottom_conditions, window=41, dd_threshold=0.05)
+
+            top_conditions = {
+                "**감마풋콜 고점**": (df_gex['GammaPutCall_Top_Signal'], "GEX >= 1.0B & PCR <= 0.72")
+            }
+            stats_top = calculate_top_stats(df_gex, 'QQQ', top_conditions, window=41, ru_threshold=0.10)
+
+            rows = []
+            for item in stats_bottom:
+                rows.append({
+                    "감지 조건": item['name'],
+                    "조건 세부 내용": item['desc'],
+                    "발생 횟수": item['triggered'],
+                    "적중률 (Hit Rate)": item['hit_rate'],
+                    "포착률 (Recall)": item['recall'],
+                    "종합 점수": item['score']
+                })
+            for item in stats_top:
+                rows.append({
+                    "감지 조건": item['name'],
+                    "조건 세부 내용": item['desc'],
+                    "발생 횟수": item['triggered'],
+                    "적중률 (Hit Rate)": item['hit_rate'],
+                    "포착률 (Recall)": item['recall'],
+                    "종합 점수": item['score']
+                })
+            combined_stats = pd.DataFrame(rows)
+            render_gamma_stats_table(combined_stats, '감마풋콜 단독 지표 검증 결과')
+
+            st.markdown("<hr style='margin: 1.5rem 0; border: 0.5px solid #333;'>", unsafe_allow_html=True)
+
+            # ── 3. 감마풋콜기타 혼합 저점/고점 차트 통합 (x축 연동) 및 감지표 세로 배치 ──
+            # ── 감마풋콜기타 혼합 저점 7단계 감지 날짜 표 ──
+            hb_sig_dates = df_gex[df_gex['Score_Bottom'] >= 14.0].index.sort_values(ascending=False)[:100]
+            if not hb_sig_dates.empty:
+                hb_dates_row = []
+                hb_levels_row = []
+                for dt in hb_sig_dates:
+                    cnt = df_gex.loc[dt, 'Score_Bottom']
+                    bg = '#800080' if cnt >= 20.0 else '#000080' if cnt >= 19.0 else '#87CEEB' if cnt >= 18.0 else '#A9D08E' if cnt >= 17.0 else '#FFD700' if cnt >= 16.0 else '#FF8C00' if cnt >= 15.0 else '#E06666'
+                    lvl = "7단계" if cnt >= 20.0 else "6단계" if cnt >= 19.0 else "5단계" if cnt >= 18.0 else "4단계" if cnt >= 17.0 else "3단계" if cnt >= 16.0 else "2단계" if cnt >= 15.0 else "1단계"
+
+                    hb_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
+                    hb_levels_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{lvl}</td>")
+
+                hb_table_html = f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 혼합 저점 신호 감지 날짜 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>날짜</th>
+                        {"".join(hb_dates_row)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>단계</th>
+                        {"".join(hb_levels_row)}
+                    </tr>
+                </table>
+                </div>
+                """
+                st.markdown(hb_table_html, unsafe_allow_html=True)
+
+            # ── 감마풋콜기타 혼합 고점 7단계 감지 날짜 표 ──
+            ht_sig_dates = df_gex[df_gex['Score_Top'] >= 13.5].index.sort_values(ascending=False)[:100]
+            if not ht_sig_dates.empty:
+                ht_dates_row = []
+                ht_levels_row = []
+                for dt in ht_sig_dates:
+                    cnt = df_gex.loc[dt, 'Score_Top']
+                    bg = '#800080' if cnt >= 16.5 else '#000080' if cnt >= 16.0 else '#87CEEB' if cnt >= 15.5 else '#A9D08E' if cnt >= 15.0 else '#FFD700' if cnt >= 14.5 else '#FF8C00' if cnt >= 14.0 else '#E06666'
+                    lvl = "7단계" if cnt >= 16.5 else "6단계" if cnt >= 16.0 else "5단계" if cnt >= 15.5 else "4단계" if cnt >= 15.0 else "3단계" if cnt >= 14.5 else "2단계" if cnt >= 14.0 else "1단계"
+
+                    ht_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
+                    ht_levels_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{lvl}</td>")
+
+                ht_table_html = f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 혼합 고점 신호 감지 날짜 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>날짜</th>
+                        {"".join(ht_dates_row)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;vertical-align:middle;'>단계</th>
+                        {"".join(ht_levels_row)}
+                    </tr>
+                </table>
+                </div>
+                """
+                st.markdown(ht_table_html, unsafe_allow_html=True)
+
+            # 차트 통합 생성
+            fig_hybrid_combined = make_subplots(
+                rows=2, cols=1, 
+                shared_xaxes=True, 
+                vertical_spacing=0.08, 
+                subplot_titles=["📊 \"감마풋콜기타 혼합 저점\" 지표 및 7단계(빨주노초파남보) 감지 시각화", "📊 \"감마풋콜기타 혼합 고점\" 지표 및 7단계(빨주노초파남보) 감지 시각화"],
+                specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
+            )
+
+            # Row 1 (저점 7단계)
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 14.0, qmax * 1.5, 0),
+                    name="저점 1단계 (빨강)", marker_color="rgba(224, 102, 102, 0.45)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 15.0, qmax * 1.5, 0),
+                    name="저점 2단계 (주황)", marker_color="rgba(255, 140, 0, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 16.0, qmax * 1.5, 0),
+                    name="저점 3단계 (노랑)", marker_color="rgba(255, 255, 153, 0.45)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 17.0, qmax * 1.5, 0),
+                    name="저점 4단계 (초록)", marker_color="rgba(0, 128, 0, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 18.0, qmax * 1.5, 0),
+                    name="저점 5단계 (하늘)", marker_color="rgba(135, 206, 235, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 19.0, qmax * 1.5, 0),
+                    name="저점 6단계 (남색)", marker_color="rgba(0, 0, 128, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, 0),
+                    name="저점 7단계 (보라)", marker_color="rgba(128, 0, 128, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+            # QQQ 가격 (Row 1)
+            fig_hybrid_combined.add_trace(
+                go.Scatter(
+                    x=hd_gex, y=df_gex['QQQ'],
+                    name="QQQ 가격", mode="lines+markers",
+                    line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate="QQQ: %{y:,.2f}<extra></extra>", showlegend=False
+                ), row=1, col=1, secondary_y=False
+            )
+
+            # Row 2 (고점 7단계)
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 13.5, qmax * 1.5, 0),
+                    name="고점 1단계 (빨강)", marker_color="rgba(224, 102, 102, 0.45)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.0, qmax * 1.5, 0),
+                    name="고점 2단계 (주황)", marker_color="rgba(255, 140, 0, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.5, qmax * 1.5, 0),
+                    name="고점 3단계 (노랑)", marker_color="rgba(255, 255, 153, 0.45)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.0, qmax * 1.5, 0),
+                    name="고점 4단계 (초록)", marker_color="rgba(0, 128, 0, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.5, qmax * 1.5, 0),
+                    name="고점 5단계 (하늘)", marker_color="rgba(135, 206, 235, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.0, qmax * 1.5, 0),
+                    name="고점 6단계 (남색)", marker_color="rgba(0, 0, 128, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            fig_hybrid_combined.add_trace(
+                go.Bar(
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, 0),
+                    name="고점 7단계 (보라)", marker_color="rgba(128, 0, 128, 0.3)",
+                    marker_line_width=0.5, marker_line_color='white',
+                    hoverinfo="skip", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+            # QQQ 가격 (Row 2)
+            fig_hybrid_combined.add_trace(
+                go.Scatter(
+                    x=hd_gex, y=df_gex['QQQ'],
+                    name="QQQ 가격", mode="lines+markers",
+                    line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate="QQQ: %{y:,.2f}<extra></extra>", showlegend=False
+                ), row=2, col=1, secondary_y=False
+            )
+
+            fig_hybrid_combined.update_layout(
+                **COMMON_LAYOUT,
+                height=750,
+                margin=dict(l=0, r=50, t=30, b=10),
+                showlegend=False,
+                barmode='overlay'
+            )
+
+            fig_hybrid_combined.update_annotations(font_size=10)
+
+            fig_hybrid_combined.add_shape(
+                type="rect", xref="x domain", yref="y domain",
+                x0=0, y0=0, x1=1, y1=1,
+                line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2),
+                row=1, col=1
+            )
+            fig_hybrid_combined.add_shape(
+                type="rect", xref="x domain", yref="y domain",
+                x0=0, y0=0, x1=1, y1=1,
+                line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2),
+                row=2, col=1
+            )
+
+            fig_hybrid_combined.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), row=1, col=1, secondary_y=False)
+            fig_hybrid_combined.update_yaxes(**crosshair_yaxis(), row=1, col=1, secondary_y=True)
+            fig_hybrid_combined.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), row=2, col=1, secondary_y=False)
+            fig_hybrid_combined.update_yaxes(**crosshair_yaxis(), row=2, col=1, secondary_y=True)
+
+            fig_hybrid_combined.update_xaxes(type="category", **crosshair_xaxis())
+
+            if initial_x_range_gex:
+                fig_hybrid_combined.update_xaxes(range=initial_x_range_gex)
+
+            st.plotly_chart(fig_hybrid_combined, width="stretch", config=COMMON_CONFIG, key="hybrid_combined_subplots")
+
+            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+    with sub_tabs[3]:
+        dram_data = fetch_dram_dashboard_data()
+        if dram_data:
+            as_of = dram_data.get('as_of', '')
+            st.markdown(f"### 메모리 가격 · DRAM <span style='font-size:0.75rem;color:#8b93a3;float:right;'>기준일: {as_of}</span>", unsafe_allow_html=True)
+    
+            dxi = dram_data.get('dxi', {'value': 0, 'chg': 0})
+            spot_groups = dram_data.get('spot', [])
+    
+            def get_chg_badge(chg):
+                if chg is None: return "-"
+                color = "#ff5b5b" if chg >= 0 else "#3b82f6"
+                arrow = "▲" if chg >= 0 else "▼"
+                bg = "rgba(255,91,91,.12)" if chg >= 0 else "rgba(59,130,246,.12)"
+                return f"<span style='color:{color};background:{bg};padding:1px 5px;border-radius:4px;font-weight:600;'>{arrow} {abs(chg):.2f}%</span>"
+        
+            st.markdown(
+                f"<div style='background:#171a21;border:1px solid #262b36;border-radius:10px;padding:6px 12px;margin-bottom:6px;'>"
+                f"<table style='width:100%;border-collapse:collapse;border:none !important;margin:0 !important;text-align:center;'>"
+                f"<tr style='background:transparent !important;border:none !important;'>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;color:#8b93a3;'>DXI 지수</td>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.85rem;font-weight:700;text-align:right;'>{int(round(dxi.get('value', 0))):,}</td>"
+                f"  <td style='border:none !important;padding:2px 4px !important;font-size:0.75rem;text-align:right;'>{get_chg_badge(dxi.get('chg', 0))}</td>"
+                f"</tr>"
+                f"</table>"
+                f"</div>", unsafe_allow_html=True
+            )
+    
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+            st.markdown("#### 현물가 장기 추이")
+    
+            # ETF KPI Data
+            net_flow = 0
+            flow_color = "#ff5b5b"
+            flow_arrow = "+"
+            price = 0
+            premium = 0
+            etf_tmp = dram_data.get('etf', {})
+            if etf_tmp:
+                net_flow = etf_tmp.get('net_flow', 0)
+                flow_color = "#ff5b5b" if net_flow >= 0 else "#3b82f6"
+                flow_arrow = "+" if net_flow >= 0 else ""
+                price = etf_tmp.get('price', 0)
+                nav = etf_tmp.get('nav', 1)
+                premium = ((price - nav) / nav) * 100
+    
+            # Data parsing
+            monthly_data = dram_data.get('monthly', {})
+            dr_m = monthly_data.get('dram', {}) or monthly_data.get('ddr4_8gb', {}) or {'m': [], 'v': []}
+            na_m = monthly_data.get('nand', {}) or {'m': [], 'v': []}
+    
+            customs = dram_data.get('customs', {})
+            dr_c = customs.get('dram', {}) if customs else {'m': [], 'v': []}
+            na_c = customs.get('nand', {}) if customs else {'m': [], 'v': []}
+    
+            etf = dram_data.get('etf', {})
+            etf_series = etf.get('series', {}) if etf else {'d': [], 'px': []}
+    
+            five_years_ago_kr = pd.to_datetime('2020-01-01')
+            df1_kr = df_kr[df_kr.index >= five_years_ago_kr]
+    
+            year_prefix = as_of[:4] if as_of else "2026"
+            kospi_prices_for_etf = []
+            for d_str in etf_series.get('d', []):
+                target_dt = pd.to_datetime(f"{year_prefix}-{d_str}")
+                if target_dt in df1_kr.index:
+                    kospi_prices_for_etf.append(df1_kr.loc[target_dt, 'KOSPI'])
+                else:
+                    avail_dates = df1_kr.index[df1_kr.index <= target_dt]
+                    if not avail_dates.empty:
+                        kospi_prices_for_etf.append(df1_kr.loc[avail_dates[-1], 'KOSPI'])
+                    else:
+                        kospi_prices_for_etf.append(None)
+    
+            if active_period_days:
+                start_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+            else:
+                start_date = pd.to_datetime('2025-01-01')
+        
+            df_filtered = df1_kr[df1_kr.index >= start_date]
+            if not df_filtered.empty:
+                k_min, k_max = df_filtered['KOSPI'].min(), df_filtered['KOSPI'].max()
+                kospi_y_range = [k_min * 0.95, k_max * 1.05]
+            else:
+                kospi_y_range = None
+
+            # 1) 개요 (Overview)
+            st.markdown("##### 메모리 차트")
+    
+            # Collect all unique dates to form a sorted category array for x-axis (starting from 2020-01-01)
+            start_date_2020 = pd.to_datetime('2020-01-01')
+            monthly_dates = [pd.to_datetime(m + "-01") for m in dr_m.get('m', []) if pd.to_datetime(m + "-01") >= start_date_2020]
+            customs_dates = [pd.to_datetime(m + "-01") for m in dr_c.get('m', []) if pd.to_datetime(m + "-01") >= start_date_2020]
+            dr_m_vals = [v for m, v in zip(dr_m.get('m', []), dr_m.get('v', [])) if pd.to_datetime(m + "-01") >= start_date_2020]
+            na_m_vals = [v for m, v in zip(na_m.get('m', []), na_m.get('v', [])) if pd.to_datetime(m + "-01") >= start_date_2020]
+            dr_c_vals = [v for m, v in zip(dr_c.get('m', []), dr_c.get('v', [])) if pd.to_datetime(m + "-01") >= start_date_2020]
+            na_c_vals = [v for m, v in zip(na_c.get('m', []), na_c.get('v', [])) if pd.to_datetime(m + "-01") >= start_date_2020]
+
+            all_dates = {d for d in df1_kr.index if d >= start_date_2020}
+            all_dates.update(monthly_dates)
+            all_dates.update(customs_dates)
+    
+            # Spot dates
+            parsed_spot_dict = {}
+            for grp in spot_groups:
+                for row in grp[2]:
+                    tid = row[3]
+                    series_data = dram_data.get('series', {}).get(str(tid), {'d': [], 'v': []})
+                    spot_d = series_data.get('d', [])
+                    spot_v_raw = series_data.get('v', [])
+                    parsed = []
+                    parsed_v = []
+                    for dt_str, val in zip(spot_d, spot_v_raw):
+                        if len(dt_str) == 5:
+                            d_obj = pd.to_datetime(f"{datetime.date.today().year}-{dt_str}")
+                        else:
+                            d_obj = pd.to_datetime(dt_str)
+                        if d_obj >= start_date_2020:
+                            parsed.append(d_obj)
+                            parsed_v.append(val)
+                            all_dates.add(d_obj)
+                    parsed_spot_dict[tid] = (parsed, parsed_v)
+        
+            sorted_dates = sorted(list(all_dates))
+            hd_mem = [fmt_date_kor(d) for d in sorted_dates]
+    
+            # Determine initial range indices based on active_period_days or 2025-01-01
+            if active_period_days:
+                target_start = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+            else:
+                target_start = pd.to_datetime('2025-01-01')
+        
+            detected_indices = [i for i, d in enumerate(sorted_dates) if d >= target_start]
+            initial_x_range_idx = [detected_indices[0], len(sorted_dates)-1] if detected_indices else [0, len(sorted_dates)-1]
+    
+            titles = ["개요"] + [grp[1] for grp in spot_groups]
+            fig_mem = make_subplots(
+                rows=1+len(spot_groups), cols=1, 
+                shared_xaxes=True, vertical_spacing=0.03,
+                subplot_titles=titles, 
+                specs=[[{"secondary_y": True}]] * (1+len(spot_groups))
+            )
+    
+            # 1) Overview Row
+            kospi_hd = [fmt_date_kor(d) for d in df1_kr.index if d >= start_date_2020]
+            df1_kr_overview = df1_kr[df1_kr.index >= start_date_2020]
+            fig_mem.add_trace(go.Scatter(
+                x=kospi_hd, y=df1_kr_overview['KOSPI'], name='KOSPI 지수',
+                mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
+            ), row=1, col=1, secondary_y=False)
+    
+            m_hd = [fmt_date_kor(d) for d in monthly_dates]
+            fig_mem.add_trace(go.Scatter(
+                x=m_hd, y=dr_m_vals, name='DRAM 현물 ($)', mode='lines', line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
+                hovertemplate='DRAM 현물: $%{y:.2f}<extra></extra>'
+            ), row=1, col=1, secondary_y=True)
+            fig_mem.add_trace(go.Scatter(
+                x=m_hd, y=na_m_vals, name='NAND 웨이퍼 ($)', mode='lines', line=dict(color='rgba(255, 255, 0, 0.8)', width=1),
+                hovertemplate='NAND 웨이퍼: $%{y:.2f}<extra></extra>'
+            ), row=1, col=1, secondary_y=True)
+    
+            c_hd = [fmt_date_kor(d) for d in customs_dates]
+            fig_mem.add_trace(go.Scatter(
+                x=c_hd, y=dr_c_vals, name='수출 DRAM (k$/kg)', mode='lines', line=dict(color='rgba(0, 128, 0, 0.8)', width=1),
+                hovertemplate='수출 DRAM: %{y:.2f}k/kg<extra></extra>'
+            ), row=1, col=1, secondary_y=True)
+            fig_mem.add_trace(go.Scatter(
+                x=c_hd, y=na_c_vals, name='수출 NAND (k$/kg)', mode='lines', line=dict(color='rgba(0, 0, 128, 0.8)', width=1),
+                hovertemplate='수출 NAND: %{y:.2f}k/kg<extra></extra>'
+            ), row=1, col=1, secondary_y=True)
+    
+            # 2) 6 Spot Group Rows
+            colors = ['#ff5b5b', '#3b82f6', '#d99a2b', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4', '#6366f1']
+            for idx, grp in enumerate(spot_groups):
+                row_idx = idx + 2
+        
+                # KOSPI on left
+                fig_mem.add_trace(go.Scatter(
+                    x=kospi_hd, y=df1_kr['KOSPI'], name=f'KOSPI ({grp[1]})',
+                    mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate='KOSPI: %{y:.2f}<extra></extra>', showlegend=False
+                ), row=row_idx, col=1, secondary_y=False)
+        
+                # Series items on right
+                for c_idx, row in enumerate(grp[2]):
+                    item_name = row[0]
+                    tid = row[3]
+                    parsed_dates, spot_v = parsed_spot_dict[tid]
+                    s_hd = [fmt_date_kor(d) for d in parsed_dates]
+                    c = colors[c_idx % len(colors)]
+        
+                    mem_palette = ['rgba(255, 0, 0, 0.8)', 'rgba(255, 255, 0, 0.8)', 'rgba(0, 128, 0, 0.8)', 'rgba(0, 0, 128, 0.8)', 'rgba(128, 0, 128, 0.8)', 'rgba(165, 42, 42, 0.8)', 'rgba(135, 206, 235, 0.8)']
+                    fig_mem.add_trace(go.Scatter(
+                        x=s_hd, y=spot_v, name=item_name, mode='lines', line=dict(color=mem_palette[c_idx % len(mem_palette)], width=1),
+                        hovertemplate=f'{item_name}: %{{y:.3f}}<extra></extra>', showlegend=False
+                    ), row=row_idx, col=1, secondary_y=True)
+
+            fig_mem.update_layout(
+                **COMMON_LAYOUT,
+                height=2000, 
+                margin=dict(l=0, r=0, t=30, b=10),
+                showlegend=False,
+            )
+            fig_mem.update_annotations(font_size=10)
+            # Set layout properties
+    
+            for i in range(1, 8):
+                # Apply rectangle shape to each row
+                fig_mem.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=i, col=1)
+        
+                # Apply crosshair configs to X and Y axes of each subplot
+                fig_mem.update_xaxes(type='category', categoryorder='array', categoryarray=hd_mem, **crosshair_xaxis(), row=i, col=1)
+                if kospi_y_range:
+                    fig_mem.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, row=i, col=1)
+                else:
+                    fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False, row=i, col=1)
+                fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True, row=i, col=1)
+
+            # Set initial range for the shared x-axis
+            fig_mem.update_xaxes(range=initial_x_range_idx, row=7, col=1)
+    
+            st.plotly_chart(fig_mem, width='stretch', config=COMMON_CONFIG, key="tab4_merged_all_chart")
+    
+            # 3. 현물가 상세 표
+            def format_price(p):
+                if p is None: return "-"
+                return f"${p:,.2f}" if p >= 100 else f"${p:.3f}" if p < 20 else f"${p:.2f}"
+        
+            st.markdown("<br>\n\n#### 현물가 상세", unsafe_allow_html=True)
+            tbl_html = """
+            <table style="width:100%;border-collapse:collapse;font-size:0.6rem !important;text-align:center;">
+                <thead>
+                    <tr style="background:#1F4E79;color:white;">
+                        <th style="padding:2px;border:1px solid #444;">품목명</th>
+                        <th style="padding:2px;border:1px solid #444;text-align:right;">가격</th>
+                        <th style="padding:2px;border:1px solid #444;text-align:right;">변동률</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+            for grp in spot_groups:
+                tbl_html += f"<tr><td colspan='3' style='background:#171a21;font-weight:bold;padding:3px;border:1px solid #444;font-size:0.65rem !important;'>{grp[1]}</td></tr>"
+                for row in grp[2]:
+                    tbl_html += f"<tr>"
+                    tbl_html += f"<td style='padding:2px;border:1px solid #444;'>{row[0]}</td>"
+                    tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;font-weight:bold;'>{format_price(row[1])}</td>"
+                    tbl_html += f"<td style='padding:2px;border:1px solid #444;text-align:right;'>{get_chg_badge(row[2])}</td>"
+                    tbl_html += f"</tr>"
+            tbl_html += "</tbody></table>"
+            st.markdown(tbl_html, unsafe_allow_html=True)
+        else:
+            st.info("메모리 데이터를 가져오는 데 실패했습니다. 나중에 다시 시도해 주세요.")
 
 # ── Tab 2: 고점지표 ──
 with tabs[1]:
@@ -4195,7 +4195,7 @@ with tabs[1]:
                 fig_dsi.update_layout(
                     **layout_params,
                     height=chart_height,
-                    showlegend=True,
+                    showlegend=False,
                     barmode='overlay',
                     bargap=0,
                     margin=dict(l=0, r=50, t=30, b=10),
@@ -4278,36 +4278,6 @@ with tabs[1]:
             dc_top_sl = Counter(all_top_sl)
             parent_dates_sl = sorted(list(set(all_top_sl)), reverse=True)
             
-            # 당일(실시간) 임시 판정
-            temp_slope_vals_top_us = {}
-            for _, days, _, th in SLOPE_TOP_CHARTS:
-                val_today = float(df['QQQ'].iloc[-1] - df['QQQ'].iloc[-1 - days])
-                temp_slope_vals_top_us[days] = val_today
-            
-            cnt_today_top_us = sum(1 for _, days, _, th in SLOPE_TOP_CHARTS if temp_slope_vals_top_us[days] >= th and _not_bottom.iloc[-1])
-            bg_today_top_us = "#E06666" if cnt_today_top_us==1 else "#FF8C00" if cnt_today_top_us==2 else '#FFD700' if cnt_today_top_us==3 else "#A9D08E" if cnt_today_top_us==4 else "#87CEEB" if cnt_today_top_us==5 else "#000080" if cnt_today_top_us==6 else "#800080" if cnt_today_top_us >= 7 else "transparent"
-            fg_today_top_us = "#FFF" if cnt_today_top_us > 0 else "#000"
-            date_cell_today_top_us = f"<td style='background:{bg_today_top_us};color:{fg_today_top_us};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;font-size:0.55rem;white-space:nowrap;'>당일(실시간)</td>"
-            
-            detected_items_today_top_us = []
-            for _, days, _, th in SLOPE_TOP_CHARTS:
-                val_t = temp_slope_vals_top_us[days]
-                if val_t >= th and _not_bottom.iloc[-1]:
-                    val_diff_pct = (val_t - th) / th
-                    if 0.0 <= val_diff_pct <= 0.40:
-                        color = '#A9D08E'
-                    elif 0.40 < val_diff_pct <= 0.60:
-                        color = '#FFD700'
-                    elif 0.60 < val_diff_pct <= 0.80:
-                        color = '#E06666'
-                    else:
-                        color = '#595959'
-                    detected_items_today_top_us.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
-                else:
-                    detected_items_today_top_us.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
-            val_str_today_top_us = "<br>".join(detected_items_today_top_us)
-            count_cell_today_top_us = f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str_today_top_us}</td>"
-
             if parent_dates_sl:
                 r100_sl = parent_dates_sl[:100]
                 dates_row_sl = []
@@ -4339,15 +4309,15 @@ with tabs[1]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 슬로프합 상한 돌파 고점 신호 (최근 100개, 저점일 제외, 당일 포함)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 슬로프합 상한 돌파 고점 신호 (최근 100개, 저점일 제외)</span>
                 <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
-                        {"".join([date_cell_today_top_us] + dates_row_sl)}
+                        {"".join(dates_row_sl)}
                     </tr>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>돌파</th>
-                        {"".join([count_cell_today_top_us] + counts_row_sl)}
+                        {"".join(counts_row_sl)}
                     </tr>
                 </table>
                 </div>
@@ -4476,24 +4446,22 @@ with tabs[1]:
                     "1개 이상 상한선 돌파 (저점일 제외)"
                 )
             }
-            df_past = df[df.index < pd.to_datetime(datetime.date.today())]
-            stats_top_sl = calculate_top_stats(df_past, 'QQQ', slope_top_conditions)
+            stats_top_sl = calculate_top_stats(df, 'QQQ', slope_top_conditions)
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
-            render_top_stats_table(stats_top_sl, "고점 지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외 - 당일 제외)")
+            render_top_stats_table(stats_top_sl, "고점 지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
             
-            df_past = df[df.index < pd.to_datetime(datetime.date.today())]
             slope_multi_conditions_us = {
-                "**빨간색 (1개 감지)**": (df_past['slope_detect_count'] >= 1, "동시 감지 1개"),
-                "**주황색 (2개 감지)**": (df_past['slope_detect_count'] >= 2, "동시 감지 2개"),
-                "**노란색 (3개 감지)**": (df_past['slope_detect_count'] >= 3, "동시 감지 3개"),
-                "**초록색 (4개 감지)**": (df_past['slope_detect_count'] >= 4, "동시 감지 4개"),
-                "**파란색 (5개 감지)**": (df_past['slope_detect_count'] >= 5, "동시 감지 5개"),
-                "**남색 (6개 감지)**":   (df_past['slope_detect_count'] >= 6, "동시 감지 6개"),
-                "**보라색 (7개 감지)**": (df_past['slope_detect_count'] >= 7, "동시 감지 7개"),
+                "**빨간색 (1개 감지)**": (df['slope_detect_count'] >= 1, "동시 감지 1개"),
+                "**주황색 (2개 감지)**": (df['slope_detect_count'] >= 2, "동시 감지 2개"),
+                "**노란색 (3개 감지)**": (df['slope_detect_count'] >= 3, "동시 감지 3개"),
+                "**초록색 (4개 감지)**": (df['slope_detect_count'] >= 4, "동시 감지 4개"),
+                "**파란색 (5개 감지)**": (df['slope_detect_count'] >= 5, "동시 감지 5개"),
+                "**남색 (6개 감지)**":   (df['slope_detect_count'] >= 6, "동시 감지 6개"),
+                "**보라색 (7개 감지)**": (df['slope_detect_count'] >= 7, "동시 감지 7개"),
             }
-            stats_top_sl_multi = calculate_top_stats(df_past, 'QQQ', slope_multi_conditions_us)
+            stats_top_sl_multi = calculate_top_stats(df, 'QQQ', slope_multi_conditions_us)
             st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-            render_slope_multi_stats_table(stats_top_sl_multi, "📊 슬로프합 최종본 다중 감지 검증 결과 (당일 제외)")
+            render_slope_multi_stats_table(stats_top_sl_multi, "📊 슬로프합 최종본 다중 감지 검증 결과")
         
         # ── 소분류 3: 다중지표 고점 ──
         with top_sub_tabs[2]:
@@ -4935,36 +4903,6 @@ with tabs[1]:
             dc_top_sl_kr_top = Counter(all_top_sl_kr_top)
             parent_dates_sl_kr_top = sorted(list(set(all_top_sl_kr_top)), reverse=True)
             
-            # 당일(실시간) 임시 판정
-            temp_slope_vals_top_kr = {}
-            for _, days, _, th in SLOPE_TOP_CHARTS_KR:
-                val_today = float(df_top_kr['KOSPI'].iloc[-1] - df_top_kr['KOSPI'].iloc[-1 - days])
-                temp_slope_vals_top_kr[days] = val_today
-            
-            cnt_today_top_kr = sum(1 for _, days, _, th in SLOPE_TOP_CHARTS_KR if temp_slope_vals_top_kr[days] >= th and _not_bottom_kr.iloc[-1])
-            bg_today_top_kr = "#E06666" if cnt_today_top_kr==1 else "#FF8C00" if cnt_today_top_kr==2 else '#FFD700' if cnt_today_top_kr==3 else "#A9D08E" if cnt_today_top_kr==4 else "#87CEEB" if cnt_today_top_kr==5 else "#000080" if cnt_today_top_kr==6 else "#800080" if cnt_today_top_kr >= 7 else "transparent"
-            fg_today_top_kr = "#FFF" if cnt_today_top_kr > 0 else "#000"
-            date_cell_today_top_kr = f"<td style='background:{bg_today_top_kr};color:{fg_today_top_kr};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;font-size:0.55rem;white-space:nowrap;'>당일(실시간)</td>"
-            
-            detected_items_today_top_kr = []
-            for _, days, _, th in SLOPE_TOP_CHARTS_KR:
-                val_t = temp_slope_vals_top_kr[days]
-                if val_t >= th and _not_bottom_kr.iloc[-1]:
-                    val_diff_pct = (val_t - th) / abs(th)
-                    if 0.0 <= val_diff_pct <= 0.40:
-                        color = '#A9D08E'
-                    elif 0.40 < val_diff_pct <= 0.60:
-                        color = '#FFD700'
-                    elif 0.60 < val_diff_pct <= 0.80:
-                        color = '#E06666'
-                    else:
-                        color = '#595959'
-                    detected_items_today_top_kr.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
-                else:
-                    detected_items_today_top_kr.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
-            val_str_today_top_kr = "<br>".join(detected_items_today_top_kr)
-            count_cell_today_top_kr = f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str_today_top_kr}</td>"
-
             if parent_dates_sl_kr_top:
                 r100_sl_kr_top = parent_dates_sl_kr_top[:100]
                 dates_row_sl_kr_top = []
@@ -4996,15 +4934,15 @@ with tabs[1]:
                 
                 st.markdown(f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
-                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개, 저점일 제외, 당일 포함)</span>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개, 저점일 제외)</span>
                 <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
-                        {"".join([date_cell_today_top_kr] + dates_row_sl_kr_top)}
+                        {"".join(dates_row_sl_kr_top)}
                     </tr>
                     <tr>
                         <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>이탈</th>
-                        {"".join([count_cell_today_top_kr] + counts_row_sl_kr_top)}
+                        {"".join(counts_row_sl_kr_top)}
                     </tr>
                 </table>
                 </div>
@@ -5050,7 +4988,7 @@ with tabs[1]:
                             7: 'rgba(128, 0, 128, 0.3)'
                         }
                         for cnt_val, bar_color in detect_colors.items():
-                            cond_bar = (df_top_kr['slope_detect_count_top'] >= cnt_val) & _not_bottom_kr
+                            cond_bar = (df_top_kr['slope_detect_count_top'] == cnt_val) & _not_bottom_kr
                             fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=cond_bar.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
                             
                     else:
