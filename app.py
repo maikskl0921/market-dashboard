@@ -33,7 +33,11 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
-from event_auto_summarizer import get_or_update_event_cache
+try:
+    from event_auto_summarizer import get_or_update_event_cache
+except ImportError:
+    def get_or_update_event_cache(events):
+        return events
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORICAL_EVENTS_JSON = os.path.join(APP_DIR, "historical_events.json")
