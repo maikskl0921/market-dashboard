@@ -391,15 +391,30 @@ elif selected_period == "6M": active_period_days = 182
 elif selected_period == "3M": active_period_days = 91
 elif selected_period == "1M": active_period_days = 30
 
-# 고충격 역사적 사건 데이터베이스 정의 (JSON 캐시 읽기)
+# 고충격 역사적 사건 데이터베이스 기본 템플릿 (배포 서버 환경 대응)
+DEFAULT_HISTORICAL_EVENTS = [
+    {"title": "미국-이란 전쟁발 우려 폭락", "period": "2026.01 ~ 2026.03", "fall_rate": "-12%"},
+    {"title": "미-중 무역 전쟁 재발 우려 폭락", "period": "2025.02 ~ 2025.04", "fall_rate": "-23%"},
+    {"title": "엔 캐리 트레이드 청산 우려 폭락", "period": "2024.07 ~ 2024.08", "fall_rate": "-14%"},
+    {"title": "실리콘밸리 은행(SVB) 파산 사태", "period": "2023.03 ~ 2023.03", "fall_rate": "-9%"},
+    {"title": "인플레이션 및 금리 인상 하락장", "period": "2021.11 ~ 2022.11", "fall_rate": "-37%"},
+    {"title": "미 국채 금리 급등발 기술주 밸류에이션 조정 폭락", "period": "2021.02 ~ 2021.03", "fall_rate": "-11%"},
+    {"title": "코로나19 2차 대유행 및 미국 대선 불확실성 우려 폭락", "period": "2020.09 ~ 2020.10", "fall_rate": "-13%"},
+    {"title": "코로나 19 팬데믹 폭락", "period": "2020.02 ~ 2020.03", "fall_rate": "-35%"},
+    {"title": "미-중 무역 전쟁 관세 분쟁 갈등 폭락", "period": "2019.05 ~ 2019.06", "fall_rate": "-11%"},
+    {"title": "미 연준 금리 인상 및 미-중 무역 전쟁 우려 대폭락", "period": "2018.10 ~ 2018.12", "fall_rate": "-23%"}
+]
+
 def load_historical_events_cache():
     if os.path.exists(HISTORICAL_EVENTS_JSON):
         try:
             with open(HISTORICAL_EVENTS_JSON, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
         except Exception:
             pass
-    return []
+    return [dict(item) for item in DEFAULT_HISTORICAL_EVENTS]
 
 static_historical_events = load_historical_events_cache()
 
@@ -1459,103 +1474,53 @@ with tabs[0]:
         
         st.markdown("#### 📌 역사적 대폭락/하락장 주요 사건 및 하락률")
         
-        # 실시간 가격 데이터 기반 조정 감지 및 지능형 병합 알고리즘
-        detected_evs = detect_recent_drawdowns(df, 'QQQ', 0.10)
-        raw_list = load_historical_events_cache()
-        for dev in detected_evs:
-            # 캐시 파일 조회 및 미등록 신규 사건은 뉴스 탐색 요약 후 JSON에 자동 저장
-            cached_ev = get_or_update_event_cache(dev['period'], dev['fall_rate'], HISTORICAL_EVENTS_JSON)
-            dev['title'] = cached_ev.get('title', "하락조정장")
-            raw_list.append(dev)
-
-            
+        # 역사적 고충격 사건 기본 리스트 로드
+        static_events = load_historical_events_cache()
+        
         # 연월 파싱용 헬퍼 함수
         def parse_to_val(ym_str):
             try:
-                y, m = map(int, ym_str.split('.'))
-                return y, m
+                y, m = map(int, ym_str.split(' ~ ')[0].split('.'))
+                return y * 12 + m
             except:
-                return 0, 0
+                return 0
+        
+        def parse_to_end_val(ym_str):
+            try:
+                parts = ym_str.split(' ~ ')
+                if parts[1].strip() == "진행중":
+                    import datetime as dt_module
+                    n = dt_module.date.today()
+                    return n.year * 12 + n.month
+                y, m = map(int, parts[1].split('.'))
+                return y * 12 + m
+            except:
+                return 0
 
-        # 중복/겹침 병합 수행
-        merged_list = []
-        # 날짜 순 정렬하여 병합 처리
-        def get_start_date_val(ev):
-            y, m = parse_to_val(ev['period'].split(' ~ ')[0])
-            return y * 12 + m
+        # 최근 신규 하락장 자동 탐지 (기존 static 사건에 포함되지 않는 경우만 추가)
+        detected_evs = detect_recent_drawdowns(df, 'QQQ', 0.10)
+        final_events = list(static_events)
         
-        sorted_raw = sorted(raw_list, key=get_start_date_val)
-        
-        for ev in sorted_raw:
-            if not merged_list:
-                merged_list.append(ev)
-                continue
+        for dev in detected_evs:
+            d_start = parse_to_val(dev['period'])
+            d_end = parse_to_end_val(dev['period'])
             
-            prev = merged_list[-1]
-            import datetime as dt_module
-            now_dt = dt_module.date.today()
+            # 기존 static 사건과의 기간 중복 여부 확인
+            is_duplicate = False
+            for s_ev in static_events:
+                s_start = parse_to_val(s_ev['period'])
+                s_end = parse_to_end_val(s_ev['period'])
+                if max(d_start, s_start) <= min(d_end, s_end) + 1:
+                    is_duplicate = True
+                    break
             
-            p_s_y, p_s_m = parse_to_val(prev['period'].split(' ~ ')[0])
-            p_end_str = prev['period'].split(' ~ ')[1]
-            if p_end_str == "진행중":
-                p_e_y, p_e_m = now_dt.year, now_dt.month
-            else:
-                p_e_y, p_e_m = parse_to_val(p_end_str)
-                
-            c_s_y, c_s_m = parse_to_val(ev['period'].split(' ~ ')[0])
-            c_end_str = ev['period'].split(' ~ ')[1]
-            if c_end_str == "진행중":
-                c_e_y, c_e_m = now_dt.year, now_dt.month
-            else:
-                c_e_y, c_e_m = parse_to_val(c_end_str)
-            
-            p_start = p_s_y * 12 + p_s_m
-            p_end = p_e_y * 12 + p_e_m
-            c_start = c_s_y * 12 + c_s_m
-            c_end = c_e_y * 12 + c_e_m
-            
-            # 기간이 겹치거나(Overlap), 연속하는 경우 병합
-            if c_start <= p_end + 1:
-                # 시작/끝 연월 범위 통합
-                min_start = min(p_start, c_start)
-                max_end = max(p_end, c_end)
-                
-                min_y, min_m = min_start // 12, min_start % 12
-                if min_m == 0:
-                    min_y -= 1
-                    min_m = 12
-                max_y, max_m = max_end // 12, max_end % 12
-                if max_m == 0:
-                    max_y -= 1
-                    max_m = 12
-                    
-                if p_end_str.strip() == "진행중" or c_end_str.strip() == "진행중":
-                    prev['period'] = f"{min_y}.{min_m:02d} ~ 진행중"
-                else:
-                    prev['period'] = f"{min_y}.{min_m:02d} ~ {max_y}.{max_m:02d}"
-                
-                # 명칭 통합: 구체적인 역사적 사건명을 우선 사용
-                # 둘 다 일반 하락조정장이면 하락조정장 유지
-                titles = [prev['title'], ev['title']]
-                specific_title = "하락조정장"
-                for t in titles:
-                    if "하락조정장" not in t:
-                        specific_title = t
-                        break
-                prev['title'] = specific_title
-                
-                # 하락률은 더 큰 하락률(더 마이너스인 값) 선택
-                try:
-                    p_rate = int(prev['fall_rate'].replace('%', ''))
-                    c_rate = int(ev['fall_rate'].replace('%', ''))
-                    prev['fall_rate'] = f"{min(p_rate, c_rate)}%"
-                except:
-                    pass
-            else:
-                merged_list.append(ev)
-                
-        # 최종 리스트를 최신순(역순)으로 재정렬
-        combined_events = sorted(merged_list, key=get_start_date_val, reverse=True)
+            if not is_duplicate:
+                cached_ev = get_or_update_event_cache(dev['period'], dev['fall_rate'], HISTORICAL_EVENTS_JSON)
+                dev['title'] = cached_ev.get('title', "신규 하락조정장")
+                final_events.append(dev)
+
+        # 시작 날짜 최신순 (내림차순) 정렬
+        combined_events = sorted(final_events, key=lambda x: parse_to_val(x['period']), reverse=True)
 
         rows_html = ""
         for idx, ev in enumerate(combined_events):
