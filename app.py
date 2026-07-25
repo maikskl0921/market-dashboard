@@ -596,16 +596,38 @@ def fetch_historical_breadth():
             
     return calc_kr(kospi_tickers), calc_kr(kosdaq_tickers), calc_us(ndx_tickers)
 
-@st.cache_data(ttl=1800)
+def fetch_naver_index_prices(code='KOSPI'):
+    try:
+        url = f"https://m.stock.naver.com/api/index/{code}/price?pageSize=15&page=1"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            records = {}
+            for item in data:
+                dt_str = item.get('localTradedAt')
+                close_str = str(item.get('closePrice', '0')).replace(',', '')
+                if dt_str and close_str:
+                    records[pd.to_datetime(dt_str).normalize()] = float(close_str)
+            return pd.Series(records).sort_index()
+    except Exception:
+        pass
+    return pd.Series(dtype=float)
+
+@st.cache_data(ttl=300)
 def fetch_index_prices():
     try:
-        def get_s(ticker):
+        def get_s(ticker, naver_code=None):
             df = yf.download(ticker, period='130d', progress=False)
-            s = df['Close'] if not df.empty and 'Close' in df.columns else pd.Series()
+            s = df['Close'] if not df.empty and 'Close' in df.columns else pd.Series(dtype=float)
             if isinstance(s, pd.DataFrame): s = s.iloc[:,0]
             s.index = pd.to_datetime(s.index).normalize()
+            if naver_code:
+                s_nav = fetch_naver_index_prices(naver_code)
+                if not s_nav.empty:
+                    s = s_nav.combine_first(s).sort_index()
             return s
-        return get_s('^KS11'), get_s('^KQ11'), get_s('QQQ')
+        return get_s('^KS11', 'KOSPI'), get_s('^KQ11', 'KOSDAQ'), get_s('QQQ')
     except Exception:
         e = pd.Series(dtype=float)
         return e, e, e
@@ -856,10 +878,18 @@ def fetch_and_process_data():
 # 한국 데이터 빌드 (FGI 50 고정 해결을 위해 NaN + Time Interpolation 처리)
 @st.cache_data(ttl=60)
 def fetch_korean_market_data_v2(df_us=None):
-    # 1. KOSPI 지수 다운로드
+    # 1. KOSPI 지수 다운로드 및 네이버 지수 보완
     kospi = yf.download('^KS11', start="2018-01-01", progress=False)
     if isinstance(kospi.columns, pd.MultiIndex): kospi.columns = kospi.columns.get_level_values(0)
     kospi_df = kospi[['Close']].rename(columns={'Close': 'KOSPI'}) if not kospi.empty and 'Close' in kospi.columns else pd.DataFrame(columns=['KOSPI'])
+    if getattr(kospi_df.index, 'tz', None) is not None:
+        kospi_df.index = kospi_df.index.tz_localize(None)
+    kospi_df.index = pd.to_datetime(kospi_df.index).normalize()
+    
+    s_nav_kp = fetch_naver_index_prices('KOSPI')
+    if not s_nav_kp.empty:
+        df_nav_kp = pd.DataFrame({'KOSPI': s_nav_kp})
+        kospi_df = kospi_df.combine_first(df_nav_kp).sort_index()
     
     # 2. 한국 공포탐욕지수 & 실시간 VKOSPI 가져오기
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -1129,16 +1159,26 @@ def fetch_monitoring_data_v2(num_pages=25):
     
     df_merged = df_kos.join([df_dep, df_inv], how='outer').sort_index()
     
-    # yfinance로 2020년부터 전체 KOSPI/KOSDAQ 지수 일괄 로드
+    # yfinance로 2020년부터 전체 KOSPI/KOSDAQ 지수 일괄 로드 및 네이버 지수 보완
     yf_kospi = yf.download('^KS11', start="2020-01-01", progress=False)
     if isinstance(yf_kospi.columns, pd.MultiIndex): yf_kospi.columns = yf_kospi.columns.get_level_values(0)
     if not yf_kospi.empty and getattr(yf_kospi.index, 'tz', None) is not None:
         yf_kospi.index = yf_kospi.index.tz_localize(None)
+    if not yf_kospi.empty: yf_kospi.index = pd.to_datetime(yf_kospi.index).normalize()
+    s_nav_kp2 = fetch_naver_index_prices('KOSPI')
+    if not s_nav_kp2.empty:
+        df_nav_kp2 = pd.DataFrame({'Close': s_nav_kp2})
+        yf_kospi = df_nav_kp2.combine_first(yf_kospi) if not yf_kospi.empty else df_nav_kp2
         
     yf_kosdaq = yf.download('^KQ11', start="2020-01-01", progress=False)
     if isinstance(yf_kosdaq.columns, pd.MultiIndex): yf_kosdaq.columns = yf_kosdaq.columns.get_level_values(0)
     if not yf_kosdaq.empty and getattr(yf_kosdaq.index, 'tz', None) is not None:
         yf_kosdaq.index = yf_kosdaq.index.tz_localize(None)
+    if not yf_kosdaq.empty: yf_kosdaq.index = pd.to_datetime(yf_kosdaq.index).normalize()
+    s_nav_kd2 = fetch_naver_index_prices('KOSDAQ')
+    if not s_nav_kd2.empty:
+        df_nav_kd2 = pd.DataFrame({'Close': s_nav_kd2})
+        yf_kosdaq = df_nav_kd2.combine_first(yf_kosdaq) if not yf_kosdaq.empty else df_nav_kd2
     
     if not yf_kospi.empty:
         # 네이버 KOSPI 지수 대신 yfinance KOSPI 지수로 덮어쓰거나 채움 (과거 데이터 확보)
