@@ -614,6 +614,25 @@ def fetch_naver_index_prices(code='KOSPI'):
         pass
     return pd.Series(dtype=float)
 
+def fetch_naver_qqq_prices():
+    try:
+        url = "https://api.stock.naver.com/stock/QQQ.O/price?pageSize=15&page=1"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            records = {}
+            for item in data:
+                dt_str = item.get('localTradedAt')
+                close_str = str(item.get('closePrice', '0')).replace(',', '')
+                if dt_str and close_str:
+                    dt_norm = pd.to_datetime(dt_str).tz_localize(None).normalize()
+                    records[dt_norm] = float(close_str)
+            return pd.Series(records).sort_index()
+    except Exception:
+        pass
+    return pd.Series(dtype=float)
+
 @st.cache_data(ttl=300)
 def fetch_index_prices():
     try:
@@ -622,22 +641,35 @@ def fetch_index_prices():
             s = df['Close'] if not df.empty and 'Close' in df.columns else pd.Series(dtype=float)
             if isinstance(s, pd.DataFrame): s = s.iloc[:,0]
             s.index = pd.to_datetime(s.index).normalize()
-            if naver_code:
+            if naver_code == 'QQQ':
+                s_nav = fetch_naver_qqq_prices()
+                if not s_nav.empty:
+                    s = s_nav.combine_first(s).sort_index()
+            elif naver_code:
                 s_nav = fetch_naver_index_prices(naver_code)
                 if not s_nav.empty:
                     s = s_nav.combine_first(s).sort_index()
             return s
-        return get_s('^KS11', 'KOSPI'), get_s('^KQ11', 'KOSDAQ'), get_s('QQQ')
+        return get_s('^KS11', 'KOSPI'), get_s('^KQ11', 'KOSDAQ'), get_s('QQQ', 'QQQ')
     except Exception:
         e = pd.Series(dtype=float)
         return e, e, e
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def fetch_and_process_data():
     start_date_str = "2020-01-01"
     qqq = yf.download('QQQ', start=start_date_str, progress=False)
     if isinstance(qqq.columns, pd.MultiIndex): qqq.columns = qqq.columns.get_level_values(0)
     qqq_df = qqq[['Close']].rename(columns={'Close': 'QQQ'}) if not qqq.empty and 'Close' in qqq.columns else pd.DataFrame(columns=['QQQ'])
+    if getattr(qqq_df.index, 'tz', None) is not None:
+        qqq_df.index = qqq_df.index.tz_localize(None)
+    qqq_df.index = pd.to_datetime(qqq_df.index).normalize()
+    
+    s_nav_qqq = fetch_naver_qqq_prices()
+    if not s_nav_qqq.empty:
+        df_nav_qqq = pd.DataFrame({'QQQ': s_nav_qqq})
+        qqq_df = qqq_df.combine_first(df_nav_qqq).sort_index()
+        
     vix = yf.download('^VIX', start=start_date_str, progress=False)
     if isinstance(vix.columns, pd.MultiIndex): vix.columns = vix.columns.get_level_values(0)
     vix_df = vix[['Close']].rename(columns={'Close': 'VIX'}) if not vix.empty and 'Close' in vix.columns else pd.DataFrame(columns=['VIX'])
