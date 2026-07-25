@@ -33,6 +33,10 @@ import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+from event_auto_summarizer import get_or_update_event_cache
+
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+HISTORICAL_EVENTS_JSON = os.path.join(APP_DIR, "historical_events.json")
 
 # Page configuration
 st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_sidebar_state="collapsed")
@@ -383,19 +387,18 @@ elif selected_period == "6M": active_period_days = 182
 elif selected_period == "3M": active_period_days = 91
 elif selected_period == "1M": active_period_days = 30
 
-# 고충격 역사적 사건 데이터베이스 정의 (하락률 칼럼 추가)
-static_historical_events = [
-    {"title": "미국-이란 전쟁발 우려 폭락", "period": "2026.01 ~ 2026.03", "fall_rate": "-12%"},
-    {"title": "미-중 무역 전쟁 재발 우려 폭락", "period": "2025.03 ~ 2025.04", "fall_rate": "-18%"},
-    {"title": "엔 캐리 트레이드 청산 우려 폭락", "period": "2024.07 ~ 2024.08", "fall_rate": "-14%"},
-    {"title": "실리콘밸리 은행(SVB) 파산 사태", "period": "2023.03 ~ 2023.03", "fall_rate": "-9%"},
-    {"title": "미 국채 금리 급등발 기술주 밸류에이션 조정 폭락", "period": "2021.02 ~ 2021.03", "fall_rate": "-11%"},
-    {"title": "인플레이션 및 금리 인상 하락장", "period": "2021.11 ~ 2022.10", "fall_rate": "-37%"},
-    {"title": "코로나19 2차 대유행 및 미국 대선 불확실성 우려 폭락", "period": "2020.09 ~ 2020.10", "fall_rate": "-13%"},
-    {"title": "코로나 19 팬데믹 폭락", "period": "2020.02 ~ 2020.03", "fall_rate": "-35%"},
-    {"title": "미-중 무역 전쟁 관세 분쟁 갈등 폭락", "period": "2019.05 ~ 2019.06", "fall_rate": "-11%"},
-    {"title": "미 연준 금리 인상 및 미-중 무역 전쟁 우려 대폭락", "period": "2018.10 ~ 2018.12", "fall_rate": "-23%"}
-]
+# 고충격 역사적 사건 데이터베이스 정의 (JSON 캐시 읽기)
+def load_historical_events_cache():
+    if os.path.exists(HISTORICAL_EVENTS_JSON):
+        try:
+            with open(HISTORICAL_EVENTS_JSON, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+static_historical_events = load_historical_events_cache()
+
 
 def parse_period(period_str):
     if '~' in period_str:
@@ -1382,12 +1385,13 @@ with tabs[0]:
         
         # 실시간 가격 데이터 기반 조정 감지 및 지능형 병합 알고리즘
         detected_evs = detect_recent_drawdowns(df, 'QQQ', 0.10)
-        raw_list = static_historical_events.copy()
+        raw_list = load_historical_events_cache()
         for dev in detected_evs:
-            # 기본 감지 명칭이 없으면 하락조정장 처리
-            if not dev.get('title'):
-                dev['title'] = "하락조정장"
+            # 캐시 파일 조회 및 미등록 신규 사건은 뉴스 탐색 요약 후 JSON에 자동 저장
+            cached_ev = get_or_update_event_cache(dev['period'], dev['fall_rate'], HISTORICAL_EVENTS_JSON)
+            dev['title'] = cached_ev.get('title', "하락조정장")
             raw_list.append(dev)
+
             
         # 연월 파싱용 헬퍼 함수
         def parse_to_val(ym_str):
