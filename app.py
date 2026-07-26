@@ -130,15 +130,6 @@ def update_tickers():
 st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 
-with st.sidebar:
-    st.markdown("### 🔄 종목 업데이트")
-    st.write("나스닥100, 코스피50, 코스닥50 종목을 다시 긁어옵니다.")
-    if st.button("최신 종목 업데이트 실행"):
-        with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
-            update_tickers()
-        st.success("업데이트가 완료되었습니다!")
-        st.rerun()
-
 
 KOR_WEEKDAY = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -414,8 +405,8 @@ st.markdown("""
 st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">Market Indicators Dashboard</p>', unsafe_allow_html=True)
 
 # Refresh Button Placement (Aligned Right above selector, ensuring mobile responsiveness)
-col_top_left, col_top_right = st.columns([5, 1])
-with col_top_right:
+col_top_left, col_top_refresh, col_top_update = st.columns([4, 1, 1])
+with col_top_refresh:
     st.markdown(
         """
         <style>
@@ -429,6 +420,11 @@ with col_top_right:
     )
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
+        st.rerun()
+with col_top_update:
+    if st.button("종목출입 업데이트"):
+        with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
+            update_tickers()
         st.rerun()
 
 # Global Selectors (Sync Country and Period)
