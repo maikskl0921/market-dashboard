@@ -1035,6 +1035,16 @@ def fetch_korean_market_data_v2(df_us=None):
     if not s_nav_kp.empty:
         df_nav_kp = pd.DataFrame({'KOSPI': s_nav_kp})
         kospi_df = kospi_df.combine_first(df_nav_kp).sort_index()
+
+    # 원달러 환율 다운로드
+    usdkrw = yf.download('KRW=X', start="2018-01-01", progress=False)
+    if isinstance(usdkrw.columns, pd.MultiIndex): usdkrw.columns = usdkrw.columns.get_level_values(0)
+    usdkrw_df = usdkrw[['Close']].rename(columns={'Close': 'KRW=X'}) if not usdkrw.empty and 'Close' in usdkrw.columns else pd.DataFrame(columns=['KRW=X'])
+    if getattr(usdkrw_df.index, 'tz', None) is not None:
+        usdkrw_df.index = usdkrw_df.index.tz_localize(None)
+    usdkrw_df.index = pd.to_datetime(usdkrw_df.index).normalize()
+    kospi_df = kospi_df.join(usdkrw_df, how='left')
+
     
     # 2. 한국 공포탐욕지수 & 실시간 VKOSPI 가져오기
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -1128,6 +1138,7 @@ def fetch_korean_market_data_v2(df_us=None):
     df_kr['KOSPI'] = kospi_close.reindex(union_index).ffill().bfill()
     df_kr['FearGreedIndex'] = fg_series
     df_kr['VKOSPI'] = rolling_vol.reindex(union_index).ffill().bfill()
+    df_kr['KRW=X'] = kospi_df['KRW=X'].reindex(union_index).ffill().bfill()
     
     # KOSPI 영업일 기준으로 필터링하여 주말/공휴일 제거
     df_kr = df_kr.reindex(kospi_df.index).ffill().bfill()
@@ -1221,7 +1232,59 @@ def fetch_korean_market_data_v2(df_us=None):
         df_kr_s = df_kr_s.join(df_us_filtered, how='left')
         df_kr_s = df_kr_s.ffill().bfill()
         
+
+    # [KOSPI 7-Level Monitoring Indicators]
+    df_kr_s['KOSPI_RSI'] = 100 - (100 / (1 + (df_kr_s['KOSPI'].diff().where(df_kr_s['KOSPI'].diff() > 0, 0).rolling(14).mean() / (-df_kr_s['KOSPI'].diff().where(df_kr_s['KOSPI'].diff() < 0, 0)).rolling(14).mean())))
+    df_kr_s['USDKRW_RSI'] = 100 - (100 / (1 + (df_kr_s['KRW=X'].diff().where(df_kr_s['KRW=X'].diff() > 0, 0).rolling(14).mean() / (-df_kr_s['KRW=X'].diff().where(df_kr_s['KRW=X'].diff() < 0, 0)).rolling(14).mean())))
+    
+    # Bollinger Bands
+    kospi_20_sma = df_kr_s['KOSPI'].rolling(20).mean()
+    kospi_20_std = df_kr_s['KOSPI'].rolling(20).std()
+    df_kr_s['KOSPI_LB'] = kospi_20_sma - (2 * kospi_20_std)
+    df_kr_s['KOSPI_UB'] = kospi_20_sma + (2 * kospi_20_std)
+    df_kr_s['KOSPI_20_STD'] = kospi_20_std
+    
+    # Disparity
+    df_kr_s['KOSPI_DISP_20'] = (df_kr_s['KOSPI'] / kospi_20_sma) * 100
+    df_kr_s['KOSPI_DISP_60'] = (df_kr_s['KOSPI'] / df_kr_s['KOSPI'].rolling(60).mean()) * 100
+    df_kr_s['KOSPI_DISP_120'] = (df_kr_s['KOSPI'] / df_kr_s['KOSPI'].rolling(120).mean()) * 100
+
+    # 7 Distinct Indicators Calculation
+    # 1. MACD
+    ema12 = df_kr_s['KOSPI'].ewm(span=12, adjust=False).mean()
+    ema26 = df_kr_s['KOSPI'].ewm(span=26, adjust=False).mean()
+    df_kr_s['KOSPI_MACD'] = ema12 - ema26
+    df_kr_s['KOSPI_MACD_SIG'] = df_kr_s['KOSPI_MACD'].ewm(span=9, adjust=False).mean()
+    
+    # 2. ROC (Rate of Change - 20 days)
+    df_kr_s['KOSPI_ROC_20'] = df_kr_s['KOSPI'].pct_change(20) * 100
+    
+    # 3. Historical Volatility (20 days annualized)
+    df_kr_s['KOSPI_RET'] = df_kr_s['KOSPI'].pct_change()
+    df_kr_s['KOSPI_VOL_20'] = df_kr_s['KOSPI_RET'].rolling(20).std() * np.sqrt(252) * 100
+
+    # Bottom Score (7 Distinct Metrics)
+    c1_b = df_kr_s['KOSPI_RSI'] < 18
+    c2_b = df_kr_s['KOSPI'] < (df_kr_s['KOSPI_LB'] - (0.5 * df_kr_s['KOSPI_20_STD']))
+    c3_b = df_kr_s['KOSPI_DISP_60'] < 88
+    c4_b = (df_kr_s['KOSPI_MACD'] < df_kr_s['KOSPI_MACD_SIG']) & (df_kr_s['KOSPI_MACD'] < -20)
+    c5_b = df_kr_s['KOSPI_ROC_20'] < -15
+    c6_b = df_kr_s['KOSPI_VOL_20'] > 40
+    c7_b = df_kr_s['USDKRW_RSI'] > 80
+    df_kr_s['KR_Bottom_Score'] = c1_b.astype(int) + c2_b.astype(int) + c3_b.astype(int) + c4_b.astype(int) + c5_b.astype(int) + c6_b.astype(int) + c7_b.astype(int)
+
+    # Top Score (7 Distinct Metrics)
+    c1_t = df_kr_s['KOSPI_RSI'] > 88
+    c2_t = df_kr_s['KOSPI'] > (df_kr_s['KOSPI_UB'] + (0.5 * df_kr_s['KOSPI_20_STD']))
+    c3_t = df_kr_s['KOSPI_DISP_60'] > 118
+    c4_t = (df_kr_s['KOSPI_MACD'] > df_kr_s['KOSPI_MACD_SIG']) & (df_kr_s['KOSPI_MACD'] > 40)
+    c5_t = df_kr_s['KOSPI_ROC_20'] > 20
+    c6_t = df_kr_s['KOSPI_VOL_20'] < 8
+    c7_t = df_kr_s['USDKRW_RSI'] < 20
+    df_kr_s['KR_Top_Score'] = c1_t.astype(int) + c2_t.astype(int) + c3_t.astype(int) + c4_t.astype(int) + c5_t.astype(int) + c6_t.astype(int) + c7_t.astype(int)
+
     return df_kr_s
+
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_monitoring_data_v2(num_pages=25):
@@ -3356,7 +3419,7 @@ with tabs[0]:
 
 # ── Tab 3: 모니터링 ──
 with tabs[2]:
-    sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '메모리']
+    sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '감시지표', '메모리']
     sub_tabs = st.tabs(sub_tab_names)
 
     # ── 소분류 1: 매매동향 ──
@@ -4258,7 +4321,138 @@ with tabs[2]:
             render_gamma_stats_table(hybrid_top_stats, '감마풋콜 혼합 고점 지표 성능 검증')
 
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    with sub_tabs[3]:
+    
+        with sub_tabs[3]: # 감시지표 탭
+            st.markdown("### 📊 한국 감시지표 (우회 7단계 감지 시스템)")
+            st.markdown("코스피 보조지표(RSI, 볼린저밴드, 이격도) 및 원/달러 환율을 결합하여 한국 증시 전용 저점/고점을 7단계로 측정합니다. **어떤 지표에 구애받지 않고, 아래 7가지 조건 중 몇 개가 동시에 만족되었는지에 따라 단계(스코어)가 상승합니다.**")
+            
+            with st.expander("📌 [클릭하여 7대 핵심 감시 조건(저점/고점) 자세히 보기]"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.markdown("""
+                    **📉 저점 (패닉) 7대 조건**
+                    1. KOSPI RSI(14) < 18 (단기 모멘텀 극한 과매도)
+                    2. KOSPI 볼린저밴드 하단 0.5표준편차 이탈 (초과 극단치)
+                    3. KOSPI 60일 이격도 < 88 (중장기 추세 붕괴)
+                    4. KOSPI MACD < -20 및 데드크로스 (추세 붕괴 확정)
+                    5. KOSPI 20일 수익률(ROC) < -15% (1개월 초급락)
+                    6. KOSPI 역사적 변동성(20일) > 40% (시장 패닉장)
+                    7. 원/달러 환율 RSI(14) > 80 (극단적 외인 이탈)
+                    """)
+                with c2:
+                    st.markdown("""
+                    **📈 고점 (과열) 7대 조건**
+                    1. KOSPI RSI(14) > 88 (단기 모멘텀 극한 과매수)
+                    2. KOSPI 볼린저밴드 상단 0.5표준편차 돌파 (초과 극단치)
+                    3. KOSPI 60일 이격도 > 118 (중장기 추세 과열)
+                    4. KOSPI MACD > 40 및 골든크로스 (추세 급등 확정)
+                    5. KOSPI 20일 수익률(ROC) > +20% (1개월 초급등)
+                    6. KOSPI 역사적 변동성(20일) < 8% (극단적 변동성 축소/과열)
+                    7. 원/달러 환율 RSI(14) < 20 (극단적 원화 강세 과열)
+                    """)
+            
+            df_mon = df_kr.copy().reset_index()
+            if df_mon.columns[0] != 'Date':
+                df_mon.rename(columns={df_mon.columns[0]: 'Date'}, inplace=True)
+            df_mon = df_mon.dropna(subset=['KR_Bottom_Score', 'KR_Top_Score'])
+            
+            # 1. 성능 검증표 계산
+            def calc_perf(score_col, is_bottom=True):
+                stats = []
+                total_days = len(df_mon)
+                
+                cond_texts_bottom = [f"위 7대 저점(악재) 조건 중 {i}개 이상 동시 만족" for i in range(1, 8)]
+                cond_texts_top = [f"위 7대 고점(과열) 조건 중 {i}개 이상 동시 만족" for i in range(1, 8)]
+                
+                for lvl in range(1, 8):
+                    cond = df_mon[score_col] >= lvl
+                    signal_days = cond.sum()
+                    desc = cond_texts_bottom[lvl-1] if is_bottom else cond_texts_top[lvl-1]
+                    
+                    if signal_days == 0:
+                        stats.append({'순위': f'{lvl}단계', '세부조건내용': desc, '포착률': '0.0%', '적중률': 'N/A'})
+                        continue
+                        
+                    recall = (signal_days / total_days) * 100
+                    
+                    success_count = 0
+                    for i in range(len(df_mon)):
+                        if cond.iloc[i]:
+                            try:
+                                future_idx = min(i + 20, len(df_mon)-1)
+                                ret = (df_mon['KOSPI'].iloc[future_idx] - df_mon['KOSPI'].iloc[i]) / df_mon['KOSPI'].iloc[i]
+                                if is_bottom and ret > 0: success_count += 1
+                                if not is_bottom and ret < 0: success_count += 1
+                            except: pass
+                    
+                    hit_rate = (success_count / signal_days) * 100
+                    stats.append({'순위': f'{lvl}단계', '세부조건내용': desc, '포착률': f'{recall:.2f}%', '적중률': f'{hit_rate:.1f}%'})
+                return pd.DataFrame(stats)
+                
+            bottom_perf = calc_perf('KR_Bottom_Score', True)
+            top_perf = calc_perf('KR_Top_Score', False)
+            
+            # 감지표 생성기
+            def generate_signal_table(score_col, title):
+                sigs = df_mon[df_mon[score_col] > 0].tail(100)[::-1]
+                if sigs.empty: return "<p>감지된 신호가 없습니다.</p>"
+                
+                html = f"<div style='margin-top:1rem;margin-bottom:0.5rem;overflow-x:auto;'><span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 {title} (최근 100개)</span>"
+                html += "<table style='border-collapse:collapse;margin-top:3px;text-align:center;'><tr><th style='border:1px solid #555;padding:2px 4px;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>"
+                
+                rgba_colors = {1:'rgba(255,0,0,0.8)', 2:'rgba(255,165,0,0.8)', 3:'rgba(255,255,0,0.8)', 
+                               4:'rgba(0,128,0,0.8)', 5:'rgba(135,206,235,0.8)', 6:'rgba(0,0,128,0.8)', 7:'rgba(128,0,128,0.8)'}
+                
+                date_row = ""
+                score_row = ""
+                for _, row in sigs.iterrows():
+                    d_str = row['Date'].strftime('%Y-%m-%d')
+                    lvl = int(row[score_col])
+                    c = rgba_colors.get(lvl, 'rgba(0,0,0,0)')
+                    date_row += f"<td style='border:1px solid #555;padding:2px 4px;font-size:0.6rem;background:{c};color:white;font-weight:bold;white-space:nowrap;text-shadow:1px 1px 2px rgba(0,0,0,0.8);'>{d_str}</td>"
+                    score_row += f"<td style='border:1px solid #555;padding:2px 4px;font-size:0.6rem;background:{c};color:white;font-weight:bold;white-space:nowrap;text-shadow:1px 1px 2px rgba(0,0,0,0.8);'>{lvl}단계</td>"
+                    
+                html += date_row + "</tr><tr><th style='border:1px solid #555;padding:2px 4px;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>단계</th>"
+                html += score_row + "</tr></table></div>"
+                return html
+                
+            import plotly.graph_objects as go
+            
+            colors = {1:'rgba(255,0,0,0.8)', 2:'rgba(255,165,0,0.8)', 3:'rgba(255,255,0,0.8)', 
+                      4:'rgba(0,128,0,0.8)', 5:'rgba(135,206,235,0.8)', 6:'rgba(0,0,128,0.8)', 7:'rgba(128,0,128,0.8)'}
+                      
+            def create_single_chart(score_col, title):
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=df_mon['Date'], y=df_mon['KOSPI'], name="KOSPI", line=dict(color='rgba(0,0,0,0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))))
+                vals = df_mon[score_col].values
+                v_max = df_mon['KOSPI'].max() * 1.1
+                v_colors = [colors.get(v, 'rgba(0,0,0,0)') for v in vals]
+                fig.add_trace(go.Bar(x=df_mon['Date'], y=[v_max if v > 0 else 0 for v in vals], marker_color=v_colors, marker_line_width=0, name=title, opacity=0.3))
+                fig.update_layout(height=400, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0), title=dict(text=title, font=dict(size=12)))
+                fig.update_yaxes(title_text="KOSPI")
+                return fig
+
+            # ================= [배치 시작] =================
+            st.markdown("---")
+            st.markdown("#### 📉 감시지표 저점 분석")
+            # 1. 저점 신호 감지표
+            st.markdown(generate_signal_table('KR_Bottom_Score', '감시지표 저점 신호 감지'), unsafe_allow_html=True)
+            # 2. 저점 감시차트
+            st.plotly_chart(create_single_chart('KR_Bottom_Score', '📉 KOSPI 저점 7단계 감시 차트'), use_container_width=True)
+            # 3. 저점 성능 검증
+            render_gamma_stats_table(bottom_perf, "감시지표 저점 성능 검증")
+            
+            st.markdown("---")
+            st.markdown("#### 📈 감시지표 고점 분석")
+            # 4. 고점 신호 감지표
+            st.markdown(generate_signal_table('KR_Top_Score', '감시지표 고점 신호 감지'), unsafe_allow_html=True)
+            # 5. 고점 감시차트
+            st.plotly_chart(create_single_chart('KR_Top_Score', '📈 KOSPI 고점 7단계 감시 차트'), use_container_width=True)
+            # 6. 고점 성능 검증
+            render_gamma_stats_table(top_perf, "감시지표 고점 성능 검증")
+            
+
+with sub_tabs[4]:
         dram_data = fetch_dram_dashboard_data()
         if dram_data:
             as_of = dram_data.get('as_of', '')
