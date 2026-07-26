@@ -42,6 +42,20 @@ except ImportError:
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 HISTORICAL_EVENTS_JSON = os.path.join(APP_DIR, "historical_events.json")
 
+def load_historical_events_cache():
+    if os.path.exists(HISTORICAL_EVENTS_JSON):
+        try:
+            with open(HISTORICAL_EVENTS_JSON, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return [
+        {"period": "2024.07 ~ 2024.08", "title": "엔 캐리 청산발 (침체 우려)", "fall_rate": "16%"},
+        {"period": "2022.01 ~ 2022.12", "title": "금리/채권 금리 급등발 (침체 우려)", "fall_rate": "37%"},
+        {"period": "2020.02 ~ 2020.03", "title": "팬데믹/바이러스 악재", "fall_rate": "29%"},
+        {"period": "2018.10 ~ 2018.12", "title": "무역 관세 분쟁발 (금리 인상)", "fall_rate": "23%"}
+    ]
+
 # Page configuration
 st.set_page_config(page_title="Market Trends Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
