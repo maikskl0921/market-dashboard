@@ -809,6 +809,15 @@ def fetch_and_process_data():
     tlt = yf.download('TLT', start=start_date_str, progress=False)
     if isinstance(tlt.columns, pd.MultiIndex): tlt.columns = tlt.columns.get_level_values(0)
     tlt_df = tlt[['Close']].rename(columns={'Close': 'TLT'}) if not tlt.empty and 'Close' in tlt.columns else pd.DataFrame(columns=['TLT'])
+    
+    # 3년물 (SHY) 및 10년물 (IEF) 다운로드 추가
+    shy = yf.download('SHY', start=start_date_str, progress=False)
+    if isinstance(shy.columns, pd.MultiIndex): shy.columns = shy.columns.get_level_values(0)
+    shy_df = shy[['Close']].rename(columns={'Close': 'SHY'}) if not shy.empty and 'Close' in shy.columns else pd.DataFrame(columns=['SHY'])
+    
+    ief = yf.download('IEF', start=start_date_str, progress=False)
+    if isinstance(ief.columns, pd.MultiIndex): ief.columns = ief.columns.get_level_values(0)
+    ief_df = ief[['Close']].rename(columns={'Close': 'IEF'}) if not ief.empty and 'Close' in ief.columns else pd.DataFrame(columns=['IEF'])
 
     url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/2020-01-01"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -846,6 +855,8 @@ def fetch_and_process_data():
                .join(tnx_df, how='outer')\
                .join(hyg_df, how='outer')\
                .join(tlt_df, how='outer')\
+               .join(shy_df, how='outer')\
+               .join(ief_df, how='outer')\
                .join(skew_df, how='outer')\
                .join(vvix_df, how='outer')\
                .join(fg_df, how='outer')\
@@ -3419,7 +3430,7 @@ with tabs[0]:
 
 # ── Tab 3: 모니터링 ──
 with tabs[2]:
-    sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '감시지표', '메모리']
+    sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '채권비교', '메모리']
     sub_tabs = st.tabs(sub_tab_names)
 
     # ── 소분류 1: 매매동향 ──
@@ -4321,135 +4332,84 @@ with tabs[2]:
             render_gamma_stats_table(hybrid_top_stats, '감마풋콜 혼합 고점 지표 성능 검증')
 
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    
-        with sub_tabs[3]: # 감시지표 탭
-            st.markdown("### 📊 한국 감시지표 (우회 7단계 감지 시스템)")
-            st.markdown("코스피 보조지표(RSI, 볼린저밴드, 이격도) 및 원/달러 환율을 결합하여 한국 증시 전용 저점/고점을 7단계로 측정합니다. **어떤 지표에 구애받지 않고, 아래 7가지 조건 중 몇 개가 동시에 만족되었는지에 따라 단계(스코어)가 상승합니다.**")
-            
-            with st.expander("📌 [클릭하여 7대 핵심 감시 조건(저점/고점) 자세히 보기]"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown("""
-                    **📉 저점 (패닉) 7대 조건**
-                    1. KOSPI RSI(14) < 18 (단기 모멘텀 극한 과매도)
-                    2. KOSPI 볼린저밴드 하단 0.5표준편차 이탈 (초과 극단치)
-                    3. KOSPI 60일 이격도 < 88 (중장기 추세 붕괴)
-                    4. KOSPI MACD < -20 및 데드크로스 (추세 붕괴 확정)
-                    5. KOSPI 20일 수익률(ROC) < -15% (1개월 초급락)
-                    6. KOSPI 역사적 변동성(20일) > 40% (시장 패닉장)
-                    7. 원/달러 환율 RSI(14) > 80 (극단적 외인 이탈)
-                    """)
-                with c2:
-                    st.markdown("""
-                    **📈 고점 (과열) 7대 조건**
-                    1. KOSPI RSI(14) > 88 (단기 모멘텀 극한 과매수)
-                    2. KOSPI 볼린저밴드 상단 0.5표준편차 돌파 (초과 극단치)
-                    3. KOSPI 60일 이격도 > 118 (중장기 추세 과열)
-                    4. KOSPI MACD > 40 및 골든크로스 (추세 급등 확정)
-                    5. KOSPI 20일 수익률(ROC) > +20% (1개월 초급등)
-                    6. KOSPI 역사적 변동성(20일) < 8% (극단적 변동성 축소/과열)
-                    7. 원/달러 환율 RSI(14) < 20 (극단적 원화 강세 과열)
-                    """)
-            
-            df_mon = df_kr.copy().reset_index()
-            if df_mon.columns[0] != 'Date':
-                df_mon.rename(columns={df_mon.columns[0]: 'Date'}, inplace=True)
-            df_mon = df_mon.dropna(subset=['KR_Bottom_Score', 'KR_Top_Score'])
-            
-            # 1. 성능 검증표 계산
-            def calc_perf(score_col, is_bottom=True):
-                stats = []
-                total_days = len(df_mon)
-                
-                cond_texts_bottom = [f"위 7대 저점(악재) 조건 중 {i}개 이상 동시 만족" for i in range(1, 8)]
-                cond_texts_top = [f"위 7대 고점(과열) 조건 중 {i}개 이상 동시 만족" for i in range(1, 8)]
-                
-                for lvl in range(1, 8):
-                    cond = df_mon[score_col] >= lvl
-                    signal_days = cond.sum()
-                    desc = cond_texts_bottom[lvl-1] if is_bottom else cond_texts_top[lvl-1]
-                    
-                    if signal_days == 0:
-                        stats.append({'순위': f'{lvl}단계', '세부조건내용': desc, '포착률': '0.0%', '적중률': 'N/A'})
-                        continue
-                        
-                    recall = (signal_days / total_days) * 100
-                    
-                    success_count = 0
-                    for i in range(len(df_mon)):
-                        if cond.iloc[i]:
-                            try:
-                                future_idx = min(i + 20, len(df_mon)-1)
-                                ret = (df_mon['KOSPI'].iloc[future_idx] - df_mon['KOSPI'].iloc[i]) / df_mon['KOSPI'].iloc[i]
-                                if is_bottom and ret > 0: success_count += 1
-                                if not is_bottom and ret < 0: success_count += 1
-                            except: pass
-                    
-                    hit_rate = (success_count / signal_days) * 100
-                    stats.append({'순위': f'{lvl}단계', '세부조건내용': desc, '포착률': f'{recall:.2f}%', '적중률': f'{hit_rate:.1f}%'})
-                return pd.DataFrame(stats)
-                
-            bottom_perf = calc_perf('KR_Bottom_Score', True)
-            top_perf = calc_perf('KR_Top_Score', False)
-            
-            # 감지표 생성기
-            def generate_signal_table(score_col, title):
-                sigs = df_mon[df_mon[score_col] > 0].tail(100)[::-1]
-                if sigs.empty: return "<p>감지된 신호가 없습니다.</p>"
-                
-                html = f"<div style='margin-top:1rem;margin-bottom:0.5rem;overflow-x:auto;'><span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 {title} (최근 100개)</span>"
-                html += "<table style='border-collapse:collapse;margin-top:3px;text-align:center;'><tr><th style='border:1px solid #555;padding:2px 4px;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>"
-                
-                rgba_colors = {1:'rgba(255,0,0,0.8)', 2:'rgba(255,165,0,0.8)', 3:'rgba(255,255,0,0.8)', 
-                               4:'rgba(0,128,0,0.8)', 5:'rgba(135,206,235,0.8)', 6:'rgba(0,0,128,0.8)', 7:'rgba(128,0,128,0.8)'}
-                
-                date_row = ""
-                score_row = ""
-                for _, row in sigs.iterrows():
-                    d_str = row['Date'].strftime('%Y-%m-%d')
-                    lvl = int(row[score_col])
-                    c = rgba_colors.get(lvl, 'rgba(0,0,0,0)')
-                    date_row += f"<td style='border:1px solid #555;padding:2px 4px;font-size:0.6rem;background:{c};color:white;font-weight:bold;white-space:nowrap;text-shadow:1px 1px 2px rgba(0,0,0,0.8);'>{d_str}</td>"
-                    score_row += f"<td style='border:1px solid #555;padding:2px 4px;font-size:0.6rem;background:{c};color:white;font-weight:bold;white-space:nowrap;text-shadow:1px 1px 2px rgba(0,0,0,0.8);'>{lvl}단계</td>"
-                    
-                html += date_row + "</tr><tr><th style='border:1px solid #555;padding:2px 4px;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>단계</th>"
-                html += score_row + "</tr></table></div>"
-                return html
-                
+    with sub_tabs[3]: # 채권비교 탭
+        if not df.empty and 'IEF' in df.columns and 'TNX' in df.columns:
             import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+            import datetime
             
-            colors = {1:'rgba(255,0,0,0.8)', 2:'rgba(255,165,0,0.8)', 3:'rgba(255,255,0,0.8)', 
-                      4:'rgba(0,128,0,0.8)', 5:'rgba(135,206,235,0.8)', 6:'rgba(0,0,128,0.8)', 7:'rgba(128,0,128,0.8)'}
-                      
-            def create_single_chart(score_col, title):
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=df_mon['Date'], y=df_mon['KOSPI'], name="KOSPI", line=dict(color='rgba(0,0,0,0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))))
-                vals = df_mon[score_col].values
-                v_max = df_mon['KOSPI'].max() * 1.1
-                v_colors = [colors.get(v, 'rgba(0,0,0,0)') for v in vals]
-                fig.add_trace(go.Bar(x=df_mon['Date'], y=[v_max if v > 0 else 0 for v in vals], marker_color=v_colors, marker_line_width=0, name=title, opacity=0.3))
-                fig.update_layout(height=400, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0), title=dict(text=title, font=dict(size=12)))
-                fig.update_yaxes(title_text="KOSPI")
-                return fig
+            # --- x축 연동된 2개 행의 서브플롯 ---
+            st.markdown("### 📊 QQQ vs 미국 10년물 채권 (가격 및 금리) 비교 차트")
+            st.markdown("미국 10년물 채권가격 ETF(IEF) 및 10년물 국채금리(^TNX)와 QQQ 지수를 비교합니다. (기간 연동)")
+            
+            # 규칙 5 준수: subplot_titles 추가
+            fig = make_subplots(
+                rows=2, cols=1, 
+                shared_xaxes=True, 
+                vertical_spacing=0.08,
+                subplot_titles=["📊 QQQ vs 10년물 채권가격", "📊 QQQ vs 10년물 국채금리"],
+                specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
+            )
+            
+            # 주축 1: QQQ (규칙 2 준수)
+            fig.add_trace(go.Scatter(
+                x=df.index, y=df['QQQ'], 
+                name="QQQ (가격비교)", 
+                line=dict(color='rgba(0, 0, 0, 0.5)', width=2), 
+                mode='lines+markers', 
+                marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))
+            ), row=1, col=1, secondary_y=False)
+            
+            # 보조 Y축 1 (규칙 1, 3 준수 - Row 1의 첫 번째 지표이므로 빨강) - IEF
+            fig.add_trace(go.Scatter(
+                x=df.index, y=df['IEF'], 
+                name="10년물 채권가격 (IEF)", 
+                line=dict(color='rgba(255, 0, 0, 0.8)', width=1)
+            ), row=1, col=1, secondary_y=True)
+            
+            # 주축 2: QQQ (규칙 2 준수)
+            fig.add_trace(go.Scatter(
+                x=df.index, y=df['QQQ'], 
+                name="QQQ (금리비교)", 
+                line=dict(color='rgba(0, 0, 0, 0.5)', width=2), 
+                mode='lines+markers', 
+                marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))
+            ), row=2, col=1, secondary_y=False)
+            
+            # 보조 Y축 2 (규칙 1, 3 준수 - Row 2의 첫 번째 지표이므로 리셋하여 빨강) - TNX
+            fig.add_trace(go.Scatter(
+                x=df.index, y=df['TNX'], 
+                name="10년물 국채금리 (TNX)", 
+                line=dict(color='rgba(255, 0, 0, 0.8)', width=1)
+            ), row=2, col=1, secondary_y=True)
+            
+            fig.update_layout(
+                height=700,
+                showlegend=False,  # 규칙 4 준수
+                hovermode='x unified',
+                margin=dict(l=0, r=0, t=30, b=0)
+            )
+            
+            # 규칙 5 준수: 서브플롯 제목 크기 작게
+            fig.update_annotations(font_size=10)
+            
+            # 기간 라디오 단추와 연동 (x축)
+            if active_period_days:
+                target_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                fig.update_xaxes(range=[target_date, df.index[-1]])
+            
+            fig.update_yaxes(title_text="QQQ", row=1, col=1, secondary_y=False)
+            fig.update_yaxes(title_text="IEF", row=1, col=1, secondary_y=True)
+            fig.update_yaxes(title_text="QQQ", row=2, col=1, secondary_y=False)
+            fig.update_yaxes(title_text="TNX", row=2, col=1, secondary_y=True)
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("채권 데이터를 불러오는 중이거나 데이터가 부족합니다.")
 
-            # ================= [배치 시작] =================
-            st.markdown("---")
-            st.markdown("#### 📉 감시지표 저점 분석")
-            # 1. 저점 신호 감지표
-            st.markdown(generate_signal_table('KR_Bottom_Score', '감시지표 저점 신호 감지'), unsafe_allow_html=True)
-            # 2. 저점 감시차트
-            st.plotly_chart(create_single_chart('KR_Bottom_Score', '📉 KOSPI 저점 7단계 감시 차트'), use_container_width=True)
-            # 3. 저점 성능 검증
-            render_gamma_stats_table(bottom_perf, "감시지표 저점 성능 검증")
-            
-            st.markdown("---")
-            st.markdown("#### 📈 감시지표 고점 분석")
-            # 4. 고점 신호 감지표
-            st.markdown(generate_signal_table('KR_Top_Score', '감시지표 고점 신호 감지'), unsafe_allow_html=True)
-            # 5. 고점 감시차트
-            st.plotly_chart(create_single_chart('KR_Top_Score', '📈 KOSPI 고점 7단계 감시 차트'), use_container_width=True)
-            # 6. 고점 성능 검증
-            render_gamma_stats_table(top_perf, "감시지표 고점 성능 검증")
+
+
+
             
 
 with sub_tabs[4]:
