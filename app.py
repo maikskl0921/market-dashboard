@@ -550,6 +550,15 @@ def slope_sum_lagged(slope_arr, n):
         result[i] = np.sum(window)
     return result
 
+def excel_slope(y, x):
+    x_mean = np.mean(x)
+    y_mean = np.mean(y)
+    num = np.sum((x - x_mean) * (y - y_mean))
+    den = np.sum((x - x_mean) ** 2)
+    if den == 0:
+        return 0.0
+    return num / den
+
 COMMON_CONFIG = {
     'scrollZoom': False,
     'displayModeBar': True,
@@ -978,6 +987,26 @@ def fetch_and_process_data():
         df_s[f'{days}일_신규_빨강'] = np.where((diff >= 20) & (diff < 30), max_val, 0)
         df_s[f'{days}일_신규_검정'] = np.where(diff >= 30, max_val, 0)
         
+    # 엑셀식 테스트 슬로프 계산 추가
+    qqq_vals = df_s['QQQ'].values
+    date_ordinals = df_s['Date'].map(lambda d: d.toordinal()).values
+    cal_sl = np.zeros(len(df_s))
+    for i in range(1, len(df_s)):
+        cal_sl[i] = excel_slope(qqq_vals[i-1:i+1], date_ordinals[i-1:i+1])
+    df_s['테스트_일일슬로프'] = cal_sl
+    
+    for days in [5, 10, 20, 30, 40, 50, 60, 70, 80]:
+        df_s[f'테스트_슬로프{days}일합'] = slope_sum_lagged(cal_sl, days + 1)
+        
+    for days in [5, 10, 20, 30, 40, 50, 60, 70]:
+        sc = f'테스트_슬로프{days}일합'
+        dc = f'{days}일하한'
+        diff = df_s[dc] - df_s[sc]
+        df_s[f'{days}일_테스트_초록'] = np.where((diff >= 0) & (diff < 10), max_val, 0)
+        df_s[f'{days}일_테스트_주황'] = np.where((diff >= 10) & (diff < 20), max_val, 0)
+        df_s[f'{days}일_테스트_빨강'] = np.where((diff >= 20) & (diff < 30), max_val, 0)
+        df_s[f'{days}일_테스트_검정'] = np.where(diff >= 30, max_val, 0)
+
     # (FGI-VIX)/5 의 슬로프합 추가
     fv5_sl = df_s['(FGI-VIX)/5'].diff().values
     for days in [10, 20, 30, 40, 50, 60, 70]:
@@ -1199,6 +1228,26 @@ def fetch_korean_market_data_v2(df_us=None):
         df_kr_s[f'{days}일_주황'] = np.where((diff >= 15) & (diff < 30), max_val_kr, 0)
         df_kr_s[f'{days}일_빨강'] = np.where((diff >= 30) & (diff < 45), max_val_kr, 0)
         df_kr_s[f'{days}일_검정'] = np.where(diff >= 45, max_val_kr, 0)
+        
+    # 엑셀식 테스트 슬로프 계산 추가 (KOSPI)
+    kospi_vals = df_kr_s['KOSPI'].values
+    date_ordinals_kr = df_kr_s['Date'].map(lambda d: d.toordinal()).values
+    cal_sl_kr = np.zeros(len(df_kr_s))
+    for i in range(1, len(df_kr_s)):
+        cal_sl_kr[i] = excel_slope(kospi_vals[i-1:i+1], date_ordinals_kr[i-1:i+1])
+    df_kr_s['테스트_일일슬로프'] = cal_sl_kr
+    
+    for days in [5, 10, 20, 30, 40, 50, 60, 70]:
+        df_kr_s[f'테스트_슬로프{days}일합'] = slope_sum_lagged(cal_sl_kr, days + 1)
+        
+    for days in [5, 10, 20, 40]:
+        sc = f'테스트_슬로프{days}일합'
+        dc = f'{days}일하한'
+        diff = df_kr_s[dc] - df_kr_s[sc]
+        df_kr_s[f'{days}일_테스트_초록'] = np.where((diff >= 0) & (diff < 15), max_val_kr, 0)
+        df_kr_s[f'{days}일_테스트_주황'] = np.where((diff >= 15) & (diff < 30), max_val_kr, 0)
+        df_kr_s[f'{days}일_테스트_빨강'] = np.where((diff >= 30) & (diff < 45), max_val_kr, 0)
+        df_kr_s[f'{days}일_테스트_검정'] = np.where(diff >= 45, max_val_kr, 0)
         
     # (FGI-VKOSPI)/5 의 슬로프합 추가
     fv5_sl_kr = df_kr_s['(FGI-VIX)/5'].diff().values
@@ -2241,7 +2290,7 @@ tabs = st.tabs(tab_names)
 
 # ── Tab 1: 저점지표 ──
 with tabs[0]:
-    bottom_sub_tab_names = ['공탐변동', '슬로프합', '다중지표', '통합지표']
+    bottom_sub_tab_names = ['공탐변동', '슬로프합', '기울기합', '다중지표', '통합지표']
     bottom_sub_tabs = st.tabs(bottom_sub_tab_names)
     
     def render_bottom_panic_us():
@@ -3417,8 +3466,8 @@ with tabs[0]:
         render_stats_table(stats_multi_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
 
-    # ── 소분류 3: 다중지표 ──
-    with bottom_sub_tabs[2]:
+    # ── 소분류 4: 다중지표 ──
+    with bottom_sub_tabs[3]:
         if selected_country == "미국":
             render_bottom_multi_us()
         elif selected_country == "한국":
@@ -3530,23 +3579,19 @@ with tabs[0]:
             "푸리에 변환 모방 위상 천이": (c4_2, '공포 삼각함수 파동 교차'),
         }
 
-        if active_period_days:
-            target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
-            df_pre_plot = df_pre[df_pre.index >= pd.to_datetime(target_date)]
-            if not df_pre_plot.empty:
+        df_pre_plot = df_pre.copy()
+        initial_x_range = None
+        qqq_y_range = None
+        if not df_pre_plot.empty:
+            if active_period_days:
+                target_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                detected_indices = [i for i, d in enumerate(df_pre_plot.index) if d >= target_date]
+                if detected_indices:
+                    initial_x_range = [detected_indices[0], len(df_pre_plot) - 1]
+                    sub_q = df_pre_plot['QQQ'].iloc[detected_indices[0]:]
+                    qqq_y_range = [float(sub_q.min()) * 0.95, float(sub_q.max()) * 1.05]
+            if qqq_y_range is None:
                 qqq_y_range = [float(df_pre_plot['QQQ'].min()) * 0.95, float(df_pre_plot['QQQ'].max()) * 1.05]
-                initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
-            else:
-                qqq_y_range = None
-                initial_x_range = None
-        else:
-            df_pre_plot = df_pre.copy()
-            if not df_pre_plot.empty:
-                qqq_y_range = [float(df_pre_plot['QQQ'].min()) * 0.95, float(df_pre_plot['QQQ'].max()) * 1.05]
-                initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
-            else:
-                qqq_y_range = None
-                initial_x_range = None
         
         st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         
@@ -3575,7 +3620,7 @@ with tabs[0]:
             showlegend=False,
             shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
         )
-        fig_pre.update_xaxes(type='category', **crosshair_xaxis())
+        fig_pre.update_xaxes(type='category', categoryorder='array', categoryarray=hd_pre, **crosshair_xaxis())
         if initial_x_range:
             fig_pre.update_xaxes(range=initial_x_range)
         
@@ -3689,23 +3734,19 @@ with tabs[0]:
                 "푸리에 변환 모방 위상 천이": (c4_2, "한국 FGI Proxy 기반 위상 주기함수 주기 반전 구간 & KOSPI 하강 속도 & VKOSPI 급등 동시 만족"),
             }
 
+            df_pre_plot = df_pre_kr.copy()
+        initial_x_range = None
+        kospi_y_range = None
+        if not df_pre_plot.empty:
             if active_period_days:
-                target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
-                df_pre_plot = df_pre_kr[df_pre_kr.index >= pd.to_datetime(target_date)]
-                if not df_pre_plot.empty:
-                    kospi_y_range = [float(df_pre_plot['KOSPI'].min()) * 0.95, float(df_pre_plot['KOSPI'].max()) * 1.05]
-                    initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
-                else:
-                    kospi_y_range = None
-                    initial_x_range = None
-            else:
-                df_pre_plot = df_pre_kr.copy()
-                if not df_pre_plot.empty:
-                    kospi_y_range = [float(df_pre_plot['KOSPI'].min()) * 0.95, float(df_pre_plot['KOSPI'].max()) * 1.05]
-                    initial_x_range = [df_pre_plot.index[0].strftime("%Y-%m-%d"), df_pre_plot.index[-1].strftime("%Y-%m-%d")]
-                else:
-                    kospi_y_range = None
-                    initial_x_range = None
+                target_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                detected_indices = [i for i, d in enumerate(df_pre_plot.index) if d >= target_date]
+                if detected_indices:
+                    initial_x_range = [detected_indices[0], len(df_pre_plot) - 1]
+                    sub_q = df_pre_plot['KOSPI'].iloc[detected_indices[0]:]
+                    kospi_y_range = [float(sub_q.min()) * 0.95, float(sub_q.max()) * 1.05]
+            if kospi_y_range is None:
+                kospi_y_range = [float(df_pre_plot['KOSPI'].min()) * 0.95, float(df_pre_plot['KOSPI'].max()) * 1.05]
             
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             
@@ -3734,7 +3775,7 @@ with tabs[0]:
                 showlegend=False,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
             )
-            fig_pre.update_xaxes(type='category', **crosshair_xaxis())
+            fig_pre.update_xaxes(type='category', categoryorder='array', categoryarray=hd_pre, **crosshair_xaxis())
             if initial_x_range:
                 fig_pre.update_xaxes(range=initial_x_range)
             
@@ -3746,12 +3787,455 @@ with tabs[0]:
             stats_pre_kr = calculate_indicator_stats(df_pre_kr, 'KOSPI', pre_conditions_kr)
             render_stats_table(stats_pre_kr, "통합지표 통합 검증 결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
 
-    # ── 소분류 4: 통합지표 ──
-    with bottom_sub_tabs[3]:
+    # ── 소분류 5: 통합지표 ──
+    with bottom_sub_tabs[4]:
         if selected_country == "미국":
             render_bottom_unified_us()
         elif selected_country == "한국":
             render_bottom_unified_kr()
+
+    # ── 소분류 3: 기울기합 ──
+    with bottom_sub_tabs[2]:
+        if selected_country == "미국":
+            SLOPE_BOTTOM_CHARTS_TEST = [
+                (2, 10, '테스트_슬로프10일합', -15),
+                (3, 20, '테스트_슬로프20일합', -20),
+                (4, 30, '테스트_슬로프30일합', -25),
+                (5, 40, '테스트_슬로프40일합', -30),
+                (6, 50, '테스트_슬로프50일합', -35),
+                (7, 60, '테스트_슬로프60일합', -40),
+                (8, 70, '테스트_슬로프70일합', -45),
+            ]
+            
+            # 동시 감지 갯수 계산 및 저장
+            slope_detect_count_test = sum(((df[sfc] <= thresh)).astype(int) for _, _, sfc, thresh in SLOPE_BOTTOM_CHARTS_TEST)
+            df['slope_detect_count_test'] = slope_detect_count_test
+            
+            # 상한 돌파 신호 감지표 (하한 돌파 저점 신호 수집)
+            all_top_sl_test = []
+            for _, days_t, sfc, thresh in SLOPE_BOTTOM_CHARTS_TEST:
+                _cond_sl = (df[sfc] <= thresh)
+                all_top_sl_test.extend(df[_cond_sl].index.tolist())
+            dc_top_sl_test = Counter(all_top_sl_test)
+            parent_dates_sl_test = sorted(list(set(all_top_sl_test)), reverse=True)
+            
+            if parent_dates_sl_test:
+                r100_sl_test = parent_dates_sl_test[:100]
+                dates_row_sl_test = []
+                counts_row_sl_test = []
+                for dt in r100_sl_test:
+                    cnt = dc_top_sl_test.get(dt, 1)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF"
+                    dates_row_sl_test.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_BOTTOM_CHARTS_TEST:
+                        if dt in df.index and df.loc[dt, sc_col] <= th:
+                            val_diff_pct = (th - df.loc[dt, sc_col]) / abs(th)
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E'
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFD700'
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666'
+                            else:
+                                color = '#595959'
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                        else:
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl_test.append(f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 종합 최근 이탈 신호 (최근 100개)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                     <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl_test)}
+                     </tr>
+                     <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>이탈</th>
+                        {"".join(counts_row_sl_test)}
+                     </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            hd_df = [fmt_date_kor(d) for d in df.index]
+            bottom_slope_options_test = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_bottom_slopes_test = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options_test, default=["슬로프통합"], key="bottom_slope_test_multiselect")
+            
+            if not selected_bottom_slopes_test:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
+            else:
+                num_charts_test = len(selected_bottom_slopes_test)
+                fig_dsi_test = make_subplots(rows=num_charts_test, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts_test > 1 else 0.0,
+                    subplot_titles=tuple(selected_bottom_slopes_test),
+                    specs=[[{"secondary_y": True}]]*num_charts_test)
+                
+                chart_info_map_test = {
+                    10: ('테스트_슬로프10일합', -15),
+                    20: ('테스트_슬로프20일합', -20),
+                    30: ('테스트_슬로프30일합', -25),
+                    40: ('테스트_슬로프40일합', -30),
+                    50: ('테스트_슬로프50일합', -35),
+                    60: ('테스트_슬로프60일합', -40),
+                    70: ('테스트_슬로프70일합', -45),
+                }
+                
+                for idx, choice in enumerate(selected_bottom_slopes_test):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_dsi_test.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors_test = {
+                            1: 'rgba(224, 102, 102, 0.45)', # 빨강
+                            2: 'rgba(255, 140, 0, 0.3)',   # 주황
+                            3: 'rgba(255, 255, 153, 0.45)', # 노랑
+                            4: 'rgba(0, 128, 0, 0.3)', # 초록
+                            5: 'rgba(135, 206, 235, 0.3)', # 파랑
+                            6: 'rgba(0, 0, 128, 0.3)',     # 남색
+                            7: 'rgba(128, 0, 128, 0.3)'    # 보라
+                        }
+                        for cnt_val, bar_color in detect_colors_test.items():
+                            cond_bar = (df['slope_detect_count_test'] == cnt_val)
+                            fig_dsi_test.add_trace(go.Bar(
+                                x=hd_df,
+                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
+                                marker_color=bar_color,
+                                showlegend=False,
+                                hoverinfo='skip',
+                                marker_line_width=0.5,
+                                marker_line_color='white'
+                            ), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map_test[days]
+                        
+                        fig_dsi_test.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_dsi_test.add_trace(go.Scatter(x=hd_df,y=df[sc],name=f'테스트슬로프 {days}일합계',line=dict(color='rgba(255, 0, 0, 0.8)', width=1),showlegend=True,hovertemplate=f'테스트슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_test.add_trace(go.Scatter(x=hd_df,y=[-thresh]*len(hd_df),name='상한선',line=dict(color='gray', width=1, dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_test.add_trace(go.Scatter(x=hd_df,y=[thresh]*len(hd_df),name='하한선',line=dict(color='gray', width=1, dash='dash'),showlegend=sf,legendgroup='lower',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
+                        diff_pct = (thresh - df[sc]) / abs(thresh)
+                        bottom_cond_vals_test = [
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(0, 128, 0, 0.3)'),   # 0~40%: 초록
+                            ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.3)'),    # 40~60%: 노랑
+                            ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.3)'),    # 60~80%: 빨강
+                            ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.3)'),                             # 80% 초과: 검정
+                        ]
+                        for tc, tfc in bottom_cond_vals_test:
+                            fig_dsi_test.add_trace(go.Bar(x=hd_df, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_indices_dsi = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_dsi)]
+                    initial_x_range_dsi_test = [detected_indices_dsi[0], len(hd_df) - 1] if detected_indices_dsi else None
+                    if detected_indices_dsi:
+                        qqq_1y_dsi = df['QQQ'].iloc[detected_indices_dsi[0]:]
+                        qmin_dsi, qmax_dsi = float(qqq_1y_dsi.min()), float(qqq_1y_dsi.max())
+                    else:
+                        qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
+                else:
+                    initial_x_range_dsi_test = None
+                    qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
+                
+                chart_height_test = max(400, num_charts_test * 300)
+                layout_params_test = COMMON_LAYOUT.copy()
+                layout_params_test.pop('shapes', None)
+                
+                shapes_test = []
+                for idx in range(num_charts_test):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes_test.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    
+                fig_dsi_test.update_layout(**layout_params_test, height=chart_height_test, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test)
+                
+                for idx, choice in enumerate(selected_bottom_slopes_test):
+                    row_i = idx + 1
+                    fig_dsi_test.update_yaxes(range=[qmin_dsi*0.95,qmax_dsi*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_dsi_test.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_dsi_test.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_range_dsi_test:
+                    fig_dsi_test.update_xaxes(range=initial_x_range_dsi_test, type='category', **crosshair_xaxis())
+                else:
+                    fig_dsi_test.update_xaxes(type='category', **crosshair_xaxis())
+                fig_dsi_test.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_dsi_test, width='stretch', config=COMMON_CONFIG, key="tab2_us_slope_test_chart")
+            
+            # 실시간 지표검증결과 자동 계산 (QQQ 테스트 슬로프합 기준)
+            slope_conditions_test = {
+                "**10일합 이탈**": (df['테스트_슬로프10일합'] <= -15, "10일테스트슬로프합 <= -15"),
+                "**20일합 이탈**": (df['테스트_슬로프20일합'] <= -20, "20일테스트슬로프합 <= -20"),
+                "**30일합 이탈**": (df['테스트_슬로프30일합'] <= -25, "30일테스트슬로프합 <= -25"),
+                "**40일합 이탈**": (df['테스트_슬로프40일합'] <= -30, "40일테스트슬로프합 <= -30"),
+                "**50일합 이탈**": (df['테스트_슬로프50일합'] <= -35, "50일테스트슬로프합 <= -35"),
+                "**60일합 이탈**": (df['테스트_슬로프60일합'] <= -40, "60일테스트슬로프합 <= -40"),
+                "**70일합 이탈**": (df['테스트_슬로프70일합'] <= -45, "70일테스트슬로프합 <= -45"),
+                "**슬로프합 종합 감지**": (
+                    (df['테스트_슬로프10일합'] <= -15) | (df['테스트_슬로프20일합'] <= -20) | (df['테스트_슬로프30일합'] <= -25) | 
+                    (df['테스트_슬로프40일합'] <= -30) | (df['테스트_슬로프50일합'] <= -35) | (df['테스트_슬로프60일합'] <= -40) | (df['테스트_슬로프70일합'] <= -45),
+                    "1개 이상 지표 이탈"
+                ),
+                "**슬로프합 강력 이탈**": (
+                    ((df['테스트_슬로프10일합'] <= -15).astype(int) + 
+                     (df['테스트_슬로프20일합'] <= -20).astype(int) + 
+                     (df['테스트_슬로프30일합'] <= -25).astype(int) + 
+                     (df['테스트_슬로프40일합'] <= -30).astype(int) + 
+                     (df['테스트_슬로프50일합'] <= -35).astype(int) + 
+                     (df['테스트_슬로프60일합'] <= -40).astype(int) + 
+                     (df['테스트_슬로프70일합'] <= -45).astype(int)) >= 4,
+                    "4개 이상 지표 동시 이탈"
+                )
+            }
+            stats_slope_test = calculate_indicator_stats(df, 'QQQ', slope_conditions_test)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+            render_stats_table(stats_slope_test, "지표검증결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
+            
+            # 빨주노초파남보 다중 감지 검증 결과 추가
+            v2_slope_rainbow_verify_test = {
+                "빨간색 (1개 감지)": (df['slope_detect_count_test'] == 1, "동시 감지 1개"),
+                "주황색 (2개 감지)": (df['slope_detect_count_test'] == 2, "동시 감지 2개"),
+                "노란색 (3개 감지)": (df['slope_detect_count_test'] == 3, "동시 감지 3개"),
+                "초록색 (4개 감지)": (df['slope_detect_count_test'] == 4, "동시 감지 4개"),
+                "파란색 (5개 감지)": (df['slope_detect_count_test'] == 5, "동시 감지 5개"),
+                "남색 (6개 감지)": (df['slope_detect_count_test'] == 6, "동시 감지 6개"),
+                "보라색 (7개 감지)": (df['slope_detect_count_test'] == 7, "동시 감지 7개")
+            }
+            stats_slope_rainbow_test = calculate_indicator_stats(df, 'QQQ', v2_slope_rainbow_verify_test)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+            render_stats_table(stats_slope_rainbow_test, "슬로프합 최종본 다중 감지 검증 결과")
+            
+        elif selected_country == "한국":
+            SLOPE_BOTTOM_CHARTS_TEST_KR = [
+                (2, 10, '테스트_슬로프10일합', -15),
+                (3, 20, '테스트_슬로프20일합', -20),
+                (4, 30, '테스트_슬로프30일합', -25),
+                (5, 40, '테스트_슬로프40일합', -30),
+                (6, 50, '테스트_슬로프50일합', -35),
+                (7, 60, '테스트_슬로프60일합', -40),
+                (8, 70, '테스트_슬로프70일합', -45),
+            ]
+            
+            # 동시 감지 갯수 계산 및 저장
+            slope_detect_count_test_kr = sum(((df_kr[sfc] <= thresh)).astype(int) for _, _, sfc, thresh in SLOPE_BOTTOM_CHARTS_TEST_KR)
+            df_kr['slope_detect_count_test_kr'] = slope_detect_count_test_kr
+            
+            # 상한 돌파 신호 감지표 (하한 돌파 저점 신호 수집)
+            all_top_sl_test_kr = []
+            for _, days_t, sfc, thresh in SLOPE_BOTTOM_CHARTS_TEST_KR:
+                _cond_sl = (df_kr[sfc] <= thresh)
+                all_top_sl_test_kr.extend(df_kr[_cond_sl].index.tolist())
+            dc_top_sl_test_kr = Counter(all_top_sl_test_kr)
+            parent_dates_sl_test_kr = sorted(list(set(all_top_sl_test_kr)), reverse=True)
+            
+            if parent_dates_sl_test_kr:
+                r100_sl_test_kr = parent_dates_sl_test_kr[:100]
+                dates_row_sl_test_kr = []
+                counts_row_sl_test_kr = []
+                for dt in r100_sl_test_kr:
+                    cnt = dc_top_sl_test_kr.get(dt, 1)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF"
+                    dates_row_sl_test_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_BOTTOM_CHARTS_TEST_KR:
+                        if dt in df_kr.index and df_kr.loc[dt, sc_col] <= th:
+                            val_diff_pct = (th - df_kr.loc[dt, sc_col]) / abs(th)
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E'
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFD700'
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666'
+                            else:
+                                color = '#595959'
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                        else:
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl_test_kr.append(f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 저점 지표 감지 날짜 (기울기합 최근 100개, 신호 발생일)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                    <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl_test_kr)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>감지</th>
+                        {"".join(counts_row_sl_test_kr)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            hd_df_kr_test = [fmt_date_kor(d) for d in df_kr.index]
+            
+            bottom_slope_options_test_kr = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_bottom_slopes_test_kr = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options_test_kr, default=["슬로프통합"], key="bottom_slope_multiselect_test_kr")
+            
+            if not selected_bottom_slopes_test_kr:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
+            else:
+                num_charts_test_kr = len(selected_bottom_slopes_test_kr)
+                fig_dsi_test_kr = make_subplots(rows=num_charts_test_kr, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts_test_kr > 1 else 0.0,
+                    subplot_titles=tuple(selected_bottom_slopes_test_kr),
+                    specs=[[{"secondary_y": True}]]*num_charts_test_kr)
+                
+                chart_info_map_test_kr = {
+                    10: ('테스트_슬로프10일합', -15),
+                    20: ('테스트_슬로프20일합', -20),
+                    30: ('테스트_슬로프30일합', -25),
+                    40: ('테스트_슬로프40일합', -30),
+                    50: ('테스트_슬로프50일합', -35),
+                    60: ('테스트_슬로프60일합', -40),
+                    70: ('테스트_슬로프70일합', -45),
+                }
+                
+                for idx, choice in enumerate(selected_bottom_slopes_test_kr):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_dsi_test_kr.add_trace(go.Scatter(x=hd_df_kr_test,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)',
+                            2: 'rgba(255, 140, 0, 0.3)',
+                            3: 'rgba(255, 255, 153, 0.45)',
+                            4: 'rgba(0, 128, 0, 0.3)',
+                            5: 'rgba(135, 206, 235, 0.3)',
+                            6: 'rgba(0, 0, 128, 0.3)',
+                            7: 'rgba(128, 0, 128, 0.3)'
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df_kr['slope_detect_count_test_kr'] == cnt_val)
+                            fig_dsi_test_kr.add_trace(go.Bar(
+                                x=hd_df_kr_test,
+                                y=cond_bar.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2,
+                                marker_color=bar_color,
+                                showlegend=False,
+                                hoverinfo='skip',
+                                marker_line_width=0.5,
+                                marker_line_color='white'
+                            ), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map_test_kr[days]
+                        
+                        fig_dsi_test_kr.add_trace(go.Scatter(x=hd_df_kr_test,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_dsi_test_kr.add_trace(go.Scatter(x=hd_df_kr_test,y=df_kr[sc],name=f'테스트 슬로프 {days}일합계',line=dict(color='rgba(255, 0, 0, 0.8)', width=1),showlegend=True,hovertemplate=f'테스트슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_test_kr.add_trace(go.Scatter(x=hd_df_kr_test, y=[thresh]*len(hd_df_kr_test), name='하한선', line=dict(color='gray', width=1, dash='dash'), showlegend=sf, legendgroup='lower', hoverinfo='skip'), row=row_i, col=1, secondary_y=True)
+                        
+                        diff_pct = (thresh - df_kr[sc]) / abs(thresh)
+                        bottom_cond_vals = [
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)), 'rgba(0, 128, 0, 0.3)'),
+                            (((diff_pct > 0.40) & (diff_pct <= 0.60)), 'rgba(255, 220, 0, 0.3)'),
+                            (((diff_pct > 0.60) & (diff_pct <= 0.80)), 'rgba(220, 30, 30, 0.3)'),
+                            ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.3)'),
+                        ]
+                        for tc, tfc in bottom_cond_vals:
+                            fig_dsi_test_kr.add_trace(go.Bar(x=hd_df_kr_test, y=tc.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_dsi_test_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_indices_dsi_test_kr = [i for i, d in enumerate(df_kr.index) if d >= pd.to_datetime(target_date_dsi_test_kr)]
+                    initial_x_range_dsi_test_kr = [detected_indices_dsi_test_kr[0], len(hd_df_kr_test) - 1] if detected_indices_dsi_test_kr else None
+                    if detected_indices_dsi_test_kr:
+                        kospi_1y_dsi_test = df_kr['KOSPI'].iloc[detected_indices_dsi_test_kr[0]:]
+                        kmin_dsi_test, kmax_dsi_test = float(kospi_1y_dsi_test.min()), float(kospi_1y_dsi_test.max())
+                    else:
+                        kmin_dsi_test, kmax_dsi_test = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
+                else:
+                    initial_x_range_dsi_test_kr = None
+                    kmin_dsi_test, kmax_dsi_test = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
+                
+                chart_height_test_kr = max(400, num_charts_test_kr * 300)
+                layout_params_test_kr = COMMON_LAYOUT.copy()
+                layout_params_test_kr.pop('shapes', None)
+                
+                shapes_test_kr = []
+                for idx in range(num_charts_test_kr):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes_test_kr.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    
+                fig_dsi_test_kr.update_layout(**layout_params_test_kr, height=chart_height_test_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test_kr)
+                
+                for idx, choice in enumerate(selected_bottom_slopes_test_kr):
+                    row_i = idx + 1
+                    fig_dsi_test_kr.update_yaxes(range=[kmin_dsi_test*0.95,kmax_dsi_test*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_dsi_test_kr.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_dsi_test_kr.update_yaxes(range=[-120,180],tick0=-120,dtick=20,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_range_dsi_test_kr:
+                    fig_dsi_test_kr.update_xaxes(range=initial_x_range_dsi_test_kr, type='category', **crosshair_xaxis())
+                else:
+                    fig_dsi_test_kr.update_xaxes(type='category', **crosshair_xaxis())
+                fig_dsi_test_kr.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_dsi_test_kr, width='stretch', config=COMMON_CONFIG, key="tab2_kr_slope_test_chart")
+            
+            # 실시간 지표검증결과 자동 계산 (KOSPI 테스트 슬로프합 기준)
+            slope_conditions_test_kr = {
+                "**10일합 이탈**": (df_kr['테스트_슬로프10일합'] <= -15, "10일테스트슬로프합 <= -15"),
+                "**20일합 이탈**": (df_kr['테스트_슬로프20일합'] <= -20, "20일테스트슬로프합 <= -20"),
+                "**30일합 이탈**": (df_kr['테스트_슬로프30일합'] <= -25, "30일테스트슬로프합 <= -25"),
+                "**40일합 이탈**": (df_kr['테스트_슬로프40일합'] <= -30, "40일테스트슬로프합 <= -30"),
+                "**50일합 이탈**": (df_kr['테스트_슬로프50일합'] <= -35, "50일테스트슬로프합 <= -35"),
+                "**60일합 이탈**": (df_kr['테스트_슬로프60일합'] <= -40, "60일테스트슬로프합 <= -40"),
+                "**70일합 이탈**": (df_kr['테스트_슬로프70일합'] <= -45, "70일테스트슬로프합 <= -45"),
+                "**슬로프합 종합 감지**": (
+                    (df_kr['테스트_슬로프10일합'] <= -15) | (df_kr['테스트_슬로프20일합'] <= -20) | (df_kr['테스트_슬로프30일합'] <= -25) | 
+                    (df_kr['테스트_슬로프40일합'] <= -30) | (df_kr['테스트_슬로프50일합'] <= -35) | (df_kr['테스트_슬로프60일합'] <= -40) | (df_kr['테스트_슬로프70일합'] <= -45),
+                    "1개 이상 지표 이탈"
+                ),
+                "**슬로프합 강력 이탈**": (
+                    ((df_kr['테스트_슬로프10일합'] <= -15).astype(int) + 
+                     (df_kr['테스트_슬로프20일합'] <= -20).astype(int) + 
+                     (df_kr['테스트_슬로프30일합'] <= -25).astype(int) + 
+                     (df_kr['테스트_슬로프40일합'] <= -30).astype(int) + 
+                     (df_kr['테스트_슬로프50일합'] <= -35).astype(int) + 
+                     (df_kr['테스트_슬로프60일합'] <= -40).astype(int) + 
+                     (df_kr['테스트_슬로프70일합'] <= -45).astype(int)) >= 4,
+                    "4개 이상 지표 동시 이탈"
+                )
+            }
+            stats_slope_test_kr = calculate_indicator_stats(df_kr, 'KOSPI', slope_conditions_test_kr)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+            render_stats_table(stats_slope_test_kr, "지표검증결과 (2018.10 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
+            
+            # 빨주노초파남보 다중 감지 검증 결과 추가
+            v2_slope_rainbow_verify_test_kr = {
+                "빨간색 (1개 감지)": (df_kr['slope_detect_count_test_kr'] == 1, "동시 감지 1개"),
+                "주황색 (2개 감지)": (df_kr['slope_detect_count_test_kr'] == 2, "동시 감지 2개"),
+                "노란색 (3개 감지)": (df_kr['slope_detect_count_test_kr'] == 3, "동시 감지 3개"),
+                "초록색 (4개 감지)": (df_kr['slope_detect_count_test_kr'] == 4, "동시 감지 4개"),
+                "파란색 (5개 감지)": (df_kr['slope_detect_count_test_kr'] == 5, "동시 감지 5개"),
+                "남색 (6개 감지)": (df_kr['slope_detect_count_test_kr'] == 6, "동시 감지 6개"),
+                "보라색 (7개 감지)": (df_kr['slope_detect_count_test_kr'] == 7, "동시 감지 7개")
+            }
+            stats_slope_rainbow_test_kr = calculate_indicator_stats(df_kr, 'KOSPI', v2_slope_rainbow_verify_test_kr)
+            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+            render_stats_table(stats_slope_rainbow_test_kr, "슬로프합 최종본 다중 감지 검증 결과")
 
 # ── Tab 3: 모니터링 ──
 with tabs[2]:
@@ -5177,7 +5661,7 @@ with tabs[1]:
         _not_bottom = ~is_any_bottom.reindex(df_top.index).fillna(False)
         
         # ===== 소분류 탭 구성 =====
-        top_sub_tabs = st.tabs(['공탐변동', '슬로프합', '다중지표', '통합지표'])
+        top_sub_tabs = st.tabs(['공탐변동', '슬로프합', '기울기합', '다중지표', '통합지표'])
         
         # ── 소분류 1: 공탐변동 고점 ──
         with top_sub_tabs[0]:
@@ -5361,9 +5845,9 @@ with tabs[1]:
                     y_axis_key_sec = f"yaxis{idx+1}2" if idx > 0 else "yaxis2"
                     
                     if initial_x_range_dsi:
-                        fig_dsi.update_layout({x_axis_key: crosshair_xaxis(range=initial_x_range_dsi, type='category')})
+                        fig_dsi.update_layout({x_axis_key: crosshair_xaxis(range=initial_x_range_dsi, type='category', categoryorder='array', categoryarray=hd_df)})
                     else:
-                        fig_dsi.update_layout({x_axis_key: crosshair_xaxis(type='category')})
+                        fig_dsi.update_layout({x_axis_key: crosshair_xaxis(type='category', categoryorder='array', categoryarray=hd_df)})
                     
                     fig_dsi.update_layout({y_axis_key: crosshair_yaxis(range=[qmin_dsi*0.95, qmax_dsi*1.05], side='left')})
                     
@@ -5629,8 +6113,8 @@ with tabs[1]:
             st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
             render_slope_multi_stats_table(stats_top_sl_multi, "📊 슬로프합 최종본 다중 감지 검증 결과")
         
-        # ── 소분류 3: 다중지표 고점 ──
-        with top_sub_tabs[2]:
+        # ── 소분류 4: 다중지표 고점 ──
+        with top_sub_tabs[3]:
             _nb_top = _not_bottom.reindex(df_top.index).fillna(True)
             
             # QQQ_RU 백분위 추가 (저점 DD_Pct 대칭용)
@@ -5794,8 +6278,8 @@ with tabs[1]:
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_top_multi, "지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
         
-        # ── 소분류 4: 통합지표 고점 ──
-        with top_sub_tabs[3]:
+        # ── 소분류 5: 통합지표 고점 ──
+        with top_sub_tabs[4]:
             _nb_top2 = _not_bottom.reindex(df_top.index).fillna(True)
             
             # 후보1: 과열 에너지 공식 (포착률 10~15% 재조정)
@@ -5839,58 +6323,265 @@ with tabs[1]:
                 st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             
             # 차트
-            if active_period_days:
-                target_date_tt = datetime.date.today() - datetime.timedelta(days=active_period_days)
-                df_top_plot = df_top[df_top.index >= pd.to_datetime(target_date_tt)]
-                if not df_top_plot.empty:
+            df_top_plot = df_top.copy()
+            initial_x_tt = None
+            qqq_yr_tt = None
+            if not df_top_plot.empty:
+                if active_period_days:
+                    target_date_tt = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                    detected_indices = [i for i, d in enumerate(df_top_plot.index) if d >= target_date_tt]
+                    if detected_indices:
+                        initial_x_tt = [detected_indices[0], len(df_top_plot) - 1]
+                        sub_q = df_top_plot['QQQ'].iloc[detected_indices[0]:]
+                        qqq_yr_tt = [float(sub_q.min()) * 0.95, float(sub_q.max()) * 1.05]
+                if qqq_yr_tt is None:
                     qqq_yr_tt = [float(df_top_plot['QQQ'].min()) * 0.95, float(df_top_plot['QQQ'].max()) * 1.05]
-                    initial_x_tt = [df_top_plot.index[0].strftime("%Y-%m-%d"), df_top_plot.index[-1].strftime("%Y-%m-%d")]
-                else:
-                    qqq_yr_tt = None
-                    initial_x_tt = None
+                
+                fig_top_final = make_subplots(specs=[[{"secondary_y": True}]])
+                hd_top_final = [fmt_date_kor(d) for d in df_top_plot.index]
+                
+                fig_top_final.add_trace(go.Scatter(
+                    x=hd_top_final, y=df_top_plot['QQQ'], name='QQQ 가격', mode='lines+markers',
+                    line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate='QQQ: %{y:.2f}<extra></extra>'
+                ), secondary_y=False)
+                
+                fig_top_final.add_trace(go.Bar(
+                    x=hd_top_final, y=c_top_all.reindex(df_top_plot.index).astype(int).values * (qqq_yr_tt[1] if qqq_yr_tt else 600), name='통합 고점 감지 (OR)',
+                    marker_color='rgba(128, 0, 128, 0.3)',
+                    marker_line_width=0.5, marker_line_color='white',
+                    hovertemplate='고점 신호 감지<extra></extra>'
+                ), secondary_y=False)
+                
+                fig_top_final.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                    shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
+                fig_top_final.update_xaxes(type='category', categoryorder='array', categoryarray=hd_top_final, **crosshair_xaxis())
+                if initial_x_tt:
+                    fig_top_final.update_xaxes(range=initial_x_tt)
+                fig_top_final.update_yaxes(title_text="", range=qqq_yr_tt, **crosshair_yaxis(), secondary_y=False)
+                fig_top_final.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
+                
+                st.plotly_chart(fig_top_final, width='stretch', config=COMMON_CONFIG, key="top_tab_final_chart")
+                
+                # 통합지표 고점 검증결과 표
+                top_final_conditions = {
+                    "**최종 4대 통합 고점지표 (OR)**": (c_top_all, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
+                }
+                stats_top_final = calculate_top_stats(df_top, 'QQQ', top_final_conditions)
+                render_top_stats_table(stats_top_final, "통합 고점지표 검증 결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
+            
+        # ── 소분류 3: 기울기합 고점 ──
+        with top_sub_tabs[2]:
+            SLOPE_TOP_CHARTS_TEST = [
+                (2, 10, '테스트_슬로프10일합', 29),
+                (3, 20, '테스트_슬로프20일합', 39),
+                (4, 30, '테스트_슬로프30일합', 46),
+                (5, 40, '테스트_슬로프40일합', 59),
+                (6, 50, '테스트_슬로프50일합', 75),
+                (7, 60, '테스트_슬로프60일합', 93),
+                (8, 70, '테스트_슬로프70일합', 109),
+            ]
+            
+            # 동시 감지 갯수 계산 및 저장 (저점일 제외)
+            slope_detect_count_test = sum(((df[sfc] >= thresh) & _not_bottom).astype(int) for _, _, sfc, thresh in SLOPE_TOP_CHARTS_TEST)
+            df['slope_detect_count_test'] = slope_detect_count_test
+            
+            # 상한 돌파 신호 감지표 (저점일 제외, 초과율 0% 이상인 경우 수집)
+            all_top_sl_test = []
+            for _, days_t, sfc, thresh in SLOPE_TOP_CHARTS_TEST:
+                _cond_sl = (df[sfc] >= thresh) & _not_bottom
+                all_top_sl_test.extend(df[_cond_sl].index.tolist())
+            dc_top_sl_test = Counter(all_top_sl_test)
+            parent_dates_sl_test = sorted(list(set(all_top_sl_test)), reverse=True)
+            
+            if parent_dates_sl_test:
+                r100_sl_test = parent_dates_sl_test[:100]
+                dates_row_sl_test = []
+                counts_row_sl_test = []
+                for dt in r100_sl_test:
+                    cnt = dc_top_sl_test.get(dt, 1)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF"
+                    dates_row_sl_test.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_TOP_CHARTS_TEST:
+                        if dt in df.index and df.loc[dt, sc_col] >= th:
+                            val_diff_pct = (df.loc[dt, sc_col] - th) / th
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E'
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFD700'
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666'
+                            else:
+                                color = '#595959'
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                        else:
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl_test.append(f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 고점 과열 감지 날짜 (기울기합 최근 100개, 저점 감지일 제외)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                    <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl_test)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>감지</th>
+                        {"".join(counts_row_sl_test)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            hd_df_test = [fmt_date_kor(d) for d in df.index]
+            
+            bottom_slope_options_test = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_slopes_test = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options_test, default=["슬로프통합"], key="top_slope_multiselect_test")
+            
+            if not selected_slopes_test:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
             else:
-                df_top_plot = df_top.copy()
-                if not df_top_plot.empty:
-                    qqq_yr_tt = [float(df_top_plot['QQQ'].min()) * 0.95, float(df_top_plot['QQQ'].max()) * 1.05]
-                    initial_x_tt = [df_top_plot.index[0].strftime("%Y-%m-%d"), df_top_plot.index[-1].strftime("%Y-%m-%d")]
+                num_charts_test = len(selected_slopes_test)
+                fig_top_sl_test = make_subplots(rows=num_charts_test, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts_test > 1 else 0.0,
+                    subplot_titles=tuple(selected_slopes_test),
+                    specs=[[{"secondary_y": True}]]*num_charts_test)
+                
+                chart_info_map_test = {
+                    10: ('테스트_슬로프10일합', 29),
+                    20: ('테스트_슬로프20일합', 39),
+                    30: ('테스트_슬로프30일합', 46),
+                    40: ('테스트_슬로프40일합', 59),
+                    50: ('테스트_슬로프50일합', 75),
+                    60: ('테스트_슬로프60일합', 93),
+                    70: ('테스트_슬로프70일합', 109),
+                }
+                
+                for idx, choice in enumerate(selected_slopes_test):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_top_sl_test.add_trace(go.Scatter(x=hd_df_test,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)',
+                            2: 'rgba(255, 140, 0, 0.3)',
+                            3: 'rgba(255, 255, 153, 0.45)',
+                            4: 'rgba(0, 128, 0, 0.3)',
+                            5: 'rgba(135, 206, 235, 0.3)',
+                            6: 'rgba(0, 0, 128, 0.3)',
+                            7: 'rgba(128, 0, 128, 0.3)'
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df['slope_detect_count_test'] == cnt_val) & _not_bottom
+                            fig_top_sl_test.add_trace(go.Bar(x=hd_df_test, y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map_test[days]
+                        
+                        fig_top_sl_test.add_trace(go.Scatter(x=hd_df_test,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=sf,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_top_sl_test.add_trace(go.Scatter(x=hd_df_test,y=df[sc],name=f'테스트 슬로프 {days}일합계',line=dict(color='rgba(255, 0, 0, 0.8)', width=1),showlegend=True,hovertemplate=f'테스트슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_top_sl_test.add_trace(go.Scatter(x=hd_df_test,y=[thresh]*len(hd_df_test),name='상한선',line=dict(color='gray', width=1, dash='dash'),showlegend=sf,legendgroup='upper',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        diff_pct = (df[sc] - thresh) / abs(thresh)
+                        top_cond_vals = [
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)) & _not_bottom, 'rgba(0, 128, 0, 0.3)'),
+                            (((diff_pct > 0.40) & (diff_pct <= 0.60)) & _not_bottom, 'rgba(255, 220, 0, 0.3)'),
+                            (((diff_pct > 0.60) & (diff_pct <= 0.80)) & _not_bottom, 'rgba(220, 30, 30, 0.3)'),
+                            ((diff_pct > 0.80) & _not_bottom, 'rgba(0, 0, 0, 0.3)'),
+                        ]
+                        for tc, tfc in top_cond_vals:
+                            fig_top_sl_test.add_trace(go.Bar(x=hd_df_test, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_tsl_test = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_tsl_test = [i for i, d in enumerate(df.index) if d >= pd.to_datetime(target_date_tsl_test)]
+                    initial_x_tsl_test = [detected_tsl_test[0], len(hd_df_test) - 1] if detected_tsl_test else None
+                    if detected_tsl_test:
+                        qqq_1y_tsl_test = df['QQQ'].iloc[detected_tsl_test[0]:]
+                        qmin_tsl_test, qmax_tsl_test = float(qqq_1y_tsl_test.min()), float(qqq_1y_tsl_test.max())
+                    else:
+                        qmin_tsl_test, qmax_tsl_test = float(df['QQQ'].min()), float(df['QQQ'].max())
                 else:
-                    qqq_yr_tt = None
-                    initial_x_tt = None
+                    initial_x_tsl_test = None
+                    qmin_tsl_test, qmax_tsl_test = float(df['QQQ'].min()), float(df['QQQ'].max())
+                
+                chart_height_test = max(400, num_charts_test * 300)
+                layout_params_tsl_test = COMMON_LAYOUT.copy()
+                layout_params_tsl_test.pop('shapes', None)
+                
+                shapes_test = []
+                for idx in range(num_charts_test):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes_test.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                
+                fig_top_sl_test.update_layout(**layout_params_tsl_test, height=chart_height_test, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test)
+                
+                for idx, choice in enumerate(selected_slopes_test):
+                    row_i = idx + 1
+                    fig_top_sl_test.update_yaxes(range=[qmin_tsl_test*0.95,qmax_tsl_test*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_top_sl_test.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_top_sl_test.update_yaxes(range=[-180,250],tick0=-180,dtick=30,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_tsl_test:
+                    fig_top_sl_test.update_xaxes(range=initial_x_tsl_test, type='category', **crosshair_xaxis())
+                else:
+                    fig_top_sl_test.update_xaxes(type='category', **crosshair_xaxis())
+                fig_top_sl_test.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_top_sl_test, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_test_chart")
             
-            fig_top_final = make_subplots(specs=[[{"secondary_y": True}]])
-            hd_top_final = [fmt_date_kor(d) for d in df_top_plot.index]
-            
-            fig_top_final.add_trace(go.Scatter(
-                x=hd_top_final, y=df_top_plot['QQQ'], name='QQQ 가격', mode='lines+markers',
-                line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                hovertemplate='QQQ: %{y:.2f}<extra></extra>'
-            ), secondary_y=False)
-            
-            fig_top_final.add_trace(go.Bar(
-                x=hd_top_final, y=c_top_all.reindex(df_top_plot.index).astype(int).values * (qqq_yr_tt[1] if qqq_yr_tt else 600), name='통합 고점 감지 (OR)',
-                marker_color='rgba(128, 0, 128, 0.3)',
-                marker_line_width=0.5, marker_line_color='white',
-                hovertemplate='고점 신호 감지<extra></extra>'
-            ), secondary_y=False)
-            
-            fig_top_final.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
-            fig_top_final.update_xaxes(type='category', **crosshair_xaxis())
-            if initial_x_tt:
-                fig_top_final.update_xaxes(range=initial_x_tt)
-            fig_top_final.update_yaxes(title_text="", range=qqq_yr_tt, **crosshair_yaxis(), secondary_y=False)
-            fig_top_final.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
-            
-            st.plotly_chart(fig_top_final, width='stretch', config=COMMON_CONFIG, key="top_tab_final_chart")
-            
-            # 통합지표 고점 검증결과 표
-            top_final_conditions = {
-                "**최종 4대 통합 고점지표 (OR)**": (c_top_all, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
+            # 슬로프합 고점 검증결과 표
+            slope_top_conditions_test = {
+                "**10일합 상한돌파**": ((df['테스트_슬로프10일합'] >= 29) & _not_bottom, "테스트_슬로프10일합 ≥ 29"),
+                "**20일합 상한돌파**": ((df['테스트_슬로프20일합'] >= 39) & _not_bottom, "테스트_슬로프20일합 ≥ 39"),
+                "**30일합 상한돌파**": ((df['테스트_슬로프30일합'] >= 46) & _not_bottom, "테스트_슬로프30일합 ≥ 46"),
+                "**40일합 상한돌파**": ((df['테스트_슬로프40일합'] >= 59) & _not_bottom, "테스트_슬로프40일합 ≥ 59"),
+                "**50일합 상한돌파**": ((df['테스트_슬로프50일합'] >= 75) & _not_bottom, "테스트_슬로프50일합 ≥ 75"),
+                "**60일합 상한돌파**": ((df['테스트_슬로프60일합'] >= 93) & _not_bottom, "테스트_슬로프60일합 ≥ 93"),
+                "**70일합 상한돌파**": ((df['테스트_슬로프70일합'] >= 109) & _not_bottom, "테스트_슬로프70일합 ≥ 109"),
+                "**슬로프합 고점 종합**": (
+                    ((df['테스트_슬로프10일합'] >= 29) | (df['테스트_슬로프20일합'] >= 39) | (df['테스트_슬로프30일합'] >= 46) | (df['테스트_슬로프40일합'] >= 59) | (df['테스트_슬로프50일합'] >= 75) | (df['테스트_슬로프60일합'] >= 93) | (df['테스트_슬로프70일합'] >= 109)) & _not_bottom,
+                    "1개 이상 상한선 돌파 (저점일 제외)"
+                ),
+                "**슬로프합 고점 강력**": (
+                    (((df['테스트_슬로프10일합'] >= 29).astype(int) + 
+                      (df['테스트_슬로프20일합'] >= 39).astype(int) + 
+                      (df['테스트_슬로프30일합'] >= 46).astype(int) + 
+                      (df['테스트_슬로프40일합'] >= 59).astype(int) + 
+                      (df['테스트_슬로프50일합'] >= 75).astype(int) + 
+                      (df['테스트_슬로프60일합'] >= 93).astype(int) + 
+                      (df['테스트_슬로프70일합'] >= 109).astype(int)) >= 4) & _not_bottom,
+                    "4개 이상 상한선 동시 돌파 (저점일 제외)"
+                )
             }
-            stats_top_final = calculate_top_stats(df_top, 'QQQ', top_final_conditions)
-            render_top_stats_table(stats_top_final, "통합 고점지표 검증 결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
-    
+            stats_top_sl_test = calculate_top_stats(df, 'QQQ', slope_top_conditions_test)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+            render_top_stats_table(stats_top_sl_test, "고점 지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
+            
+            slope_multi_conditions_us_test = {
+                "**빨간색 (1개 감지)**": (df['slope_detect_count_test'] >= 1, "동시 감지 1개"),
+                "**주황색 (2개 감지)**": (df['slope_detect_count_test'] >= 2, "동시 감지 2개"),
+                "**노란색 (3개 감지)**": (df['slope_detect_count_test'] >= 3, "동시 감지 3개"),
+                "**초록색 (4개 감지)**": (df['slope_detect_count_test'] >= 4, "동시 감지 4개"),
+                "**파란색 (5개 감지)**": (df['slope_detect_count_test'] >= 5, "동시 감지 5개"),
+                "**남색 (6개 감지)**":   (df['slope_detect_count_test'] >= 6, "동시 감지 6개"),
+                "**보라색 (7개 감지)**": (df['slope_detect_count_test'] >= 7, "동시 감지 7개"),
+            }
+            stats_top_sl_multi_test = calculate_top_stats(df, 'QQQ', slope_multi_conditions_us_test)
+            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+            render_slope_multi_stats_table(stats_top_sl_multi_test, "📊 슬로프합 최종본 다중 감지 검증 결과")
+            
     else:
         # ===== 저점 감지일 수집 (한국 KOSPI용 4개 탭 종합) =====
         # 공탐변동 저점
@@ -5954,7 +6645,7 @@ with tabs[1]:
         _not_bottom_kr = ~is_any_bottom_kr.reindex(df_top_kr.index).fillna(False)
         
         # ===== 소분류 탭 구성 =====
-        top_sub_tabs_kr = st.tabs(['공탐변동', '슬로프합', '다중지표', '통합지표'])
+        top_sub_tabs_kr = st.tabs(['공탐변동', '슬로프합', '기울기합', '다중지표', '통합지표'])
         
         # ── 소분류 1: 공탐변동 고점 ──
         with top_sub_tabs_kr[0]:
@@ -6139,9 +6830,9 @@ with tabs[1]:
                     y_axis_key_sec = f"yaxis{idx+1}2" if idx > 0 else "yaxis2"
                     
                     if initial_x_range_dsi_kr:
-                        fig_dsi_kr.update_layout({x_axis_key: crosshair_xaxis(range=initial_x_range_dsi_kr, type='category')})
+                        fig_dsi_kr.update_layout({x_axis_key: crosshair_xaxis(range=initial_x_range_dsi_kr, type='category', categoryorder='array', categoryarray=hd_df_kr)})
                     else:
-                        fig_dsi_kr.update_layout({x_axis_key: crosshair_xaxis(type='category')})
+                        fig_dsi_kr.update_layout({x_axis_key: crosshair_xaxis(type='category', categoryorder='array', categoryarray=hd_df)})
                     
                     fig_dsi_kr.update_layout({y_axis_key: crosshair_yaxis(range=[qmin_dsi_kr*0.95, qmax_dsi_kr*1.05], side='left')})
                     
@@ -6409,8 +7100,8 @@ with tabs[1]:
             st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
             render_slope_multi_stats_table(stats_top_sl_multi_kr, "📊 슬로프합 최종본 다중 감지 검증 결과 (당일 제외)")
             
-        # ── 소분류 3: 다중지표 고점 ──
-        with top_sub_tabs_kr[2]:
+        # ── 소분류 4: 다중지표 고점 ──
+        with top_sub_tabs_kr[3]:
             top_multi_conditions_list_kr = [
                 # 지표개발 반전 19개
                 ((df_top_kr['KOSPI_%B'] * (df_top_kr['HYG_RSI'] / 100) >= 0.85 * 1.30) & (df_top_kr['VKOSPI'] <= 14 / 1.30)) & _not_bottom_kr,
@@ -6562,8 +7253,8 @@ with tabs[1]:
             st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
             render_top_stats_table(stats_top_multi_kr, "지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
             
-        # ── 소분류 4: 통합지표 고점 ──
-        with top_sub_tabs_kr[3]:
+        # ── 소분류 5: 통합지표 고점 ──
+        with top_sub_tabs_kr[4]:
             _nb_top2_kr = _not_bottom_kr.reindex(df_top_kr.index).fillna(True)
             
             energy_top_kr = (df_top_kr['FearGreedIndex']/100) * df_top_kr['KOSPI_%B'] * (df_top_kr['KOSPI_RSI7']/100)
@@ -6596,52 +7287,258 @@ with tabs[1]:
                 </div>
                 """
                 st.markdown(table_html_top_kr, unsafe_allow_html=True)
+            # 차트
+            df_top_plot_kr = df_top_kr.copy()
+            initial_x_tt = None
+            kospi_yr_tt = None
+            if not df_top_plot_kr.empty:
+                if active_period_days:
+                    target_date_tt_kr = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                    detected_indices = [i for i, d in enumerate(df_top_plot_kr.index) if d >= target_date_tt_kr]
+                    if detected_indices:
+                        initial_x_tt = [detected_indices[0], len(df_top_plot_kr) - 1]
+                        sub_q = df_top_plot_kr['KOSPI'].iloc[detected_indices[0]:]
+                        kospi_yr_tt = [float(sub_q.min()) * 0.95, float(sub_q.max()) * 1.05]
+                if kospi_yr_tt is None:
+                    kospi_yr_tt = [float(df_top_plot_kr['KOSPI'].min()) * 0.95, float(df_top_plot_kr['KOSPI'].max()) * 1.05]
                 
-            if active_period_days:
-                target_date_tt_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
-                df_top_plot_kr = df_top_kr[df_top_kr.index >= pd.to_datetime(target_date_tt_kr)]
-                if not df_top_plot_kr.empty:
-                    kospi_yr_tt = [float(df_top_plot_kr['KOSPI'].min()) * 0.95, float(df_top_plot_kr['KOSPI'].max()) * 1.05]
-                    initial_x_tt = [df_top_plot_kr.index[0].strftime("%Y-%m-%d"), df_top_plot_kr.index[-1].strftime("%Y-%m-%d")]
-                else:
-                    kospi_yr_tt = None
-                    initial_x_tt = None
+                fig_top_final_kr = make_subplots(specs=[[{"secondary_y": True}]])
+                hd_top_final_kr = [fmt_date_kor(d) for d in df_top_plot_kr.index]
+                
+                fig_top_final_kr.add_trace(go.Scatter(
+                    x=hd_top_final_kr, y=df_top_plot_kr['KOSPI'], name='KOSPI 가격', mode='lines+markers',
+                    line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                    hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
+                ), secondary_y=False)
+                
+                fig_top_final_kr.add_trace(go.Bar(
+                    x=hd_top_final_kr, y=c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000), name='통합 고점 감지 (OR)',
+                    marker_color='rgba(128, 0, 128, 0.3)',
+                    marker_line_width=0.5, marker_line_color='white',
+                    hovertemplate='고점 신호 감지<extra></extra>'
+                ), secondary_y=False)
+                
+                fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                    shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
+                fig_top_final_kr.update_xaxes(type='category', categoryorder='array', categoryarray=hd_top_final_kr, **crosshair_xaxis())
+                if initial_x_tt:
+                    fig_top_final_kr.update_xaxes(range=initial_x_tt)
+                
+                st.plotly_chart(fig_top_final_kr, width='stretch', config=COMMON_CONFIG, key="top_chart_final_or_kr")
+                
+                top_final_conditions_kr = {
+                    "**최종 4대 통합 고점지표 (OR)**": (c_top_all_kr, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
+                }
+                stats_top_final_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_final_conditions_kr)
+                render_top_stats_table(stats_top_final_kr, "통합 고점지표 검증 결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            
+        # ── 소분류 3: 기울기합 고점 ──
+        with top_sub_tabs_kr[2]:
+            SLOPE_TOP_CHARTS_KR_TEST = [
+                (2, 10, '테스트_슬로프10일합', 384),
+                (3, 20, '테스트_슬로프20일합', 702),
+                (4, 30, '테스트_슬로프30일합', 1069),
+                (5, 40, '테스트_슬로프40일합', 1754),
+                (6, 50, '테스트_슬로프50일합', 2078),
+                (7, 60, '테스트_슬로프60일합', 2574),
+                (8, 70, '테스트_슬로프70일합', 2959),
+            ]
+            
+            slope_detect_count_top_kr_test = sum(((df_top_kr[sfc] >= thresh)).astype(int) for _, _, sfc, thresh in SLOPE_TOP_CHARTS_KR_TEST)
+            df_top_kr['slope_detect_count_top_kr_test'] = slope_detect_count_top_kr_test
+            
+            all_top_sl_kr_top_test = []
+            for _, days_t, sfc, thresh in SLOPE_TOP_CHARTS_KR_TEST:
+                _cond_sl = (df_top_kr[sfc] >= thresh) & _not_bottom_kr
+                all_top_sl_kr_top_test.extend(df_top_kr[_cond_sl].index.tolist())
+            dc_top_sl_kr_top_test = Counter(all_top_sl_kr_top_test)
+            parent_dates_sl_kr_top_test = sorted(list(set(all_top_sl_kr_top_test)), reverse=True)
+            
+            if parent_dates_sl_kr_top_test:
+                r100_sl_kr_top_test = parent_dates_sl_kr_top_test[:100]
+                dates_row_sl_kr_top_test = []
+                counts_row_sl_kr_top_test = []
+                for dt in r100_sl_kr_top_test:
+                    cnt = dc_top_sl_kr_top_test.get(dt, 1)
+                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    fg = "#FFF"
+                    dates_row_sl_kr_top_test.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
+                    
+                    detected_items = []
+                    for _, days, sc_col, th in SLOPE_TOP_CHARTS_KR_TEST:
+                        if dt in df_top_kr.index and df_top_kr.loc[dt, sc_col] >= th:
+                            val_diff_pct = (df_top_kr.loc[dt, sc_col] - th) / abs(th)
+                            if 0.0 <= val_diff_pct <= 0.40:
+                                color = '#A9D08E'
+                            elif 0.40 < val_diff_pct <= 0.60:
+                                color = '#FFD700'
+                            elif 0.60 < val_diff_pct <= 0.80:
+                                color = '#E06666'
+                            else:
+                                color = '#595959'
+                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
+                        else:
+                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
+                    
+                    val_str = "<br>".join(detected_items)
+                    counts_row_sl_kr_top_test.append(f"<td style='border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{val_str}</td>")
+                
+                st.markdown(f"""
+                <div style='margin-bottom:0.3rem;overflow-x:auto;'>
+                <span style='font-size:0.75rem;color:#aaa;font-weight:600;'>📌 고점 과열 감지 날짜 (기울기합 최근 100개, 저점 감지일 제외)</span>
+                <table style='border-collapse:collapse;margin-top:3px;text-align:center;'>
+                    <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>날짜</th>
+                        {"".join(dates_row_sl_kr_top_test)}
+                    </tr>
+                    <tr>
+                        <th style='border:1px solid #555;border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;'>감지</th>
+                        {"".join(counts_row_sl_kr_top_test)}
+                    </tr>
+                </table>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            hd_df_kr_top_test = [fmt_date_kor(d) for d in df_top_kr.index]
+            
+            bottom_slope_options_kr_top_test = ["슬로프통합", "10일합", "20일합", "30일합", "40일합", "50일합", "60일합", "70일합"]
+            selected_slopes_kr_top_test = st.multiselect("📊 표시할 슬로프 차트 선택 (다중 선택 가능)", bottom_slope_options_kr_top_test, default=["슬로프통합"], key="top_slope_multiselect_test_kr")
+            
+            if not selected_slopes_kr_top_test:
+                st.info("시각화할 슬로프 지표를 다중 선택창에서 선택해 주세요 (예: 슬로프통합, 10일합 등).")
             else:
-                df_top_plot_kr = df_top_kr.copy()
-                if not df_top_plot_kr.empty:
-                    kospi_yr_tt = [float(df_top_plot_kr['KOSPI'].min()) * 0.95, float(df_top_plot_kr['KOSPI'].max()) * 1.05]
-                    initial_x_tt = [df_top_plot_kr.index[0].strftime("%Y-%m-%d"), df_top_plot_kr.index[-1].strftime("%Y-%m-%d")]
+                num_charts_kr_top_test = len(selected_slopes_kr_top_test)
+                fig_dsi_kr_top_test = make_subplots(rows=num_charts_kr_top_test, cols=1, shared_xaxes=True, vertical_spacing=0.03 if num_charts_kr_top_test > 1 else 0.0,
+                    subplot_titles=tuple(selected_slopes_kr_top_test),
+                    specs=[[{"secondary_y": True}]]*num_charts_kr_top_test)
+                
+                chart_info_map_kr_top_test = {
+                    10: ('테스트_슬로프10일합', 384),
+                    20: ('테스트_슬로프20일합', 702),
+                    30: ('테스트_슬로프30일합', 1069),
+                    40: ('테스트_슬로프40일합', 1754),
+                    50: ('테스트_슬로프50일합', 2078),
+                    60: ('테스트_슬로프60일합', 2574),
+                    70: ('테스트_슬로프70일합', 2959),
+                }
+                
+                for idx, choice in enumerate(selected_slopes_kr_top_test):
+                    row_i = idx + 1
+                    sf = (idx == 0)
+                    
+                    if choice == "슬로프통합":
+                        fig_dsi_kr_top_test.add_trace(go.Scatter(x=hd_df_kr_top_test,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        
+                        detect_colors = {
+                            1: 'rgba(224, 102, 102, 0.45)',
+                            2: 'rgba(255, 140, 0, 0.3)',
+                            3: 'rgba(255, 255, 153, 0.45)',
+                            4: 'rgba(0, 128, 0, 0.3)',
+                            5: 'rgba(135, 206, 235, 0.3)',
+                            6: 'rgba(0, 0, 128, 0.3)',
+                            7: 'rgba(128, 0, 128, 0.3)'
+                        }
+                        for cnt_val, bar_color in detect_colors.items():
+                            cond_bar = (df_top_kr['slope_detect_count_top_kr_test'] == cnt_val) & _not_bottom_kr
+                            fig_dsi_kr_top_test.add_trace(go.Bar(x=hd_df_kr_top_test, y=cond_bar.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
+                            
+                    else:
+                        days = int(choice.replace("일합", ""))
+                        sc, thresh = chart_info_map_kr_top_test[days]
+                        
+                        fig_dsi_kr_top_test.add_trace(go.Scatter(x=hd_df_kr_top_test,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=sf,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
+                        fig_dsi_kr_top_test.add_trace(go.Scatter(x=hd_df_kr_top_test,y=df_top_kr[sc],name=f'테스트 슬로프 {days}일합계',line=dict(color='rgba(255, 0, 0, 0.8)', width=1),showlegend=True,hovertemplate=f'테스트슬로프{days}일합: %{{y:.1f}}<extra></extra>'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr_top_test.add_trace(go.Scatter(x=hd_df_kr_top_test,y=[-thresh]*len(hd_df_kr_top_test),name='하한선',line=dict(color='gray', width=1, dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        fig_dsi_kr_top_test.add_trace(go.Scatter(x=hd_df_kr_top_test,y=[thresh]*len(hd_df_kr_top_test),name='상한선',line=dict(color='gray', width=1, dash='dash'),showlegend=sf,legendgroup='lower_kr',hoverinfo='skip'),row=row_i,col=1,secondary_y=True)
+                        
+                        diff_pct = (df_top_kr[sc] - thresh) / abs(thresh)
+                        bottom_cond_vals = [
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40) & _not_bottom_kr), 'rgba(0, 128, 0, 0.3)'),
+                            (((diff_pct > 0.40) & (diff_pct <= 0.60) & _not_bottom_kr), 'rgba(255, 220, 0, 0.3)'),
+                            (((diff_pct > 0.60) & (diff_pct <= 0.80) & _not_bottom_kr), 'rgba(220, 30, 30, 0.3)'),
+                            (((diff_pct > 0.80) & _not_bottom_kr), 'rgba(0, 0, 0, 0.3)'),
+                        ]
+                        for tc, tfc in bottom_cond_vals:
+                            fig_dsi_kr_top_test.add_trace(go.Bar(x=hd_df_kr_top_test, y=tc.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                
+                if active_period_days:
+                    target_date_dsi_kr_test = datetime.date.today() - datetime.timedelta(days=active_period_days)
+                    detected_indices_dsi_kr_test = [i for i, d in enumerate(df_top_kr.index) if d >= pd.to_datetime(target_date_dsi_kr_test)]
+                    initial_x_range_dsi_kr_test = [detected_indices_dsi_kr_test[0], len(hd_df_kr_top_test) - 1] if detected_indices_dsi_kr_test else None
+                    if detected_indices_dsi_kr_test:
+                        kospi_1y_dsi_test = df_top_kr['KOSPI'].iloc[detected_indices_dsi_kr_test[0]:]
+                        kmin_dsi_test, kmax_dsi_test = float(kospi_1y_dsi_test.min()), float(kospi_1y_dsi_test.max())
+                    else:
+                        kmin_dsi_test, kmax_dsi_test = float(df_top_kr['KOSPI'].min()), float(df_top_kr['KOSPI'].max())
                 else:
-                    kospi_yr_tt = None
-                    initial_x_tt = None
-            
-            fig_top_final_kr = make_subplots(specs=[[{"secondary_y": True}]])
-            hd_top_final_kr = [fmt_date_kor(d) for d in df_top_plot_kr.index]
-            
-            fig_top_final_kr.add_trace(go.Scatter(
-                x=hd_top_final_kr, y=df_top_plot_kr['KOSPI'], name='KOSPI 가격', mode='lines+markers',
-                line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
-            ), secondary_y=False)
-            
-            fig_top_final_kr.add_trace(go.Bar(
-                x=hd_top_final_kr, y=c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000), name='통합 고점 감지 (OR)',
-                marker_color='rgba(128, 0, 128, 0.3)',
-                marker_line_width=0.5, marker_line_color='white',
-                hovertemplate='고점 신호 감지<extra></extra>'
-            ), secondary_y=False)
-            
-            fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
-                shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
-            fig_top_final_kr.update_xaxes(type='category', **crosshair_xaxis())
-            if initial_x_tt:
-                fig_top_final_kr.update_xaxes(range=initial_x_tt)
-            
-            st.plotly_chart(fig_top_final_kr, width='stretch', config=COMMON_CONFIG, key="top_chart_final_or_kr")
-            
-            top_final_conditions_kr = {
-                "**최종 4대 통합 고점지표 (OR)**": (c_top_all_kr, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
+                    initial_x_range_dsi_kr_test = None
+                    kmin_dsi_test, kmax_dsi_test = float(df_top_kr['KOSPI'].min()), float(df_top_kr['KOSPI'].max())
+                
+                chart_height_kr_test = max(400, num_charts_kr_top_test * 300)
+                layout_params_kr_test = COMMON_LAYOUT.copy()
+                layout_params_kr_test.pop('shapes', None)
+                
+                shapes_kr_test = []
+                for idx in range(num_charts_kr_top_test):
+                    y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
+                    shapes_kr_test.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
+                    
+                fig_dsi_kr_top_test.update_layout(**layout_params_kr_test, height=chart_height_kr_test, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr_test)
+                
+                for idx, choice in enumerate(selected_slopes_kr_top_test):
+                    row_i = idx + 1
+                    fig_dsi_kr_top_test.update_yaxes(range=[kmin_dsi_test*0.95,kmax_dsi_test*1.05],**crosshair_yaxis(),secondary_y=False,row=row_i,col=1)
+                    if choice == "슬로프통합":
+                        fig_dsi_kr_top_test.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True, row=row_i, col=1)
+                    else:
+                        fig_dsi_kr_top_test.update_yaxes(range=[-180,250],tick0=-180,dtick=30,**crosshair_yaxis(),secondary_y=True,row=row_i,col=1)
+                
+                if initial_x_range_dsi_kr_test:
+                    fig_dsi_kr_top_test.update_xaxes(range=initial_x_range_dsi_kr_test, type='category', **crosshair_xaxis())
+                else:
+                    fig_dsi_kr_top_test.update_xaxes(type='category', **crosshair_xaxis())
+                fig_dsi_kr_top_test.update_annotations(font_size=10)
+                
+                st.plotly_chart(fig_dsi_kr_top_test, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_test_chart_kr")
+                
+            # 슬로프합 고점 검증결과 표
+            slope_top_conditions_kr_test = {
+                "**10일합 상한돌파**": ((df_top_kr['테스트_슬로프10일합'] >= 384) & _not_bottom_kr, "테스트_슬로프10일합 ≥ 384"),
+                "**20일합 상한돌파**": ((df_top_kr['테스트_슬로프20일합'] >= 702) & _not_bottom_kr, "테스트_슬로프20일합 ≥ 702"),
+                "**30일합 상한돌파**": ((df_top_kr['테스트_슬로프30일합'] >= 1069) & _not_bottom_kr, "테스트_슬로프30일합 ≥ 1069"),
+                "**40일합 상한돌파**": ((df_top_kr['테스트_슬로프40일합'] >= 1754) & _not_bottom_kr, "테스트_슬로프40일합 ≥ 1754"),
+                "**50일합 상한돌파**": ((df_top_kr['테스트_슬로프50일합'] >= 2078) & _not_bottom_kr, "테스트_슬로프50일합 ≥ 2078"),
+                "**60일합 상한돌파**": ((df_top_kr['테스트_슬로프60일합'] >= 2574) & _not_bottom_kr, "테스트_슬로프60일합 ≥ 2574"),
+                "**70일합 상한돌파**": ((df_top_kr['테스트_슬로프70일합'] >= 2959) & _not_bottom_kr, "테스트_슬로프70일합 ≥ 2959"),
+                "**슬로프합 고점 종합**": (
+                    ((df_top_kr['테스트_슬로프10일합'] >= 384) | (df_top_kr['테스트_슬로프20일합'] >= 702) | (df_top_kr['테스트_슬로프30일합'] >= 1069) | (df_top_kr['테스트_슬로프40일합'] >= 1754) | (df_top_kr['테스트_슬로프50일합'] >= 2078) | (df_top_kr['테스트_슬로프60일합'] >= 2574) | (df_top_kr['테스트_슬로프70일합'] >= 2959)) & _not_bottom_kr,
+                    "1개 이상 상한선 돌파 (저점일 제외)"
+                ),
+                "**슬로프합 고점 강력**": (
+                    (((df_top_kr['테스트_슬로프10일합'] >= 384).astype(int) + 
+                      (df_top_kr['테스트_슬로프20일합'] >= 702).astype(int) + 
+                      (df_top_kr['테스트_슬로프30일합'] >= 1069).astype(int) + 
+                      (df_top_kr['테스트_슬로프40일합'] >= 1754).astype(int) + 
+                      (df_top_kr['테스트_슬로프50일합'] >= 2078).astype(int) + 
+                      (df_top_kr['테스트_슬로프60일합'] >= 2574).astype(int) + 
+                      (df_top_kr['테스트_슬로프70일합'] >= 2959).astype(int)) >= 4) & _not_bottom_kr,
+                    "4개 이상 상한선 동시 돌파 (저점일 제외)"
+                )
             }
-            stats_top_final_kr = calculate_top_stats(df_top_kr, 'KOSPI', top_final_conditions_kr)
-            render_top_stats_table(stats_top_final_kr, "통합 고점지표 검증 결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            stats_top_sl_kr_test = calculate_top_stats(df_top_kr, 'KOSPI', slope_top_conditions_kr_test, ru_threshold=0.08)
+            st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
+            render_top_stats_table(stats_top_sl_kr_test, "고점 지표검증결과 (2018.01 ~ 현재 KOSPI 고점 대비, 저점 감지일 제외)")
+            
+            slope_multi_conditions_kr_top_test = {
+                "**빨간색 (1개 감지)**": (df_top_kr['slope_detect_count_top_kr_test'] >= 1, "동시 감지 1개"),
+                "**주황색 (2개 감지)**": (df_top_kr['slope_detect_count_top_kr_test'] >= 2, "동시 감지 2개"),
+                "**노란색 (3개 감지)**": (df_top_kr['slope_detect_count_top_kr_test'] >= 3, "동시 감지 3개"),
+                "**초록색 (4개 감지)**": (df_top_kr['slope_detect_count_top_kr_test'] >= 4, "동시 감지 4개"),
+                "**파란색 (5개 감지)**": (df_top_kr['slope_detect_count_top_kr_test'] >= 5, "동시 감지 5개"),
+                "**남색 (6개 감지)**":   (df_top_kr['slope_detect_count_top_kr_test'] >= 6, "동시 감지 6개"),
+                "**보라색 (7개 감지)**": (df_top_kr['slope_detect_count_top_kr_test'] >= 7, "동시 감지 7개"),
+            }
+            stats_top_sl_multi_kr_test = calculate_top_stats(df_top_kr, 'KOSPI', slope_multi_conditions_kr_top_test, ru_threshold=0.08)
+            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+            render_slope_multi_stats_table(stats_top_sl_multi_kr_test, "📊 슬로프합 최종본 다중 감지 검증 결과")
