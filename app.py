@@ -809,9 +809,40 @@ def fetch_and_process_data():
     qqq_df.index = pd.to_datetime(qqq_df.index).normalize()
     
     s_nav_qqq = fetch_naver_qqq_prices()
-    if not s_nav_qqq.empty:
-        df_nav_qqq = pd.DataFrame({'QQQ': s_nav_qqq})
-        qqq_df = qqq_df.combine_first(df_nav_qqq).sort_index()
+    realtime_qqq = s_nav_qqq.iloc[-1] if not s_nav_qqq.empty else None
+    
+    last_closed_date = qqq_df.index[-1] if not qqq_df.empty else None
+    is_after_hours = False
+    next_trading_day = None
+    
+    if last_closed_date is not None:
+        import pytz
+        us_tz = pytz.timezone('America/New_York')
+        us_now = datetime.datetime.now(us_tz)
+        
+        # New York 시간 기준으로 정규장(16:00) 마감 이후 또는 주말인 경우 after-hours로 판단
+        if us_now.date() > last_closed_date.date():
+            is_after_hours = True
+        elif us_now.date() == last_closed_date.date() and us_now.time() >= datetime.time(16, 0):
+            is_after_hours = True
+            
+        if is_after_hours:
+            next_trading_day = last_closed_date + datetime.timedelta(days=1)
+            while next_trading_day.weekday() >= 5:
+                next_trading_day += datetime.timedelta(days=1)
+                
+    if realtime_qqq is not None and last_closed_date is not None:
+        if is_after_hours:
+            # 장마감 후에는 오늘 종가를 동결하고 다음 영업일 행에 실시간 가격 기록
+            if next_trading_day not in qqq_df.index:
+                qqq_df.loc[next_trading_day] = [realtime_qqq]
+            else:
+                qqq_df.loc[next_trading_day, 'QQQ'] = realtime_qqq
+        else:
+            # 정규장 중에는 오늘 날짜에 실시간 가격 반영
+            qqq_df.loc[last_closed_date, 'QQQ'] = realtime_qqq
+            
+    qqq_df = qqq_df.sort_index()
         
     vix = yf.download('^VIX', start=start_date_str, progress=False)
     if isinstance(vix.columns, pd.MultiIndex): vix.columns = vix.columns.get_level_values(0)
@@ -1078,9 +1109,40 @@ def fetch_korean_market_data_v2(df_us=None):
     kospi_df.index = pd.to_datetime(kospi_df.index).normalize()
     
     s_nav_kp = fetch_naver_index_prices('KOSPI')
-    if not s_nav_kp.empty:
-        df_nav_kp = pd.DataFrame({'KOSPI': s_nav_kp})
-        kospi_df = kospi_df.combine_first(df_nav_kp).sort_index()
+    realtime_kp = s_nav_kp.iloc[-1] if not s_nav_kp.empty else None
+    
+    last_closed_date_kr = kospi_df.index[-1] if not kospi_df.empty else None
+    is_after_hours_kr = False
+    next_trading_day_kr = None
+    
+    if last_closed_date_kr is not None:
+        import pytz
+        kr_tz = pytz.timezone('Asia/Seoul')
+        kr_now = datetime.datetime.now(kr_tz)
+        
+        # 한국 시간 기준으로 정규장(15:30) 마감 이후 또는 주말인 경우 after-hours로 판단
+        if kr_now.date() > last_closed_date_kr.date():
+            is_after_hours_kr = True
+        elif kr_now.date() == last_closed_date_kr.date() and kr_now.time() >= datetime.time(15, 30):
+            is_after_hours_kr = True
+            
+        if is_after_hours_kr:
+            next_trading_day_kr = last_closed_date_kr + datetime.timedelta(days=1)
+            while next_trading_day_kr.weekday() >= 5:
+                next_trading_day_kr += datetime.timedelta(days=1)
+                
+    if realtime_kp is not None and last_closed_date_kr is not None:
+        if is_after_hours_kr:
+            # 장마감 후에는 오늘 종가를 동결하고 다음 영업일 행에 실시간 가격 기록
+            if next_trading_day_kr not in kospi_df.index:
+                kospi_df.loc[next_trading_day_kr] = [realtime_kp]
+            else:
+                kospi_df.loc[next_trading_day_kr, 'KOSPI'] = realtime_kp
+        else:
+            # 정규장 중에는 오늘 날짜에 실시간 가격 반영
+            kospi_df.loc[last_closed_date_kr, 'KOSPI'] = realtime_kp
+            
+    kospi_df = kospi_df.sort_index()
 
     # 원달러 환율 다운로드
     usdkrw = yf.download('KRW=X', start="2018-01-01", progress=False)
@@ -1152,8 +1214,10 @@ def fetch_korean_market_data_v2(df_us=None):
         pass
     
     kospi_df.index = kospi_df.index.normalize()
-    today_norm = pd.to_datetime(datetime.date.today()).normalize()
-    history_records[today_norm] = float(realtime_score)
+    if is_after_hours_kr and next_trading_day_kr is not None:
+        history_records[next_trading_day_kr] = float(realtime_score)
+    elif last_closed_date_kr is not None:
+        history_records[last_closed_date_kr] = float(realtime_score)
     
     # KOSPI 지수 데이터 외에 공포탐욕지수 히스토리 날짜들을 포함하도록 통합 인덱스 생성
     union_index = kospi_df.index.union(pd.DatetimeIndex(list(history_records.keys()))).sort_values()
@@ -1188,6 +1252,14 @@ def fetch_korean_market_data_v2(df_us=None):
     
     # KOSPI 영업일 기준으로 필터링하여 주말/공휴일 제거
     df_kr = df_kr.reindex(kospi_df.index).ffill().bfill()
+    
+    # 실시간 VKOSPI 값 반영
+    if is_after_hours_kr and next_trading_day_kr is not None:
+        if next_trading_day_kr in df_kr.index:
+            df_kr.loc[next_trading_day_kr, 'VKOSPI'] = realtime_vkospi
+    elif last_closed_date_kr is not None:
+        if last_closed_date_kr in df_kr.index:
+            df_kr.loc[last_closed_date_kr, 'VKOSPI'] = realtime_vkospi
     
     df_kr['(FGI-VIX)/5'] = (df_kr['FearGreedIndex'] - df_kr['VKOSPI']) / 5
     df_kr = df_kr.ffill().bfill()
