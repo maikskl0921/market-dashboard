@@ -5,3 +5,5 @@ pandas
 requests
 beautifulsoup4
 lxml
+
+html2image
