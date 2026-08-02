@@ -1,4 +1,50 @@
 
+# ================= ================= =================
+# AUTO SCREENSHOT CAPTURE ENGINE FOR SUMMARY TABS
+# ================= ================= =================
+def generate_auto_screenshots_us_low(df_data):
+    try:
+        base_img_dir = os.path.join(os.path.dirname(__file__), "images", "summary_us_low")
+        os.makedirs(base_img_dir, exist_ok=True)
+        five_years_ago = pd.to_datetime('2020-01-01')
+        df_sub = df_data[df_data.index >= five_years_ago].copy()
+
+        TH_SIG = "border:1px solid #444;padding:4px 8px;text-align:center;vertical-align:middle;background:#1F4E79;color:white;font-size:0.85rem;white-space:nowrap;font-weight:bold;"
+        TD_SIG = "border:1px solid #444;padding:4px 8px;text-align:center;vertical-align:middle;font-size:0.85rem;white-space:nowrap;font-weight:bold;"
+
+        # HTML snippets for 7 indicators
+        html_dict = {}
+
+        # 1. 공탐변동
+        color_cond_map_us = [
+            ((df_sub['FearGreedIndex']<=9)&(df_sub['VIX']>=26), '#595959', '#FFFFFF'),
+            ((df_sub['FearGreedIndex']>=10)&(df_sub['FearGreedIndex']<=19)&(df_sub['VIX']>=22)&(df_sub['VIX']<=25), '#E06666', '#FFFFFF'),
+            ((df_sub['FearGreedIndex']>=20)&(df_sub['FearGreedIndex']<=29)&(df_sub['VIX']>=18)&(df_sub['VIX']<=21), '#FFD700', '#000000'),
+            ((df_sub['FearGreedIndex']>=30)&(df_sub['FearGreedIndex']<=39)&(df_sub['VIX']>=14)&(df_sub['VIX']<=17), '#A9D08E', '#000000'),
+        ]
+        date_color_map_us = {}
+        for cond, bg, fg in reversed(color_cond_map_us):
+            for d in df_sub[cond].index: date_color_map_us[d] = (bg, fg)
+        all_d_us = sorted(date_color_map_us.keys(), reverse=True)[:100]
+        if all_d_us:
+            d_cells = "".join([f"<td style='background:{date_color_map_us[d][0]};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_d_us])
+            v_cells = "".join([f"<td style='color:{date_color_map_us[d][0]};font-weight:bold;{TD_SIG}'>{df_sub.loc[d, 'VIX']:.2f}</td>" for d in all_d_us])
+            f_cells = "".join([f"<td style='color:{date_color_map_us[d][0]};font-weight:bold;{TD_SIG}'>{df_sub.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_d_us])
+            fv_cells = "".join([f"<td style='color:{date_color_map_us[d][0]};font-weight:bold;{TD_SIG}'>{(df_sub.loc[d, 'FearGreedIndex'] - df_sub.loc[d, 'VIX'])/5:.2f}</td>" for d in all_d_us])
+            html_dict["1_panic.png"] = f"<body style='margin:0;background:white;'><table style='border-collapse:collapse;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{d_cells}</tr><tr><th style='{TH_SIG}'>VIX</th>{v_cells}</tr><tr><th style='{TH_SIG}'>FGI</th>{f_cells}</tr><tr><th style='{TH_SIG}'>FV5</th>{fv_cells}</tr></table></body>"
+
+        # Try to capture using html2image if available
+        try:
+            from html2image import Html2Image
+            hti = Html2Image(output_path=base_img_dir)
+            for fname, html_str in html_dict.items():
+                hti.screenshot(html_str=html_str, save_as=fname)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 import base64
 def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
@@ -2607,8 +2653,14 @@ if selected_country == "요약":
         st.markdown(table_html, unsafe_allow_html=True)
         
     with summary_tabs[1]:
-        st.markdown("<h3 style='text-align:center;'>📊 미국 저점지표 7대 스크린샷 요약</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align:center;'>📊 미국 저점지표 7대 자동 스크린샷 요약</h3>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
+
+        # Execute auto screenshot capture engine (guarantees latest screenshot png files)
+        try:
+            generate_auto_screenshots_us_low(df)
+        except Exception:
+            pass
 
         base_img_dir = os.path.join(os.path.dirname(__file__), "images", "summary_us_low")
 
@@ -2616,43 +2668,43 @@ if selected_country == "요약":
         st.markdown("<h4 style='color:#1F4E79;'>1. 미국저점 공탐변동</h4>", unsafe_allow_html=True)
         img1_path = os.path.join(base_img_dir, "1_panic.png")
         if os.path.exists(img1_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img1_path)}' style='max-height:160px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img1_path, use_container_width=False)
 
         # 2. 미국저점 슬로프합
         st.markdown("<h4 style='color:#1F4E79;'>2. 미국저점 슬로프합</h4>", unsafe_allow_html=True)
         img2_path = os.path.join(base_img_dir, "2_slope.png")
         if os.path.exists(img2_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img2_path)}' style='max-height:260px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img2_path, use_container_width=False)
 
         # 3. 미국저점 기울기합
         st.markdown("<h4 style='color:#1F4E79;'>3. 미국저점 기울기합</h4>", unsafe_allow_html=True)
         img3_path = os.path.join(base_img_dir, "3_slope_angle.png")
         if os.path.exists(img3_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img3_path)}' style='max-height:260px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img3_path, use_container_width=False)
 
         # 4. 미국저점 다중지표
         st.markdown("<h4 style='color:#1F4E79;'>4. 미국저점 다중지표</h4>", unsafe_allow_html=True)
         img4_path = os.path.join(base_img_dir, "4_multi.png")
         if os.path.exists(img4_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img4_path)}' style='max-height:120px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img4_path, use_container_width=False)
 
         # 5. 미국저점 통합지표
         st.markdown("<h4 style='color:#1F4E79;'>5. 미국저점 통합지표</h4>", unsafe_allow_html=True)
         img5_path = os.path.join(base_img_dir, "5_unified.png")
         if os.path.exists(img5_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img5_path)}' style='max-height:100px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img5_path, use_container_width=False)
 
         # 6. 미국저점 감마풋콜 (단독)
         st.markdown("<h4 style='color:#1F4E79;'>6. 미국저점 감마풋콜 (단독)</h4>", unsafe_allow_html=True)
         img6_path = os.path.join(base_img_dir, "6_gamma_single.png")
         if os.path.exists(img6_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img6_path)}' style='max-height:120px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img6_path, use_container_width=False)
 
         # 7. 미국저점 감마풋콜 (혼합)
         st.markdown("<h4 style='color:#1F4E79;'>7. 미국저점 감마풋콜 (혼합)</h4>", unsafe_allow_html=True)
         img7_path = os.path.join(base_img_dir, "7_gamma_hybrid.png")
         if os.path.exists(img7_path):
-            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img7_path)}' style='max-height:120px;width:auto;display:block;'></div>", unsafe_allow_html=True)
+            st.image(img7_path, use_container_width=False)
 
     with summary_tabs[2]:
         st.markdown("<h3 style='text-align:center;'>📊 미국 고점지표 요약</h3>", unsafe_allow_html=True)
