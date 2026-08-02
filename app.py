@@ -2806,6 +2806,9 @@ if selected_country == "요약":
             if b64_val:
                 st.markdown(f"<div style='overflow-x:auto;margin-bottom:1rem;'><img src='data:image/png;base64,{b64_val}' style='max-width:100%;height:auto;display:block;'></div>", unsafe_allow_html=True)
 
+elif selected_main_tab == '미국':
+    tab_names = ['저점지표', '고점지표', '모니터링']
+    tabs = st.tabs(tab_names)
 with tabs[0]:
     bottom_sub_tab_names = ['공탐변동', '슬로프합', '기울기합', '다중지표', '통합지표']
     bottom_sub_tabs = st.tabs(bottom_sub_tab_names)
