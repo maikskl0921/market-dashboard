@@ -2607,226 +2607,52 @@ if selected_country == "요약":
         st.markdown(table_html, unsafe_allow_html=True)
         
     with summary_tabs[1]:
-        st.markdown("<h3 style='text-align:center;'>📊 미국 저점지표 7대 실시간 감지표 요약</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align:center;'>📊 미국 저점지표 7대 스크린샷 요약</h3>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        five_years_ago = pd.to_datetime('2020-01-01')
-        df_us_low = df[df.index >= five_years_ago].copy()
+        base_img_dir = os.path.join(os.path.dirname(__file__), "images", "summary_us_low")
 
-        TH_SIG = "border:1px solid #444;padding:4px 8px;text-align:center;vertical-align:middle;background:#1F4E79;color:white;font-size:0.8rem;white-space:nowrap;font-weight:bold;"
-        TD_SIG = "border:1px solid #444;padding:4px 8px;text-align:center;vertical-align:middle;font-size:0.8rem;white-space:nowrap;font-weight:bold;"
-
-        # -------------------------------------------------------------
-        # 1. 미국저점 공탐변동 (실시간 자동)
-        # -------------------------------------------------------------
+        # 1. 미국저점 공탐변동
         st.markdown("<h4 style='color:#1F4E79;'>1. 미국저점 공탐변동</h4>", unsafe_allow_html=True)
-        try:
-            color_cond_map_us = [
-                ((df_us_low['FearGreedIndex']<=9)&(df_us_low['VIX']>=26),                                                          '#595959', '#FFFFFF'),
-                ((df_us_low['FearGreedIndex']>=10)&(df_us_low['FearGreedIndex']<=19)&(df_us_low['VIX']>=22)&(df_us_low['VIX']<=25),            '#E06666', '#FFFFFF'),
-                ((df_us_low['FearGreedIndex']>=20)&(df_us_low['FearGreedIndex']<=29)&(df_us_low['VIX']>=18)&(df_us_low['VIX']<=21),            '#FFD700', '#000000'),
-                ((df_us_low['FearGreedIndex']>=30)&(df_us_low['FearGreedIndex']<=39)&(df_us_low['VIX']>=14)&(df_us_low['VIX']<=17),            '#A9D08E', '#000000'),
-            ]
-            date_color_map_us = {}
-            for cond, bg, fg in reversed(color_cond_map_us):
-                for d in df_us_low[cond].index:
-                    date_color_map_us[d] = (bg, fg)
-            all_detected_sorted_us = sorted(date_color_map_us.keys(), reverse=True)[:100]
+        img1_path = os.path.join(base_img_dir, "1_panic.png")
+        if os.path.exists(img1_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img1_path)}' style='max-height:160px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
-            if all_detected_sorted_us:
-                date_cells = "".join([f"<td style='background:{date_color_map_us[d][0]};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted_us])
-                vix_cells = "".join([f"<td style='color:{date_color_map_us[d][0]};font-weight:bold;{TD_SIG}'>{df_us_low.loc[d, 'VIX']:.2f}</td>" for d in all_detected_sorted_us])
-                fgi_cells = "".join([f"<td style='color:{date_color_map_us[d][0]};font-weight:bold;{TD_SIG}'>{df_us_low.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted_us])
-                fv5_cells = "".join([f"<td style='color:{date_color_map_us[d][0]};font-weight:bold;{TD_SIG}'>{(df_us_low.loc[d, 'FearGreedIndex'] - df_us_low.loc[d, 'VIX'])/5:.2f}</td>" for d in all_detected_sorted_us])
-                
-                html_panic_us = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr><tr><th style='{TH_SIG}'>VIX</th>{vix_cells}</tr><tr><th style='{TH_SIG}'>FGI</th>{fgi_cells}</tr><tr><th style='{TH_SIG}'>FV5</th>{fv5_cells}</tr></table></div>"
-                st.markdown(html_panic_us, unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>최근 감지된 공탐변동 신호가 없습니다.</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>공탐변동 데이터 집계 중...</p>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 2. 미국저점 슬로프합 (실시간 자동)
-        # -------------------------------------------------------------
+        # 2. 미국저점 슬로프합
         st.markdown("<h4 style='color:#1F4E79;'>2. 미국저점 슬로프합</h4>", unsafe_allow_html=True)
-        try:
-            SLOPE_CHARTS_US_LOW = [
-                ("슬로프10일합", 10, "슬로프10일합", -15),
-                ("슬로프20일합", 20, "슬로프20일합", -20),
-                ("슬로프30일합", 30, "슬로프30일합", -25),
-                ("슬로프40일합", 40, "슬로프40일합", -30),
-                ("슬로프50일합", 50, "슬로프50일합", -30),
-                ("슬로프60일합", 60, "슬로프60일합", -30),
-                ("슬로프70일합", 70, "슬로프70일합", -30),
-            ]
-            from collections import Counter
-            all_sl_us_low = []
-            for _, days_t, sfc, thresh in SLOPE_CHARTS_US_LOW:
-                if sfc in df_us_low.columns:
-                    _cond_sl = (df_us_low[sfc] <= thresh)
-                    all_sl_us_low.extend(df_us_low[_cond_sl].index.tolist())
-            dc_sl_us_low = Counter(all_sl_us_low)
-            parent_dates_sl_us_low = sorted(list(set(all_sl_us_low)), reverse=True)
+        img2_path = os.path.join(base_img_dir, "2_slope.png")
+        if os.path.exists(img2_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img2_path)}' style='max-height:260px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
-            if parent_dates_sl_us_low:
-                r100_sl_us = parent_dates_sl_us_low[:100]
-                dates_row_sl_us = []
-                counts_row_sl_us = []
-                for dt in r100_sl_us:
-                    cnt = dc_sl_us_low.get(dt, 1)
-                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
-                    dates_row_sl_us.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                    detected_items = []
-                    for _, days, sc_col, th in SLOPE_CHARTS_US_LOW:
-                        if sc_col in df_us_low.columns and dt in df_us_low.index and df_us_low.loc[dt, sc_col] <= th:
-                            val_diff_pct = (th - df_us_low.loc[dt, sc_col]) / abs(th) if th != 0 else 0
-                            if 0.0 <= val_diff_pct <= 0.40: color = '#A9D08E'
-                            elif 0.40 < val_diff_pct <= 0.60: color = '#FFD700'
-                            elif 0.60 < val_diff_pct <= 0.80: color = '#E06666'
-                            else: color = '#595959'
-                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
-                        else:
-                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
-                    val_str = "<br>".join(detected_items)
-                    counts_row_sl_us.append(f"<td style='{TD_SIG}'>{val_str}</td>")
-
-                html_slope_us = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{''.join(dates_row_sl_us)}</tr><tr><th style='{TH_SIG}'>이탈</th>{''.join(counts_row_sl_us)}</tr></table></div>"
-                st.markdown(html_slope_us, unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>최근 감지된 슬로프합 신호가 없습니다.</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>슬로프합 데이터 집계 중...</p>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 3. 미국저점 기울기합 (실시간 자동)
-        # -------------------------------------------------------------
+        # 3. 미국저점 기울기합
         st.markdown("<h4 style='color:#1F4E79;'>3. 미국저점 기울기합</h4>", unsafe_allow_html=True)
-        try:
-            SLOPE_TEST_US_LOW = [
-                ("기울기10일합", 10, "기울기10일합", -15),
-                ("기울기20일합", 20, "기울기20일합", -20),
-                ("기울기30일합", 30, "기울기30일합", -25),
-                ("기울기40일합", 40, "기울기40일합", -30),
-                ("기울기50일합", 50, "기울기50일합", -30),
-                ("기울기60일합", 60, "기울기60일합", -30),
-                ("기울기70일합", 70, "기울기70일합", -30),
-            ]
-            all_sl_test_us_low = []
-            for _, days_t, sfc, thresh in SLOPE_TEST_US_LOW:
-                if sfc in df_us_low.columns:
-                    _cond_sl = (df_us_low[sfc] <= thresh)
-                    all_sl_test_us_low.extend(df_us_low[_cond_sl].index.tolist())
-            dc_sl_test_us_low = Counter(all_sl_test_us_low)
-            parent_dates_sl_test_us_low = sorted(list(set(all_sl_test_us_low)), reverse=True)
+        img3_path = os.path.join(base_img_dir, "3_slope_angle.png")
+        if os.path.exists(img3_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img3_path)}' style='max-height:260px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
-            if parent_dates_sl_test_us_low:
-                r100_sl_test_us = parent_dates_sl_test_us_low[:100]
-                dates_row_sl_test_us = []
-                counts_row_sl_test_us = []
-                for dt in r100_sl_test_us:
-                    cnt = dc_sl_test_us_low.get(dt, 1)
-                    bg = "#E06666" if cnt==1 else "#FF8C00" if cnt==2 else '#FFD700' if cnt==3 else "#A9D08E" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
-                    dates_row_sl_test_us.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                    detected_items = []
-                    for _, days, sc_col, th in SLOPE_TEST_US_LOW:
-                        if sc_col in df_us_low.columns and dt in df_us_low.index and df_us_low.loc[dt, sc_col] <= th:
-                            val_diff_pct = (th - df_us_low.loc[dt, sc_col]) / abs(th) if th != 0 else 0
-                            if 0.0 <= val_diff_pct <= 0.40: color = '#A9D08E'
-                            elif 0.40 < val_diff_pct <= 0.60: color = '#FFD700'
-                            elif 0.60 < val_diff_pct <= 0.80: color = '#E06666'
-                            else: color = '#595959'
-                            detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
-                        else:
-                            detected_items.append(f"<span style='visibility:hidden;font-weight:bold;'>{days}일합</span>")
-                    val_str = "<br>".join(detected_items)
-                    counts_row_sl_test_us.append(f"<td style='{TD_SIG}'>{val_str}</td>")
-
-                html_slope_test_us = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{''.join(dates_row_sl_test_us)}</tr><tr><th style='{TH_SIG}'>이탈</th>{''.join(counts_row_sl_test_us)}</tr></table></div>"
-                st.markdown(html_slope_test_us, unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>최근 감지된 기울기합 신호가 없습니다.</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>기울기합 데이터 집계 중...</p>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 4. 미국저점 다중지표 (실시간 자동)
-        # -------------------------------------------------------------
+        # 4. 미국저점 다중지표
         st.markdown("<h4 style='color:#1F4E79;'>4. 미국저점 다중지표</h4>", unsafe_allow_html=True)
-        try:
-            if 'multi_count' in df_us_low.columns:
-                df_sig_multi_us = df_us_low[df_us_low['multi_count'] >= 1].sort_index(ascending=False).head(100)
-                if not df_sig_multi_us.empty:
-                    dates_row_multi_us = []
-                    counts_row_multi_us = []
-                    for dt in df_sig_multi_us.index:
-                        cnt = df_sig_multi_us.loc[dt, 'multi_count']
-                        bg_color = '#E06666' if cnt <= 7 else '#FF8C00' if cnt <= 14 else '#FFD700' if cnt <= 21 else '#A9D08E' if cnt <= 28 else '#87CEEB' if cnt <= 35 else '#000080' if cnt <= 42 else '#800080'
-                        dates_row_multi_us.append(f"<td style='background:{bg_color};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
-                        counts_row_multi_us.append(f"<td style='color:{bg_color};font-weight:bold;{TD_SIG}'>{int(cnt)}</td>")
+        img4_path = os.path.join(base_img_dir, "4_multi.png")
+        if os.path.exists(img4_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img4_path)}' style='max-height:120px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
-                    html_multi_us = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{''.join(dates_row_multi_us)}</tr><tr><th style='{TH_SIG}'>갯수</th>{''.join(counts_row_multi_us)}</tr></table></div>"
-                    st.markdown(html_multi_us, unsafe_allow_html=True)
-                else:
-                    st.markdown("<p style='color:gray;'>최근 감지된 다중지표 신호가 없습니다.</p>", unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>다중지표 연산 집계 중...</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>다중지표 데이터 처리 중...</p>", unsafe_allow_html=True)
-
-        # -------------------------------------------------------------
-        # 5. 미국저점 통합지표 (실시간 자동)
-        # -------------------------------------------------------------
+        # 5. 미국저점 통합지표
         st.markdown("<h4 style='color:#1F4E79;'>5. 미국저점 통합지표</h4>", unsafe_allow_html=True)
-        try:
-            if 'c_all' in df_us_low.columns:
-                trig_us_uni = df_us_low[df_us_low['c_all']].index.sort_values(ascending=False)[:100]
-                if len(trig_us_uni) > 0:
-                    dates_row_uni_us = "".join([f"<td style='background:#800080;color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>" for dt in trig_us_uni])
-                    html_uni_us = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{dates_row_uni_us}</tr></table></div>"
-                    st.markdown(html_uni_us, unsafe_allow_html=True)
-                else:
-                    st.markdown("<p style='color:gray;'>최근 감지된 통합지표 신호가 없습니다.</p>", unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>통합지표 연산 집계 중...</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>통합지표 데이터 처리 중...</p>", unsafe_allow_html=True)
+        img5_path = os.path.join(base_img_dir, "5_unified.png")
+        if os.path.exists(img5_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img5_path)}' style='max-height:100px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
-        # -------------------------------------------------------------
-        # 6. 미국저점 감마풋콜 (단독) (실시간 자동)
-        # -------------------------------------------------------------
+        # 6. 미국저점 감마풋콜 (단독)
         st.markdown("<h4 style='color:#1F4E79;'>6. 미국저점 감마풋콜 (단독)</h4>", unsafe_allow_html=True)
-        try:
-            if 'c_gamma_single' in df_us_low.columns:
-                trig_gamma_s = df_us_low[df_us_low['c_gamma_single']].index.sort_values(ascending=False)[:100]
-                if len(trig_gamma_s) > 0:
-                    dates_row_gamma_s = "".join([f"<td style='background:#000080;color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>" for dt in trig_gamma_s])
-                    html_gamma_s = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{dates_row_gamma_s}</tr></table></div>"
-                    st.markdown(html_gamma_s, unsafe_allow_html=True)
-                else:
-                    st.markdown("<p style='color:gray;'>최근 감지된 감마풋콜 단독 신호가 없습니다.</p>", unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>감마풋콜 단독 지표 처리 중...</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>감마풋콜 단독 데이터 처리 중...</p>", unsafe_allow_html=True)
+        img6_path = os.path.join(base_img_dir, "6_gamma_single.png")
+        if os.path.exists(img6_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img6_path)}' style='max-height:120px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
-        # -------------------------------------------------------------
-        # 7. 미국저점 감마풋콜 (혼합) (실시간 자동)
-        # -------------------------------------------------------------
+        # 7. 미국저점 감마풋콜 (혼합)
         st.markdown("<h4 style='color:#1F4E79;'>7. 미국저점 감마풋콜 (혼합)</h4>", unsafe_allow_html=True)
-        try:
-            if 'c_gamma_hybrid' in df_us_low.columns:
-                trig_gamma_h = df_us_low[df_us_low['c_gamma_hybrid']].index.sort_values(ascending=False)[:100]
-                if len(trig_gamma_h) > 0:
-                    dates_row_gamma_h = "".join([f"<td style='background:#800080;color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>" for dt in trig_gamma_h])
-                    html_gamma_h = f"<div style='margin-bottom:1.5rem;overflow-x:auto;'><table style='border-collapse:collapse;margin-top:4px;text-align:center;'><tr><th style='{TH_SIG}'>날짜</th>{dates_row_gamma_h}</tr></table></div>"
-                    st.markdown(html_gamma_h, unsafe_allow_html=True)
-                else:
-                    st.markdown("<p style='color:gray;'>최근 감지된 감마풋콜 혼합 신호가 없습니다.</p>", unsafe_allow_html=True)
-            else:
-                st.markdown("<p style='color:gray;'>감마풋콜 혼합 지표 처리 중...</p>", unsafe_allow_html=True)
-        except Exception as e:
-            st.markdown("<p style='color:gray;'>감마풋콜 혼합 데이터 처리 중...</p>", unsafe_allow_html=True)
+        img7_path = os.path.join(base_img_dir, "7_gamma_hybrid.png")
+        if os.path.exists(img7_path):
+            st.markdown(f"<div style='overflow-x:auto;'><img src='data:image/png;base64,{get_base64_image(img7_path)}' style='max-height:120px;width:auto;display:block;'></div>", unsafe_allow_html=True)
 
     with summary_tabs[2]:
         st.markdown("<h3 style='text-align:center;'>📊 미국 고점지표 요약</h3>", unsafe_allow_html=True)
