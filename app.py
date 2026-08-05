@@ -505,23 +505,7 @@ div.element-container:has(button[key="header_data_update"]) button {
 st.markdown("""
 <style>
 
-/* Force the button columns to NEVER stack on mobile */
-div[data-testid="stHorizontalBlock"]:has(button[key="header_data_refresh"]) {
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 2px !important; /* Reduce gap significantly */
-    justify-content: flex-start !important;
-}
-div[data-testid="stHorizontalBlock"]:has(button[key="header_data_refresh"]) > div[data-testid="column"] {
-    width: auto !important;
-    min-width: 0 !important;
-    flex: 0 1 auto !important;
-}
 
-/* Reduce gap below the buttons row */
-div.element-container:has(button[key="header_data_update"]) {
-    margin-bottom: -15px !important;
-}
 
 /* Reduce gap between Radio buttons (Country and Period) */
 div[data-testid="stVerticalBlock"] > div.element-container:has(div[data-testid="stRadio"]) {
@@ -557,63 +541,14 @@ div[data-baseweb="tab-panel"] {
 </style>
 """, unsafe_allow_html=True)
 
-btn_c1, btn_c2 = st.columns([1, 1])
-with btn_c1:
+with st.container(horizontal=True, gap=None):
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
-with btn_c2:
     if st.button("종목출입 업데이트", key="header_data_update"):
         with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
             update_tickers()
         st.rerun()
-
-import streamlit.components.v1 as components
-components.html(
-    """
-    <script>
-    // Execute after a short delay to ensure elements are rendered
-    setTimeout(function() {
-        const buttons = window.parent.document.querySelectorAll('button');
-        buttons.forEach(btn => {
-            if (btn.innerText.includes('refresh') || btn.innerText.includes('업데이트')) {
-                const container = btn.closest('div[data-testid="stHorizontalBlock"]');
-                if (container) {
-                    container.style.flexWrap = 'nowrap';
-                    container.style.flexDirection = 'row';
-                    container.style.gap = '0px';
-                    container.style.justifyContent = 'flex-start';
-                    
-                    const cols = container.querySelectorAll('div[data-testid="column"]');
-                    cols.forEach((col, index) => {
-                        col.style.width = 'auto';
-                        col.style.minWidth = '0';
-                        col.style.flex = '0 1 auto';
-                        col.style.padding = '0px'; // Remove hidden column padding!
-                        col.style.margin = '0px';
-                        
-                        // Force inner containers to have no margin
-                        const innerContainers = col.querySelectorAll('div.element-container');
-                        innerContainers.forEach(ic => {
-                            ic.style.margin = '0px';
-                            ic.style.padding = '0px';
-                        });
-
-                        // For the second button, pull it tightly to the left with negative margin
-                        if (index === 1) {
-                            col.style.marginLeft = '-14px';
-                        }
-                    });
-                }
-            }
-        });
-    }, 100);
-    </script>
-    """,
-    height=0,
-    width=0
-)
-
 
 # -----------------
 
