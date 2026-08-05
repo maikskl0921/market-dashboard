@@ -449,7 +449,7 @@ st.markdown("""
     .main-header { font-size: 1.2rem; font-weight: 700; background: -webkit-linear-gradient(45deg, #f3ec78, #af4261); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1.1; }
     h3 { font-size: 0.85rem !important; margin: 0.15rem 0 0.05rem 0 !important; }
     h4 { font-size: 0.75rem !important; margin: 0.1rem 0 0.05rem 0 !important; }
-    .stTabs [data-baseweb="tab-list"] button p { font-size: 0.5rem !important; }
+    .stTabs [data-baseweb="tab-list"] button p { font-size: 0.33rem !important; }
     .stButton > button { margin-top: 0 !important; margin-bottom: 0.1rem !important; padding: 2px 10px !important; font-size: 0.75rem !important; }
     
     /* 모든 표의 크기 */
@@ -477,6 +477,14 @@ st.markdown("""
     .stPlotlyChart {
         touch-action: pan-y !important;
     }
+
+div[data-testid="stButton"] button {
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.66rem !important;
+    min-height: 0 !important;
+    height: auto !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -520,17 +528,27 @@ div[data-testid="stTabs"] > div[data-baseweb="tab-panel"] > div > div > div > di
 div[data-baseweb="tab-panel"] {
     padding-top: 0px !important;
 }
+
+div[data-testid="stButton"] button {
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.66rem !important;
+    min-height: 0 !important;
+    height: auto !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-if st.button("refresh", key="header_data_refresh"):
-    st.cache_data.clear()
-    st.rerun()
-
-if st.button("종목출입 업데이트", key="header_data_update"):
-    with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
-        update_tickers()
-    st.rerun()
+col_btn1, col_btn2 = st.columns([1, 10])
+with col_btn1:
+    if st.button("refresh", key="header_data_refresh"):
+        st.cache_data.clear()
+        st.rerun()
+with col_btn2:
+    if st.button("종목출입 업데이트", key="header_data_update"):
+        with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
+            update_tickers()
+        st.rerun()
 
 # -----------------
 
@@ -570,7 +588,15 @@ with c_sel2:
         div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
             font-size: 0.75rem !important;
         }
-    </style>
+    
+div[data-testid="stButton"] button {
+    padding: 0.2rem 0.5rem !important;
+    font-size: 0.66rem !important;
+    min-height: 0 !important;
+    height: auto !important;
+}
+
+</style>
     """, unsafe_allow_html=True)
     
     # Period Selection (1m, 3m, 6m, 12m, 24m, 48m 순서 정렬)
@@ -672,7 +698,7 @@ COMMON_CONFIG = {
     'doubleClick': 'reset'
 }
 COMMON_LAYOUT = dict(
-    template="plotly_white",
+    template="plotly_white", xaxis=dict(tickfont=dict(size=8)),
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
     dragmode="pan",
@@ -2912,7 +2938,7 @@ if True:
 
         fig.update_layout(
             **COMMON_LAYOUT, 
-            height=320, 
+            height=640, 
             margin=dict(l=0,r=50,t=30,b=10),
             showlegend=False,
             barmode='overlay',
@@ -3085,7 +3111,7 @@ if True:
 
         fig_kr.update_layout(
             **COMMON_LAYOUT, 
-            height=320, 
+            height=640, 
             margin=dict(l=0,r=50,t=30,b=10),
             showlegend=False,
             barmode='overlay',
@@ -3293,7 +3319,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes_new.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                     
-                fig_dsi_new.update_layout(**layout_params_new, height=chart_height_new, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_new)
+                fig_dsi_new.update_layout(**layout_params_new, height=chart_height_new * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_new)
                 
                 for idx, choice in enumerate(selected_bottom_slopes_new):
                     row_i = idx + 1
@@ -3517,7 +3543,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes_kr.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                     
-                fig_dsi_kr.update_layout(**layout_params_kr, height=chart_height_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
+                fig_dsi_kr.update_layout(**layout_params_kr, height=chart_height_kr * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
                 
                 for idx, choice in enumerate(selected_bottom_slopes_kr):
                     row_i = idx + 1
@@ -3744,7 +3770,7 @@ if True:
             
         fig_multi.update_layout(
             **COMMON_LAYOUT, 
-            height=400, 
+            height=800, 
             margin=dict(l=0, r=50, t=30, b=10),
             showlegend=False,
             barmode='overlay',
@@ -3981,7 +4007,7 @@ if True:
             
         fig_multi_kr.update_layout(
             **COMMON_LAYOUT, 
-            height=400, 
+            height=800, 
             margin=dict(l=0, r=50, t=30, b=10),
             showlegend=False,
             barmode='overlay',
@@ -4163,7 +4189,7 @@ if True:
         
         fig_pre.update_layout(
             **COMMON_LAYOUT,
-            height=350,
+            height=700,
             margin=dict(l=0, r=50, t=10, b=10),
             showlegend=False,
             shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
@@ -4319,7 +4345,7 @@ if True:
             
             fig_pre.update_layout(
                 **COMMON_LAYOUT,
-                height=350,
+                height=700,
                 margin=dict(l=0, r=50, t=10, b=10),
                 showlegend=False,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
@@ -4507,7 +4533,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes_test.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                     
-                fig_dsi_test.update_layout(**layout_params_test, height=chart_height_test, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test)
+                fig_dsi_test.update_layout(**layout_params_test, height=chart_height_test * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test)
                 
                 for idx, choice in enumerate(selected_bottom_slopes_test):
                     row_i = idx + 1
@@ -4729,7 +4755,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes_test_kr.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                     
-                fig_dsi_test_kr.update_layout(**layout_params_test_kr, height=chart_height_test_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test_kr)
+                fig_dsi_test_kr.update_layout(**layout_params_test_kr, height=chart_height_test_kr * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test_kr)
                 
                 for idx, choice in enumerate(selected_bottom_slopes_test_kr):
                     row_i = idx + 1
@@ -4995,7 +5021,7 @@ with main_tabs[4]:
                     connectgaps=True
                 ), secondary_y=True)
                 fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Deposit']/10000, name="고객예탁금 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='고객예탁금: %{y:.2f}조<extra></extra>', connectgaps=True), secondary_y=True)
-                fig_mon1.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_mon1.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
                 fig_mon1.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
                 fig_mon1.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
                 fig_mon1.update_yaxes(**crosshair_yaxis(), secondary_y=True)
@@ -5027,7 +5053,7 @@ with main_tabs[4]:
                 fig_value.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, row=2, col=1, secondary_y=True)
             
                 # Layout setting
-                fig_value.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_value.update_layout(**COMMON_LAYOUT, height=1400, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
                 fig_value.update_annotations(font_size=10)
             
                 for r_idx in [1, 2]:
@@ -5077,7 +5103,7 @@ with main_tabs[4]:
                 fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Retail_Cum']/10000, name="개인 누적 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='개인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
                 fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Foreign_Cum']/10000, name="외국인 누적 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='외국인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
                 fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Institution_Cum']/10000, name="기관 누적 (조원)", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate='기관 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                fig_mon3.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_mon3.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
                 fig_mon3.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
                 
                 # Y보조축의 모든 데이터 시리즈의 최소/최대값을 고려한 타이트한 범위 설정
@@ -5257,7 +5283,7 @@ with main_tabs[4]:
     
         fig_breadth.update_layout(
             **COMMON_LAYOUT,
-            height=850,
+            height=1700,
             margin=dict(l=0, r=50, t=30, b=10),
             showlegend=False
         )
@@ -5346,7 +5372,7 @@ with main_tabs[4]:
             # 저점 신호 감지막대 배경
             fig_single_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, np.nan),
                     name="저점 신호 감지",
                     marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0, hoverinfo="skip", showlegend=False
@@ -5356,7 +5382,7 @@ with main_tabs[4]:
             # 고점 신호 감지막대 배경
             fig_single_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, np.nan),
                     name="고점 신호 감지",
                     marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0, hoverinfo="skip", showlegend=False
@@ -5400,7 +5426,7 @@ with main_tabs[4]:
 
             fig_single_combined.update_layout(
                 **COMMON_LAYOUT,
-                height=500,
+                height=1000,
                 margin=dict(l=0, r=50, t=30, b=10),
                 showlegend=False,
                 barmode='overlay'
@@ -5548,7 +5574,7 @@ with main_tabs[4]:
             # Row 1 (저점 7단계)
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 14.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 14.0, qmax * 1.5, np.nan),
                     name="저점 1단계 (빨강)", marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5556,7 +5582,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 15.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 15.0, qmax * 1.5, np.nan),
                     name="저점 2단계 (주황)", marker_color="rgba(239, 108, 0, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5564,7 +5590,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 16.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 16.0, qmax * 1.5, np.nan),
                     name="저점 3단계 (노랑)", marker_color="rgba(255, 238, 88, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5572,7 +5598,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 17.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 17.0, qmax * 1.5, np.nan),
                     name="저점 4단계 (초록)", marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5580,7 +5606,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 18.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 18.0, qmax * 1.5, np.nan),
                     name="저점 5단계 (하늘)", marker_color="rgba(129, 212, 250, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5588,7 +5614,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 19.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 19.0, qmax * 1.5, np.nan),
                     name="저점 6단계 (남색)", marker_color="rgba(40, 53, 147, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5596,7 +5622,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, np.nan),
                     name="저점 7단계 (보라)", marker_color="rgba(156, 39, 176, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5616,7 +5642,7 @@ with main_tabs[4]:
             # Row 2 (고점 7단계)
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 13.5, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 13.5, qmax * 1.5, np.nan),
                     name="고점 1단계 (빨강)", marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5624,7 +5650,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.0, qmax * 1.5, np.nan),
                     name="고점 2단계 (주황)", marker_color="rgba(239, 108, 0, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5632,7 +5658,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.5, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.5, qmax * 1.5, np.nan),
                     name="고점 3단계 (노랑)", marker_color="rgba(255, 238, 88, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5640,7 +5666,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.0, qmax * 1.5, np.nan),
                     name="고점 4단계 (초록)", marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5648,7 +5674,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.5, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.5, qmax * 1.5, np.nan),
                     name="고점 5단계 (하늘)", marker_color="rgba(129, 212, 250, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5656,7 +5682,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.0, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.0, qmax * 1.5, np.nan),
                     name="고점 6단계 (남색)", marker_color="rgba(40, 53, 147, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5664,7 +5690,7 @@ with main_tabs[4]:
             )
             fig_hybrid_combined.add_trace(
                 go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, 0),
+                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, np.nan),
                     name="고점 7단계 (보라)", marker_color="rgba(156, 39, 176, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
@@ -5683,7 +5709,7 @@ with main_tabs[4]:
 
             fig_hybrid_combined.update_layout(
                 **COMMON_LAYOUT,
-                height=750,
+                height=1500,
                 margin=dict(l=0, r=50, t=30, b=10),
                 showlegend=False,
                 barmode='overlay'
@@ -5829,7 +5855,7 @@ with main_tabs[4]:
             ), row=2, col=1, secondary_y=True)
             
             fig.update_layout(
-                height=700,
+                height=1400,
                 showlegend=False,  # 규칙 4 준수
                 hovermode='x unified',
                 margin=dict(l=0, r=0, t=30, b=0)
@@ -5894,7 +5920,7 @@ with main_tabs[4]:
                 fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW_Disp20'], name="환율 20일 이격도", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=2, col=1, secondary_y=True)
                 fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW_Slope20'], name="환율 20일 슬로프", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=3, col=1, secondary_y=True)
                 
-                fig2.update_layout(height=900, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0))
+                fig2.update_layout(height=1800, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0))
                 fig2.update_annotations(font_size=10)
                 
                 for r in range(1, 4):
@@ -6151,7 +6177,7 @@ with sub_tabs[4]:
 
             fig_mem.update_layout(
                 **COMMON_LAYOUT,
-                height=2200, 
+                height=4400, 
                 margin=dict(l=0, r=0, t=30, b=10),
                 showlegend=False,
             )
@@ -6453,7 +6479,7 @@ if True:
                 
                 fig_dsi.update_layout(
                     **layout_params,
-                    height=chart_height,
+                    height=chart_height * 2,
                     showlegend=False,
                     barmode='overlay',
                     bargap=0,
@@ -6688,7 +6714,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                 
-                fig_top_sl.update_layout(**layout_params_tsl, height=chart_height, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes)
+                fig_top_sl.update_layout(**layout_params_tsl, height=chart_height * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes)
                 
                 for idx, choice in enumerate(selected_slopes):
                     row_i = idx + 1
@@ -6879,7 +6905,7 @@ if True:
                     marker_color=bar_color, showlegend=False, hoverinfo='skip',
                     marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
             
-            fig_top_multi.update_layout(**COMMON_LAYOUT, height=400, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
+            fig_top_multi.update_layout(**COMMON_LAYOUT, height=800, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
             if initial_x_tm:
                 fig_top_multi.update_xaxes(range=initial_x_tm, type='category', **crosshair_xaxis())
@@ -6982,7 +7008,7 @@ if True:
                     hovertemplate='고점 신호 감지<extra></extra>'
                 ), secondary_y=False)
                 
-                fig_top_final.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                fig_top_final.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
                 fig_top_final.update_xaxes(type='category', categoryorder='array', categoryarray=hd_top_final, **crosshair_xaxis())
                 if initial_x_tt:
@@ -7153,7 +7179,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes_test.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                 
-                fig_top_sl_test.update_layout(**layout_params_tsl_test, height=chart_height_test, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test)
+                fig_top_sl_test.update_layout(**layout_params_tsl_test, height=chart_height_test * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_test)
                 
                 for idx, choice in enumerate(selected_slopes_test):
                     row_i = idx + 1
@@ -7448,7 +7474,7 @@ if True:
                 
                 fig_dsi_kr.update_layout(
                     **layout_params,
-                    height=chart_height,
+                    height=chart_height * 2,
                     showlegend=False,
                     barmode='overlay',
                     bargap=0,
@@ -7673,7 +7699,7 @@ if True:
                     y_ref = 'y domain' if idx == 0 else f'y{2*idx + 1} domain'
                     shapes_kr.append(dict(type='rect', xref='paper', yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color='rgba(150, 150, 150, 0.8)', width=1.5)))
                     
-                fig_dsi_kr_top.update_layout(**layout_params_kr, height=chart_height_kr, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
+                fig_dsi_kr_top.update_layout(**layout_params_kr, height=chart_height_kr * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr)
                 
                 for idx, choice in enumerate(selected_bottom_slopes_kr_top):
                     row_i = idx + 1
@@ -7865,7 +7891,7 @@ if True:
                     marker_color=bar_color, showlegend=False, hoverinfo='skip',
                     marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
             
-            fig_top_multi_kr.update_layout(**COMMON_LAYOUT, height=400, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
+            fig_top_multi_kr.update_layout(**COMMON_LAYOUT, height=800, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
             if initial_x_tm:
                 fig_top_multi_kr.update_xaxes(range=initial_x_tm, type='category', **crosshair_xaxis())
@@ -7956,7 +7982,7 @@ if True:
                     hovertemplate='고점 신호 감지<extra></extra>'
                 ), secondary_y=False)
                 
-                fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=350, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=700, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
                 fig_top_final_kr.update_xaxes(type='category', categoryorder='array', categoryarray=hd_top_final_kr, **crosshair_xaxis())
                 if initial_x_tt:
@@ -8123,7 +8149,7 @@ if True:
                     y_ref = "y domain" if idx == 0 else f"y{2*idx + 1} domain"
                     shapes_kr_test.append(dict(type="rect", xref="paper", yref=y_ref, x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.5)))
                     
-                fig_dsi_kr_top_test.update_layout(**layout_params_kr_test, height=chart_height_kr_test, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr_test)
+                fig_dsi_kr_top_test.update_layout(**layout_params_kr_test, height=chart_height_kr_test * 2, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0, shapes=shapes_kr_test)
                 
                 for idx, choice in enumerate(selected_slopes_kr_top_test):
                     row_i = idx + 1
