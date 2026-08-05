@@ -569,8 +569,8 @@ st.markdown("""
     
     /* 4. 라디오 버튼 (세부/1M) 글씨 강제 축소 */
     div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
-        font-size: 10px !important;
-        transform: scale(0.9) !important;
+        font-size: 0.75rem !important;
+        transform: scale(1.0) !important;
         transform-origin: left center !important;
     }
 }
@@ -754,7 +754,7 @@ TD = "text-align:center;padding:2px 4px;border:1px solid #555;"
 def crosshair_xaxis(**kwargs):
     return dict(
         showgrid=False,
-        tickfont_size=4,
+        tickfont_size=6,
         showspikes=True,
         spikemode='across',
         spikesnap='cursor',
@@ -767,7 +767,7 @@ def crosshair_xaxis(**kwargs):
 def crosshair_yaxis(**kwargs):
     return dict(
         showgrid=False,
-        tickfont_size=4,
+        tickfont_size=6,
         showspikes=True,
         spikemode='across',
         spikesnap='cursor',
@@ -2968,7 +2968,7 @@ if True:
 
         fig.update_layout(
             **COMMON_LAYOUT, 
-            height=480, 
+            height=432, 
             margin=dict(l=0,r=50,t=30,b=10),
             showlegend=False,
             barmode='overlay',
@@ -3141,7 +3141,7 @@ if True:
 
         fig_kr.update_layout(
             **COMMON_LAYOUT, 
-            height=480, 
+            height=432, 
             margin=dict(l=0,r=50,t=30,b=10),
             showlegend=False,
             barmode='overlay',
@@ -3340,7 +3340,7 @@ if True:
                     initial_x_range_dsi_new = None
                     qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
                 
-                chart_height_new = max(600, num_charts_new * 450)
+                chart_height_new = max(540, num_charts_new * 405)
                 layout_params_new = COMMON_LAYOUT.copy()
                 layout_params_new.pop('shapes', None)
                 
@@ -3564,7 +3564,7 @@ if True:
                     initial_x_range_dsi_kr = None
                     kmin_dsi, kmax_dsi = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
                 
-                chart_height_kr = max(600, num_charts_kr * 450)
+                chart_height_kr = max(540, num_charts_kr * 405)
                 layout_params_kr = COMMON_LAYOUT.copy()
                 layout_params_kr.pop('shapes', None)
                 
@@ -3800,7 +3800,7 @@ if True:
             
         fig_multi.update_layout(
             **COMMON_LAYOUT, 
-            height=600, 
+            height=540, 
             margin=dict(l=0, r=50, t=30, b=10),
             showlegend=False,
             barmode='overlay',
@@ -4037,7 +4037,7 @@ if True:
             
         fig_multi_kr.update_layout(
             **COMMON_LAYOUT, 
-            height=600, 
+            height=540, 
             margin=dict(l=0, r=50, t=30, b=10),
             showlegend=False,
             barmode='overlay',
@@ -4219,7 +4219,7 @@ if True:
         
         fig_pre.update_layout(
             **COMMON_LAYOUT,
-            height=525,
+            height=472,
             margin=dict(l=0, r=50, t=10, b=10),
             showlegend=False,
             shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
@@ -4375,7 +4375,7 @@ if True:
             
             fig_pre.update_layout(
                 **COMMON_LAYOUT,
-                height=525,
+                height=472,
                 margin=dict(l=0, r=50, t=10, b=10),
                 showlegend=False,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))]
@@ -4554,7 +4554,7 @@ if True:
                     initial_x_range_dsi_test = None
                     qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
                 
-                chart_height_test = max(600, num_charts_test * 450)
+                chart_height_test = max(540, num_charts_test * 405)
                 layout_params_test = COMMON_LAYOUT.copy()
                 layout_params_test.pop('shapes', None)
                 
@@ -4776,7 +4776,7 @@ if True:
                     initial_x_range_dsi_test_kr = None
                     kmin_dsi_test, kmax_dsi_test = float(df_kr['KOSPI'].min()), float(df_kr['KOSPI'].max())
                 
-                chart_height_test_kr = max(600, num_charts_test_kr * 450)
+                chart_height_test_kr = max(540, num_charts_test_kr * 405)
                 layout_params_test_kr = COMMON_LAYOUT.copy()
                 layout_params_test_kr.pop('shapes', None)
                 
@@ -5051,7 +5051,7 @@ with main_tabs[4]:
                     connectgaps=True
                 ), secondary_y=True)
                 fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Deposit']/10000, name="고객예탁금 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='고객예탁금: %{y:.2f}조<extra></extra>', connectgaps=True), secondary_y=True)
-                fig_mon1.update_layout(**COMMON_LAYOUT, height=525, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_mon1.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
                 fig_mon1.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
                 fig_mon1.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
                 fig_mon1.update_yaxes(**crosshair_yaxis(), secondary_y=True)
@@ -5083,7 +5083,7 @@ with main_tabs[4]:
                 fig_value.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, row=2, col=1, secondary_y=True)
             
                 # Layout setting
-                fig_value.update_layout(**COMMON_LAYOUT, height=1050, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_value.update_layout(**COMMON_LAYOUT, height=945, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
                 fig_value.update_annotations(font_size=10)
             
                 for r_idx in [1, 2]:
@@ -5133,7 +5133,7 @@ with main_tabs[4]:
                 fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Retail_Cum']/10000, name="개인 누적 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='개인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
                 fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Foreign_Cum']/10000, name="외국인 누적 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='외국인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
                 fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Institution_Cum']/10000, name="기관 누적 (조원)", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate='기관 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                fig_mon3.update_layout(**COMMON_LAYOUT, height=525, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
+                fig_mon3.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
                 fig_mon3.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
                 
                 # Y보조축의 모든 데이터 시리즈의 최소/최대값을 고려한 타이트한 범위 설정
@@ -5313,7 +5313,7 @@ with main_tabs[4]:
     
         fig_breadth.update_layout(
             **COMMON_LAYOUT,
-            height=1275,
+            height=1147,
             margin=dict(l=0, r=50, t=30, b=10),
             showlegend=False
         )
@@ -5456,7 +5456,7 @@ with main_tabs[4]:
 
             fig_single_combined.update_layout(
                 **COMMON_LAYOUT,
-                height=750,
+                height=675,
                 margin=dict(l=0, r=50, t=30, b=10),
                 showlegend=False,
                 barmode='overlay'
@@ -5739,7 +5739,7 @@ with main_tabs[4]:
 
             fig_hybrid_combined.update_layout(
                 **COMMON_LAYOUT,
-                height=1125,
+                height=1012,
                 margin=dict(l=0, r=50, t=30, b=10),
                 showlegend=False,
                 barmode='overlay'
@@ -5885,7 +5885,7 @@ with main_tabs[4]:
             ), row=2, col=1, secondary_y=True)
             
             fig.update_layout(
-                height=1050,
+                height=945,
                 showlegend=False,  # 규칙 4 준수
                 hovermode='x unified',
                 margin=dict(l=0, r=0, t=30, b=0)
@@ -5950,7 +5950,7 @@ with main_tabs[4]:
                 fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW_Disp20'], name="환율 20일 이격도", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=2, col=1, secondary_y=True)
                 fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW_Slope20'], name="환율 20일 슬로프", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=3, col=1, secondary_y=True)
                 
-                fig2.update_layout(height=1350, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0))
+                fig2.update_layout(height=1215, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0))
                 fig2.update_annotations(font_size=10)
                 
                 for r in range(1, 4):
@@ -6207,7 +6207,7 @@ with sub_tabs[4]:
 
             fig_mem.update_layout(
                 **COMMON_LAYOUT,
-                height=3300, 
+                height=2970, 
                 margin=dict(l=0, r=0, t=30, b=10),
                 showlegend=False,
             )
@@ -6499,7 +6499,7 @@ if True:
                     initial_x_range_dsi = None
                     qmin_dsi, qmax_dsi = float(df['QQQ'].min()), float(df['QQQ'].max())
                 
-                chart_height = max(600, num_charts * 450)
+                chart_height = max(540, num_charts * 405)
                 layout_params = COMMON_LAYOUT.copy()
                 layout_params.pop('shapes', None)
                 
@@ -6735,7 +6735,7 @@ if True:
                     initial_x_tsl = None
                     qmin_tsl, qmax_tsl = float(df['QQQ'].min()), float(df['QQQ'].max())
                 
-                chart_height = max(600, num_charts * 450)
+                chart_height = max(540, num_charts * 405)
                 layout_params_tsl = COMMON_LAYOUT.copy()
                 layout_params_tsl.pop('shapes', None)
                 
@@ -6935,7 +6935,7 @@ if True:
                     marker_color=bar_color, showlegend=False, hoverinfo='skip',
                     marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
             
-            fig_top_multi.update_layout(**COMMON_LAYOUT, height=600, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
+            fig_top_multi.update_layout(**COMMON_LAYOUT, height=540, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
             if initial_x_tm:
                 fig_top_multi.update_xaxes(range=initial_x_tm, type='category', **crosshair_xaxis())
@@ -7038,7 +7038,7 @@ if True:
                     hovertemplate='고점 신호 감지<extra></extra>'
                 ), secondary_y=False)
                 
-                fig_top_final.update_layout(**COMMON_LAYOUT, height=525, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                fig_top_final.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
                 fig_top_final.update_xaxes(type='category', categoryorder='array', categoryarray=hd_top_final, **crosshair_xaxis())
                 if initial_x_tt:
@@ -7200,7 +7200,7 @@ if True:
                     initial_x_tsl_test = None
                     qmin_tsl_test, qmax_tsl_test = float(df['QQQ'].min()), float(df['QQQ'].max())
                 
-                chart_height_test = max(600, num_charts_test * 450)
+                chart_height_test = max(540, num_charts_test * 405)
                 layout_params_tsl_test = COMMON_LAYOUT.copy()
                 layout_params_tsl_test.pop('shapes', None)
                 
@@ -7494,7 +7494,7 @@ if True:
                     initial_x_range_dsi_kr = None
                     qmin_dsi_kr, qmax_dsi_kr = float(df_top1_kr['KOSPI'].min()), float(df_top1_kr['KOSPI'].max())
                 
-                chart_height = max(600, num_charts_kr * 450)
+                chart_height = max(540, num_charts_kr * 405)
                 layout_params = COMMON_LAYOUT.copy()
                 layout_params.pop('shapes', None)
                 
@@ -7720,7 +7720,7 @@ if True:
                     initial_x_range_dsi_kr = None
                     kmin_dsi, kmax_dsi = float(df_top_kr['KOSPI'].min()), float(df_top_kr['KOSPI'].max())
                 
-                chart_height_kr = max(600, num_charts_kr_top * 450)
+                chart_height_kr = max(540, num_charts_kr_top * 405)
                 layout_params_kr = COMMON_LAYOUT.copy()
                 layout_params_kr.pop('shapes', None)
                 
@@ -7921,7 +7921,7 @@ if True:
                     marker_color=bar_color, showlegend=False, hoverinfo='skip',
                     marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
             
-            fig_top_multi_kr.update_layout(**COMMON_LAYOUT, height=600, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
+            fig_top_multi_kr.update_layout(**COMMON_LAYOUT, height=540, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
             if initial_x_tm:
                 fig_top_multi_kr.update_xaxes(range=initial_x_tm, type='category', **crosshair_xaxis())
@@ -8012,7 +8012,7 @@ if True:
                     hovertemplate='고점 신호 감지<extra></extra>'
                 ), secondary_y=False)
                 
-                fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=525, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
+                fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
                 fig_top_final_kr.update_xaxes(type='category', categoryorder='array', categoryarray=hd_top_final_kr, **crosshair_xaxis())
                 if initial_x_tt:
@@ -8170,7 +8170,7 @@ if True:
                     initial_x_range_dsi_kr_test = None
                     kmin_dsi_test, kmax_dsi_test = float(df_top_kr['KOSPI'].min()), float(df_top_kr['KOSPI'].max())
                 
-                chart_height_kr_test = max(600, num_charts_kr_top_test * 450)
+                chart_height_kr_test = max(540, num_charts_kr_top_test * 405)
                 layout_params_kr_test = COMMON_LAYOUT.copy()
                 layout_params_kr_test.pop('shapes', None)
                 
