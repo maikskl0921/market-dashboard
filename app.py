@@ -541,7 +541,43 @@ div[data-baseweb="tab-panel"] {
 </style>
 """, unsafe_allow_html=True)
 
-with st.container(horizontal=True, gap=None):
+main_ui = st.container(gap=None)
+
+# 모바일 강제 축소 (사용자 요청) CSS
+st.markdown("""
+<style>
+@media (max-width: 768px) {
+    /* 1. 텍스트 강제 확대 방지 (모든 요소) */
+    html, body, div, p, span, button {
+        -webkit-text-size-adjust: none !important;
+        text-size-adjust: none !important;
+    }
+    
+    /* 2. 상단 리프레쉬/업데이트 버튼 강제 축소 (크기 및 폰트) */
+    .stButton > button {
+        transform: scale(0.85) !important;
+        transform-origin: left center !important;
+        margin: -2px 0px !important; /* 스케일로 인해 생기는 빈 공간 상쇄 */
+    }
+    
+    /* 3. 메인 탭 및 서브 탭 글씨 강제 축소 */
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] button p {
+        font-size: 8px !important;
+        transform: scale(0.9) !important;
+        transform-origin: center center !important;
+    }
+    
+    /* 4. 라디오 버튼 (세부/1M) 글씨 강제 축소 */
+    div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
+        font-size: 10px !important;
+        transform: scale(0.9) !important;
+        transform-origin: left center !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
+with main_ui.container(horizontal=True, gap=None):
     if st.button("refresh", key="header_data_refresh"):
         st.cache_data.clear()
         st.rerun()
@@ -553,9 +589,9 @@ with st.container(horizontal=True, gap=None):
 # -----------------
 
 # Global Selectors (Sync Country and Period)
-c_sel1, c_sel2 = st.columns([1, 1])
 
-with c_sel1:
+
+with main_ui:
     # Country Selection
     if 'selected_country' not in st.session_state:
         st.session_state.selected_country = "세부"
@@ -573,7 +609,7 @@ with c_sel1:
 
 
 
-with c_sel2:
+with main_ui:
     # 모바일 환경 대응 라디오 버튼 크기/간격 축소 CSS 주입
     st.markdown("""
     <style>
@@ -2725,7 +2761,7 @@ with st.spinner('데이터 로딩 중...'):
 
 # 탭 구성: 저점지표 / 고점지표 / 모니터링
 if selected_country == "요약":
-    summary_tabs = st.tabs(['실시간감지', '미국저점', '미국고점', '한국저점', '한국고점', '백테스트'])
+    summary_tabs = main_ui.tabs(['실시간감지', '미국저점', '미국고점', '한국저점', '한국고점', '백테스트'])
     with summary_tabs[0]:
         st.markdown("<h3 style='text-align:center;'>실시간 감지 이력 (최근 30회)</h3>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -2838,7 +2874,7 @@ if selected_country == "요약":
         st.stop()
 
 tab_names = ["미국저점", "미국고점", "한국저점", "한국고점", "모니터링"]
-main_tabs = st.tabs(tab_names)
+main_tabs = main_ui.tabs(tab_names)
 
 # ── Tab 1: 저점지표 ──
 if True:
