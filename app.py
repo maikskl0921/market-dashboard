@@ -568,6 +568,39 @@ with btn_c2:
             update_tickers()
         st.rerun()
 
+import streamlit.components.v1 as components
+components.html(
+    """
+    <script>
+    // Execute after a short delay to ensure elements are rendered
+    setTimeout(function() {
+        const buttons = window.parent.document.querySelectorAll('button');
+        buttons.forEach(btn => {
+            if (btn.innerText.includes('refresh') || btn.innerText.includes('업데이트')) {
+                const container = btn.closest('div[data-testid="stHorizontalBlock"]');
+                if (container) {
+                    container.style.flexWrap = 'nowrap';
+                    container.style.flexDirection = 'row';
+                    container.style.gap = '2px';
+                    container.style.justifyContent = 'flex-start';
+                    
+                    const cols = container.querySelectorAll('div[data-testid="column"]');
+                    cols.forEach(col => {
+                        col.style.width = 'auto';
+                        col.style.minWidth = '0';
+                        col.style.flex = '0 1 auto';
+                    });
+                }
+            }
+        });
+    }, 100);
+    </script>
+    """,
+    height=0,
+    width=0
+)
+
+
 # -----------------
 
 # Global Selectors (Sync Country and Period)
