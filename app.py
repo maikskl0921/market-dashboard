@@ -18,9 +18,9 @@ def generate_auto_screenshots_us_low(df_data):
         # 1. 공탐변동
         color_cond_map_us = [
             ((df_sub['FearGreedIndex']<=9)&(df_sub['VIX']>=26), '#595959', '#FFFFFF'),
-            ((df_sub['FearGreedIndex']>=10)&(df_sub['FearGreedIndex']<=19)&(df_sub['VIX']>=22)&(df_sub['VIX']<=25), '#FF0000', '#FFFFFF'),
-            ((df_sub['FearGreedIndex']>=20)&(df_sub['FearGreedIndex']<=29)&(df_sub['VIX']>=18)&(df_sub['VIX']<=21), '#FFFF00', '#000000'),
-            ((df_sub['FearGreedIndex']>=30)&(df_sub['FearGreedIndex']<=39)&(df_sub['VIX']>=14)&(df_sub['VIX']<=17), '#008000', '#000000'),
+            ((df_sub['FearGreedIndex']>=10)&(df_sub['FearGreedIndex']<=19)&(df_sub['VIX']>=22)&(df_sub['VIX']<=25), '#F44336', '#FFFFFF'),
+            ((df_sub['FearGreedIndex']>=20)&(df_sub['FearGreedIndex']<=29)&(df_sub['VIX']>=18)&(df_sub['VIX']<=21), '#FFEE58', '#000000'),
+            ((df_sub['FearGreedIndex']>=30)&(df_sub['FearGreedIndex']<=39)&(df_sub['VIX']>=14)&(df_sub['VIX']<=17), '#4CAF50', '#000000'),
         ]
         date_color_map_us = {}
         for cond, bg, fg in reversed(color_cond_map_us):
@@ -480,30 +480,59 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header" style="text-align:center; margin-bottom: 0.5rem;">Market Indicators Dashboard</p>', unsafe_allow_html=True)
 
-# Refresh Button Placement (Aligned Right above selector, ensuring mobile responsiveness)
-col_top_left, col_top_refresh, col_top_update = st.columns([4, 1, 1])
-with col_top_refresh:
-    st.markdown(
-        """
-        <style>
-        div[data-testid="column"]:has(button[key="header_data_refresh"]) {
-            display: flex;
-            justify-content: flex-end;
-            width: 100%;
-        }
-        </style>
-        """, unsafe_allow_html=True
-    )
-    if st.button("refresh", key="header_data_refresh"):
-        st.cache_data.clear()
-        st.rerun()
-with col_top_update:
-    if st.button("종목출입 업데이트"):
-        with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
-            update_tickers()
-        st.rerun()
+
+# -----------------
+# Button and Gap CSS Injection
+st.markdown("""
+<style>
+/* Make refresh and update buttons inline */
+div.element-container:has(button[key="header_data_refresh"]),
+div.element-container:has(button[key="header_data_update"]) {
+    display: inline-block !important;
+    width: auto !important;
+    margin-right: 10px !important;
+}
+/* Reduce gap below the buttons row */
+div.element-container:has(button[key="header_data_update"]) {
+    margin-bottom: -15px !important;
+}
+
+/* Reduce gap between Radio buttons (Country and Period) */
+div[data-testid="stVerticalBlock"] > div.element-container:has(div[data-testid="stRadio"]) {
+    margin-bottom: -20px !important;
+}
+div.element-container:has(div.row-widget.stRadio) {
+    margin-top: -10px !important;
+    margin-bottom: -10px !important;
+}
+
+/* Reduce gap between Main Tabs and Sub Tabs */
+/* Main tab list margin bottom */
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
+    margin-bottom: -10px !important;
+}
+/* Sub tab list margin top */
+div[data-testid="stTabs"] > div[data-baseweb="tab-panel"] > div > div > div > div > div[data-testid="stTabs"] {
+    margin-top: -20px !important;
+}
+/* Reduce padding inside tab panels */
+div[data-baseweb="tab-panel"] {
+    padding-top: 0px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+if st.button("refresh", key="header_data_refresh"):
+    st.cache_data.clear()
+    st.rerun()
+
+if st.button("종목출입 업데이트", key="header_data_update"):
+    with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
+        update_tickers()
+    st.rerun()
+
+# -----------------
 
 # Global Selectors (Sync Country and Period)
 c_sel1, c_sel2 = st.columns([1, 1])
@@ -658,9 +687,9 @@ COMMON_LAYOUT = dict(
 
 def color_bg(cnt):
     if cnt==4: return "#595959", "#FFF"
-    elif cnt==3: return "#FF0000", "#FFF"
-    elif cnt==2: return "#FFFF00", "#000"
-    return "#008000", "#000"
+    elif cnt==3: return "#F44336", "#FFF"
+    elif cnt==2: return "#FFEE58", "#000"
+    return "#4CAF50", "#000"
 
 TS = "width:100%;border-collapse:collapse;"
 TH = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;"
@@ -2141,21 +2170,21 @@ def calculate_latest_signals(df, df_kr):
         if not hex_color or hex_color == "": return "", ""
         h = hex_color.lstrip('#')
         r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-        bg = f"rgba({r}, {g}, {b}, 0.3)"
+        bg = f"rgba({r}, {g}, {b}, 1.0)"
         fg = hex_color 
         return bg, fg
 
     def get_cnt_color(cnt):
         colors = {
-            1: '#FF0000',
-            2: '#FFA500',
-            3: '#FFFF00',
-            4: '#008000',
-            5: '#87CEEB',
-            6: '#000080',
-            7: '#800080'
+            1: '#F44336',
+            2: '#EF6C00',
+            3: '#FFEE58',
+            4: '#4CAF50',
+            5: '#81D4FA',
+            6: '#283593',
+            7: '#9C27B0'
         }
-        c = colors.get(min(max(1, int(cnt)), 7), '#800080')
+        c = colors.get(min(max(1, int(cnt)), 7), '#9C27B0')
         return to_rgba5_and_fg(c)
 
     # 1. us_low_panic
@@ -2164,25 +2193,25 @@ def calculate_latest_signals(df, df_kr):
     fv5_us = (fgi_us - vix_us) / 5.0
     us_low_panic = {"detected": False, "items": [], "bg_color": ""}
     if fv5_us <= -4.9:
-        bg, fg = to_rgba5_and_fg('#800080') # 보라색
+        bg, fg = to_rgba5_and_fg('#9C27B0') # 보라색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     elif fv5_us <= -4.2:
-        bg, fg = to_rgba5_and_fg('#000080') # 남색
+        bg, fg = to_rgba5_and_fg('#283593') # 남색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     elif fv5_us <= -3.5:
-        bg, fg = to_rgba5_and_fg('#87CEEB') # 하늘색
+        bg, fg = to_rgba5_and_fg('#81D4FA') # 하늘색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     elif fv5_us <= -2.8:
-        bg, fg = to_rgba5_and_fg('#008000') # 초록색
+        bg, fg = to_rgba5_and_fg('#4CAF50') # 초록색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     elif fv5_us <= -2.1:
-        bg, fg = to_rgba5_and_fg('#FFFF00') # 노란색
+        bg, fg = to_rgba5_and_fg('#FFEE58') # 노란색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     elif fv5_us <= -1.4:
-        bg, fg = to_rgba5_and_fg('#FFA500') # 주황색
+        bg, fg = to_rgba5_and_fg('#EF6C00') # 주황색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     elif fv5_us <= -0.7:
-        bg, fg = to_rgba5_and_fg('#FF0000') # 빨간색
+        bg, fg = to_rgba5_and_fg('#F44336') # 빨간색
         us_low_panic = {"detected": True, "items": [(f"FV5 {fv5_us:.2f}", fg)], "bg_color": bg}
     res["us_low_panic"] = us_low_panic
 
@@ -2192,9 +2221,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_BOTTOM_CHARTS_NEW:
         if df[sc_col].iloc[-1] <= th:
             val_diff_pct = (th - df[sc_col].iloc[-1]) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_us_low_slope.append((f"{days}일합", color))
     if detected_us_low_slope:
@@ -2209,9 +2238,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_BOTTOM_CHARTS_TEST:
         if df[sc_col].iloc[-1] <= th:
             val_diff_pct = (th - df[sc_col].iloc[-1]) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_us_low_slope_test.append((f"{days}일합", color))
     if detected_us_low_slope_test:
@@ -2223,7 +2252,7 @@ def calculate_latest_signals(df, df_kr):
     # 4. us_low_multi
     cnt_us_low_multi = int(df_pre['multi_count'].iloc[-1])
     if cnt_us_low_multi >= 1:
-        c = '#FF0000' if cnt_us_low_multi <= 7 else '#FFA500' if cnt_us_low_multi <= 14 else '#FFFF00' if cnt_us_low_multi <= 21 else '#008000' if cnt_us_low_multi <= 28 else '#87CEEB' if cnt_us_low_multi <= 35 else '#000080' if cnt_us_low_multi <= 42 else '#800080'
+        c = '#F44336' if cnt_us_low_multi <= 7 else '#EF6C00' if cnt_us_low_multi <= 14 else '#FFEE58' if cnt_us_low_multi <= 21 else '#4CAF50' if cnt_us_low_multi <= 28 else '#81D4FA' if cnt_us_low_multi <= 35 else '#283593' if cnt_us_low_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["us_low_multi"] = {"detected": True, "items": [(f"{cnt_us_low_multi}개", fg)], "bg_color": bg}
     with main_tabs[3]:
@@ -2231,7 +2260,7 @@ def calculate_latest_signals(df, df_kr):
 
     # 5. us_low_unified
     if df_pre['c_or_final'].iloc[-1]:
-        bg, fg = to_rgba5_and_fg('#800080')
+        bg, fg = to_rgba5_and_fg('#9C27B0')
         res["us_low_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
     with main_tabs[3]:
         res["us_low_unified"] = {"detected": False, "items": [], "bg_color": ""}
@@ -2252,9 +2281,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_FV5_HIGH_CHARTS:
         if df[sc_col].iloc[-1] >= th and nb_us_top:
             val_diff_pct = (df[sc_col].iloc[-1] - th) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_us_high_panic.append((f"{days}일합", color))
     if detected_us_high_panic:
@@ -2269,9 +2298,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_TOP_CHARTS:
         if df[sc_col].iloc[-1] >= th and nb_us_top:
             val_diff_pct = (df[sc_col].iloc[-1] - th) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_us_high_slope.append((f"{days}일합", color))
     if detected_us_high_slope:
@@ -2286,9 +2315,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_TOP_CHARTS_TEST:
         if df[sc_col].iloc[-1] >= th and nb_us_top:
             val_diff_pct = (df[sc_col].iloc[-1] - th) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_us_high_slope_test.append((f"{days}일합", color))
     if detected_us_high_slope_test:
@@ -2300,7 +2329,7 @@ def calculate_latest_signals(df, df_kr):
     # 10. us_high_multi
     cnt_us_high_multi = int(df_top['top_multi_count'].iloc[-1])
     if cnt_us_high_multi >= 1:
-        c = '#FF0000' if cnt_us_high_multi <= 7 else '#FFA500' if cnt_us_high_multi <= 14 else '#FFFF00' if cnt_us_high_multi <= 21 else '#008000' if cnt_us_high_multi <= 28 else '#87CEEB' if cnt_us_high_multi <= 35 else '#000080' if cnt_us_high_multi <= 42 else '#800080'
+        c = '#F44336' if cnt_us_high_multi <= 7 else '#EF6C00' if cnt_us_high_multi <= 14 else '#FFEE58' if cnt_us_high_multi <= 21 else '#4CAF50' if cnt_us_high_multi <= 28 else '#81D4FA' if cnt_us_high_multi <= 35 else '#283593' if cnt_us_high_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["us_high_multi"] = {"detected": True, "items": [(f"{cnt_us_high_multi}개", fg)], "bg_color": bg}
     with main_tabs[3]:
@@ -2308,7 +2337,7 @@ def calculate_latest_signals(df, df_kr):
 
     # 11. us_high_unified
     if c_top_all.iloc[-1]:
-        bg, fg = to_rgba5_and_fg('#800080')
+        bg, fg = to_rgba5_and_fg('#9C27B0')
         res["us_high_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
     with main_tabs[3]:
         res["us_high_unified"] = {"detected": False, "items": [], "bg_color": ""}
@@ -2325,10 +2354,10 @@ def calculate_latest_signals(df, df_kr):
     # 13. us_mon_gamma_single
     us_mon_gamma_single = {"detected": False, "items": [], "bg_color": ""}
     if df['GammaPutCall_Bottom_Signal'].iloc[-1]:
-        bg, fg = to_rgba5_and_fg('#008000')
+        bg, fg = to_rgba5_and_fg('#4CAF50')
         us_mon_gamma_single = {"detected": True, "items": [("저점", fg)], "bg_color": bg}
     elif df['GammaPutCall_Top_Signal'].iloc[-1]:
-        bg, fg = to_rgba5_and_fg('#FF0000')
+        bg, fg = to_rgba5_and_fg('#F44336')
         us_mon_gamma_single = {"detected": True, "items": [("고점", fg)], "bg_color": bg}
     res["us_mon_gamma_single"] = us_mon_gamma_single
 
@@ -2342,13 +2371,13 @@ def calculate_latest_signals(df, df_kr):
         bg, fg = to_rgba5_and_fg('#595959')
         kr_low_panic = {"detected": True, "items": [(f"VK {vk_kr:.1f}", fg), (f"FGI {fgi_kr:.1f}", fg), (f"FV5 {fv5_kr:.1f}", fg)], "bg_color": bg}
     elif (((fgi_kr >= 19) and (fgi_kr <= 25)) and (vk_kr >= 22)) or ((fgi_kr == 50) and (vk_kr >= 24) and (vk_kr < 30) and (pct_b_kr <= 0.10)):
-        bg, fg = to_rgba5_and_fg('#FF0000')
+        bg, fg = to_rgba5_and_fg('#F44336')
         kr_low_panic = {"detected": True, "items": [(f"VK {vk_kr:.1f}", fg), (f"FGI {fgi_kr:.1f}", fg), (f"FV5 {fv5_kr:.1f}", fg)], "bg_color": bg}
     elif (((fgi_kr >= 26) and (fgi_kr <= 32)) and (vk_kr >= 18)) or ((fgi_kr == 50) and (vk_kr >= 20) and (vk_kr < 24) and (pct_b_kr <= 0.20)):
-        bg, fg = to_rgba5_and_fg('#FFFF00')
+        bg, fg = to_rgba5_and_fg('#FFEE58')
         kr_low_panic = {"detected": True, "items": [(f"VK {vk_kr:.1f}", fg), (f"FGI {fgi_kr:.1f}", fg), (f"FV5 {fv5_kr:.1f}", fg)], "bg_color": bg}
     elif (((fgi_kr >= 33) and (fgi_kr <= 40)) and (vk_kr >= 14)) or ((fgi_kr == 50) and (vk_kr >= 20) and (vk_kr < 24) and (pct_b_kr <= 0.20)):
-        bg, fg = to_rgba5_and_fg('#008000')
+        bg, fg = to_rgba5_and_fg('#4CAF50')
         kr_low_panic = {"detected": True, "items": [(f"VK {vk_kr:.1f}", fg), (f"FGI {fgi_kr:.1f}", fg), (f"FV5 {fv5_kr:.1f}", fg)], "bg_color": bg}
     res["kr_low_panic"] = kr_low_panic
 
@@ -2358,9 +2387,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_BOTTOM_CHARTS_KR:
         if df_kr[sc_col].iloc[-1] <= th:
             val_diff_pct = (th - df_kr[sc_col].iloc[-1]) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_kr_low_slope.append((f"{days}일합", color))
     if detected_kr_low_slope:
@@ -2375,9 +2404,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_BOTTOM_CHARTS_TEST_KR:
         if df_kr[sc_col].iloc[-1] <= th:
             val_diff_pct = (th - df_kr[sc_col].iloc[-1]) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_kr_low_slope_test.append((f"{days}일합", color))
     if detected_kr_low_slope_test:
@@ -2389,7 +2418,7 @@ def calculate_latest_signals(df, df_kr):
     # 17. kr_low_multi
     cnt_kr_low_multi = int(df_pre_kr['multi_count'].iloc[-1])
     if cnt_kr_low_multi >= 1:
-        c = '#FF0000' if cnt_kr_low_multi <= 7 else '#FFA500' if cnt_kr_low_multi <= 14 else '#FFFF00' if cnt_kr_low_multi <= 21 else '#008000' if cnt_kr_low_multi <= 28 else '#87CEEB' if cnt_kr_low_multi <= 35 else '#000080' if cnt_kr_low_multi <= 42 else '#800080'
+        c = '#F44336' if cnt_kr_low_multi <= 7 else '#EF6C00' if cnt_kr_low_multi <= 14 else '#FFEE58' if cnt_kr_low_multi <= 21 else '#4CAF50' if cnt_kr_low_multi <= 28 else '#81D4FA' if cnt_kr_low_multi <= 35 else '#283593' if cnt_kr_low_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["kr_low_multi"] = {"detected": True, "items": [(f"{cnt_kr_low_multi}개", fg)], "bg_color": bg}
     with main_tabs[3]:
@@ -2397,7 +2426,7 @@ def calculate_latest_signals(df, df_kr):
 
     # 18. kr_low_unified
     if c_or_final_k.iloc[-1]:
-        bg, fg = to_rgba5_and_fg('#800080')
+        bg, fg = to_rgba5_and_fg('#9C27B0')
         res["kr_low_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
     with main_tabs[3]:
         res["kr_low_unified"] = {"detected": False, "items": [], "bg_color": ""}
@@ -2409,9 +2438,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_FV5_HIGH_CHARTS_KR:
         if df_kr[sc_col].iloc[-1] >= th and nb_kr_top:
             val_diff_pct = (df_kr[sc_col].iloc[-1] - th) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_kr_high_panic.append((f"{days}일합", color))
     if detected_kr_high_panic:
@@ -2426,9 +2455,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_TOP_CHARTS_KR:
         if df_kr[sc_col].iloc[-1] >= th and nb_kr_top:
             val_diff_pct = (df_kr[sc_col].iloc[-1] - th) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_kr_high_slope.append((f"{days}일합", color))
     if detected_kr_high_slope:
@@ -2443,9 +2472,9 @@ def calculate_latest_signals(df, df_kr):
     for days, sc_col, th in SLOPE_TOP_CHARTS_KR_TEST:
         if df_kr[sc_col].iloc[-1] >= th and nb_kr_top:
             val_diff_pct = (df_kr[sc_col].iloc[-1] - th) / abs(th) if th != 0 else 0
-            if 0.0 <= val_diff_pct <= 0.40: color = '#008000'
-            elif 0.40 < val_diff_pct <= 0.60: color = '#FFFF00'
-            elif 0.60 < val_diff_pct <= 0.80: color = '#FF0000'
+            if 0.0 <= val_diff_pct <= 0.40: color = '#4CAF50'
+            elif 0.40 < val_diff_pct <= 0.60: color = '#FFEE58'
+            elif 0.60 < val_diff_pct <= 0.80: color = '#F44336'
             else: color = '#595959'
             detected_kr_high_slope_test.append((f"{days}일합", color))
     if detected_kr_high_slope_test:
@@ -2457,7 +2486,7 @@ def calculate_latest_signals(df, df_kr):
     # 22. kr_high_multi
     cnt_kr_high_multi = int(df_top_kr['top_multi_count'].iloc[-1])
     if cnt_kr_high_multi >= 1:
-        c = '#FF0000' if cnt_kr_high_multi <= 7 else '#FFA500' if cnt_kr_high_multi <= 14 else '#FFFF00' if cnt_kr_high_multi <= 21 else '#008000' if cnt_kr_high_multi <= 28 else '#87CEEB' if cnt_kr_high_multi <= 35 else '#000080' if cnt_kr_high_multi <= 42 else '#800080'
+        c = '#F44336' if cnt_kr_high_multi <= 7 else '#EF6C00' if cnt_kr_high_multi <= 14 else '#FFEE58' if cnt_kr_high_multi <= 21 else '#4CAF50' if cnt_kr_high_multi <= 28 else '#81D4FA' if cnt_kr_high_multi <= 35 else '#283593' if cnt_kr_high_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["kr_high_multi"] = {"detected": True, "items": [(f"{cnt_kr_high_multi}개", fg)], "bg_color": bg}
     with main_tabs[3]:
@@ -2465,7 +2494,7 @@ def calculate_latest_signals(df, df_kr):
 
     # 23. kr_high_unified
     if c_top_all_kr.iloc[-1]:
-        bg, fg = to_rgba5_and_fg('#800080')
+        bg, fg = to_rgba5_and_fg('#9C27B0')
         res["kr_high_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
     with main_tabs[3]:
         res["kr_high_unified"] = {"detected": False, "items": [], "bg_color": ""}
@@ -2804,13 +2833,13 @@ if True:
         df1 = df[df.index >= five_years_ago]
 
         color_cond_map = [
-            ((df1['(FGI-VIX)/5']<=-4.9), '#800080', '#FFFFFF', 'rgba(128, 0, 128, 0.5)'),
-            ((df1['(FGI-VIX)/5']>-4.9)&(df1['(FGI-VIX)/5']<=-4.2), '#000080', '#FFFFFF', 'rgba(0, 0, 128, 0.5)'),
-            ((df1['(FGI-VIX)/5']>-4.2)&(df1['(FGI-VIX)/5']<=-3.5), '#87CEEB', '#000000', 'rgba(135, 206, 235, 0.5)'),
-            ((df1['(FGI-VIX)/5']>-3.5)&(df1['(FGI-VIX)/5']<=-2.8), '#008000', '#FFFFFF', 'rgba(0, 128, 0, 0.5)'),
-            ((df1['(FGI-VIX)/5']>-2.8)&(df1['(FGI-VIX)/5']<=-2.1), '#FFFF00', '#000000', 'rgba(255, 255, 0, 0.5)'),
-            ((df1['(FGI-VIX)/5']>-2.1)&(df1['(FGI-VIX)/5']<=-1.4), '#FFA500', '#000000', 'rgba(255, 165, 0, 0.5)'),
-            ((df1['(FGI-VIX)/5']>-1.4)&(df1['(FGI-VIX)/5']<=-0.7), '#FF0000', '#FFFFFF', 'rgba(255, 0, 0, 0.5)'),
+            ((df1['(FGI-VIX)/5']<=-4.9), '#9C27B0', '#FFFFFF', 'rgba(156, 39, 176, 0.6)'),
+            ((df1['(FGI-VIX)/5']>-4.9)&(df1['(FGI-VIX)/5']<=-4.2), '#283593', '#FFFFFF', 'rgba(40, 53, 147, 0.6)'),
+            ((df1['(FGI-VIX)/5']>-4.2)&(df1['(FGI-VIX)/5']<=-3.5), '#81D4FA', '#000000', 'rgba(129, 212, 250, 0.6)'),
+            ((df1['(FGI-VIX)/5']>-3.5)&(df1['(FGI-VIX)/5']<=-2.8), '#4CAF50', '#FFFFFF', 'rgba(76, 175, 80, 0.6)'),
+            ((df1['(FGI-VIX)/5']>-2.8)&(df1['(FGI-VIX)/5']<=-2.1), '#FFEE58', '#000000', 'rgba(255, 238, 88, 0.6)'),
+            ((df1['(FGI-VIX)/5']>-2.1)&(df1['(FGI-VIX)/5']<=-1.4), '#EF6C00', '#000000', 'rgba(239, 108, 0, 0.6)'),
+            ((df1['(FGI-VIX)/5']>-1.4)&(df1['(FGI-VIX)/5']<=-0.7), '#F44336', '#FFFFFF', 'rgba(244, 67, 54, 0.6)'),
         ]
 
         date_color_map = {}
@@ -2986,9 +3015,9 @@ if True:
 
         color_cond_map_kr = [
             (v2_black,  '#595959', '#FFFFFF', 'rgba(0, 0, 0, 0.5)'),
-            (v2_red,    '#FF0000', '#FFFFFF', 'rgba(220, 30, 30, 0.5)'),
-            (v2_yellow, '#FFFF00', '#000000', 'rgba(255, 220, 0, 0.5)'),
-            (v2_green,  '#008000', '#000000', 'rgba(0, 128, 0, 0.5)'),
+            (v2_red,    '#F44336', '#FFFFFF', 'rgba(220, 30, 30, 0.5)'),
+            (v2_yellow, '#FFEE58', '#000000', 'rgba(255, 220, 0, 0.5)'),
+            (v2_green,  '#4CAF50', '#000000', 'rgba(76, 175, 80, 0.6)'),
         ]
 
         date_color_map_kr = {}
@@ -3131,7 +3160,7 @@ if True:
                 counts_row_sl_new = []
                 for dt in r100_sl_new:
                     cnt = dc_top_sl_new.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_new.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -3140,11 +3169,11 @@ if True:
                         if dt in df.index and df.loc[dt, sc_col] <= th:
                             val_diff_pct = (th - df.loc[dt, sc_col]) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -3202,13 +3231,13 @@ if True:
                         fig_dsi_new.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors_new = {
-                            1: 'rgba(255, 0, 0, 0.5)', # 빨강
-                            2: 'rgba(255, 165, 0, 0.5)',   # 주황
-                            3: 'rgba(255, 255, 0, 0.5)', # 노랑
-                            4: 'rgba(0, 128, 0, 0.5)', # 초록
-                            5: 'rgba(135, 206, 235, 0.5)', # 하늘
-                            6: 'rgba(0, 0, 128, 0.5)',     # 남색
-                            7: 'rgba(128, 0, 128, 0.5)'    # 보라
+                            1: 'rgba(244, 67, 54, 0.6)', # 빨강
+                            2: 'rgba(239, 108, 0, 0.6)',   # 주황
+                            3: 'rgba(255, 238, 88, 0.6)', # 노랑
+                            4: 'rgba(76, 175, 80, 0.6)', # 초록
+                            5: 'rgba(129, 212, 250, 0.6)', # 하늘
+                            6: 'rgba(40, 53, 147, 0.6)',     # 남색
+                            7: 'rgba(156, 39, 176, 0.6)'    # 보라
                         }
                         for cnt_val, bar_color in detect_colors_new.items():
                             cond_bar = (df['slope_detect_count_new'] == cnt_val)
@@ -3234,7 +3263,7 @@ if True:
                         # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
                         diff_pct = (thresh - df[sc]) / abs(thresh)
                         bottom_cond_vals_new = [
-                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(0, 128, 0, 0.5)'),   # 0~40%: 초록
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.6)'),   # 0~40%: 초록
                             ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.5)'),    # 40~60%: 노랑
                             ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.5)'),    # 60~80%: 빨강
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),                             # 80% 초과: 검정
@@ -3354,7 +3383,7 @@ if True:
                 counts_row_sl_kr = []
                 for dt in r100_sl_kr:
                     cnt = dc_top_sl_kr.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -3363,11 +3392,11 @@ if True:
                         if dt in df_kr.index and df_kr.loc[dt, sc_col] <= th:
                             val_diff_pct = (th - df_kr.loc[dt, sc_col]) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -3426,13 +3455,13 @@ if True:
                         fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)', # 빨강
-                            2: 'rgba(255, 165, 0, 0.5)',   # 주황
-                            3: 'rgba(255, 255, 0, 0.5)', # 노랑
-                            4: 'rgba(0, 128, 0, 0.5)', # 초록
-                            5: 'rgba(135, 206, 235, 0.5)', # 하늘
-                            6: 'rgba(0, 0, 128, 0.5)',     # 남색
-                            7: 'rgba(128, 0, 128, 0.5)'    # 보라
+                            1: 'rgba(244, 67, 54, 0.6)', # 빨강
+                            2: 'rgba(239, 108, 0, 0.6)',   # 주황
+                            3: 'rgba(255, 238, 88, 0.6)', # 노랑
+                            4: 'rgba(76, 175, 80, 0.6)', # 초록
+                            5: 'rgba(129, 212, 250, 0.6)', # 하늘
+                            6: 'rgba(40, 53, 147, 0.6)',     # 남색
+                            7: 'rgba(156, 39, 176, 0.6)'    # 보라
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_kr['slope_detect_count'] == cnt_val)
@@ -3458,7 +3487,7 @@ if True:
                         # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
                         diff_pct = (thresh - df_kr[sc]) / abs(thresh)
                         bottom_cond_vals = [
-                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(0, 128, 0, 0.5)'),
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.6)'),
                             ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.5)'),
                             ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.5)'),
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),
@@ -3633,13 +3662,13 @@ if True:
         
         # 색상 매핑
         cond_map = [
-            ((df_multi['multi_count'] >= 1) & (df_multi['multi_count'] <= 7), '#FF0000', '1~7개 감지'), # 빨간색
-            ((df_multi['multi_count'] >= 8) & (df_multi['multi_count'] <= 14), '#FFA500', '8~14개 감지'), # 주황색
-            ((df_multi['multi_count'] >= 15) & (df_multi['multi_count'] <= 21), '#FFFF00', '15~21개 감지'), # 노란색
-            ((df_multi['multi_count'] >= 22) & (df_multi['multi_count'] <= 28), '#008000', '22~28개 감지'), # 초록색
-            ((df_multi['multi_count'] >= 29) & (df_multi['multi_count'] <= 35), '#87CEEB', '29~35개 감지'), # 하늘색
-            ((df_multi['multi_count'] >= 36) & (df_multi['multi_count'] <= 42), '#000080', '36~42개 감지'), # 남색
-            ((df_multi['multi_count'] >= 43) & (df_multi['multi_count'] <= 49), '#800080', '43~49개 감지'), # 보라색
+            ((df_multi['multi_count'] >= 1) & (df_multi['multi_count'] <= 7), '#F44336', '1~7개 감지'), # 빨간색
+            ((df_multi['multi_count'] >= 8) & (df_multi['multi_count'] <= 14), '#EF6C00', '8~14개 감지'), # 주황색
+            ((df_multi['multi_count'] >= 15) & (df_multi['multi_count'] <= 21), '#FFEE58', '15~21개 감지'), # 노란색
+            ((df_multi['multi_count'] >= 22) & (df_multi['multi_count'] <= 28), '#4CAF50', '22~28개 감지'), # 초록색
+            ((df_multi['multi_count'] >= 29) & (df_multi['multi_count'] <= 35), '#81D4FA', '29~35개 감지'), # 하늘색
+            ((df_multi['multi_count'] >= 36) & (df_multi['multi_count'] <= 42), '#283593', '36~42개 감지'), # 남색
+            ((df_multi['multi_count'] >= 43) & (df_multi['multi_count'] <= 49), '#9C27B0', '43~49개 감지'), # 보라색
         ]
         
         # 표 생성을 위한 데이터 준비 (최근 100개)
@@ -3651,7 +3680,7 @@ if True:
             
             for dt, row in df_sig.iterrows():
                 cnt = row['multi_count']
-                bg = '#FF0000'
+                bg = '#F44336'
                 for c, color, lbl in cond_map:
                     if c.loc[dt]:
                         bg = color
@@ -3695,13 +3724,13 @@ if True:
         
         # 감지 막대그래프 추가
         bar_colors = {
-            '#FF0000': 'rgba(220, 30, 30, 0.5)',
-            '#FFA500': 'rgba(255, 165, 0, 0.5)',
-            '#FFFF00': 'rgba(255, 220, 0, 0.5)',
-            '#008000': 'rgba(0, 128, 0, 0.5)',
-            '#87CEEB': 'rgba(135, 206, 235, 0.5)',
-            '#000080': 'rgba(0, 0, 128, 0.5)',
-            '#800080': 'rgba(128, 0, 128, 0.5)'
+            '#F44336': 'rgba(220, 30, 30, 0.5)',
+            '#EF6C00': 'rgba(239, 108, 0, 0.6)',
+            '#FFEE58': 'rgba(255, 220, 0, 0.5)',
+            '#4CAF50': 'rgba(76, 175, 80, 0.6)',
+            '#81D4FA': 'rgba(129, 212, 250, 0.6)',
+            '#283593': 'rgba(40, 53, 147, 0.6)',
+            '#9C27B0': 'rgba(156, 39, 176, 0.6)'
         }
         for cond, color, label in cond_map:
             fig_multi.add_trace(go.Bar(
@@ -3883,13 +3912,13 @@ if True:
         
         # 색상 매핑
         cond_map_kr = [
-            ((df_multi_kr['multi_count'] >= 1) & (df_multi_kr['multi_count'] <= 7), '#FF0000', '1~7개 감지'), # 빨간색
-            ((df_multi_kr['multi_count'] >= 8) & (df_multi_kr['multi_count'] <= 14), '#FFA500', '8~14개 감지'), 
-            ((df_multi_kr['multi_count'] >= 15) & (df_multi_kr['multi_count'] <= 21), '#FFFF00', '15~21개 감지'), 
-            ((df_multi_kr['multi_count'] >= 22) & (df_multi_kr['multi_count'] <= 28), '#008000', '22~28개 감지'), 
-            ((df_multi_kr['multi_count'] >= 29) & (df_multi_kr['multi_count'] <= 35), '#87CEEB', '29~35개 감지'), 
-            ((df_multi_kr['multi_count'] >= 36) & (df_multi_kr['multi_count'] <= 42), '#000080', '36~42개 감지'), 
-            ((df_multi_kr['multi_count'] >= 43) & (df_multi_kr['multi_count'] <= 49), '#800080', '43~49개 감지'), 
+            ((df_multi_kr['multi_count'] >= 1) & (df_multi_kr['multi_count'] <= 7), '#F44336', '1~7개 감지'), # 빨간색
+            ((df_multi_kr['multi_count'] >= 8) & (df_multi_kr['multi_count'] <= 14), '#EF6C00', '8~14개 감지'), 
+            ((df_multi_kr['multi_count'] >= 15) & (df_multi_kr['multi_count'] <= 21), '#FFEE58', '15~21개 감지'), 
+            ((df_multi_kr['multi_count'] >= 22) & (df_multi_kr['multi_count'] <= 28), '#4CAF50', '22~28개 감지'), 
+            ((df_multi_kr['multi_count'] >= 29) & (df_multi_kr['multi_count'] <= 35), '#81D4FA', '29~35개 감지'), 
+            ((df_multi_kr['multi_count'] >= 36) & (df_multi_kr['multi_count'] <= 42), '#283593', '36~42개 감지'), 
+            ((df_multi_kr['multi_count'] >= 43) & (df_multi_kr['multi_count'] <= 49), '#9C27B0', '43~49개 감지'), 
         ]
         
         # 표 생성을 위한 데이터 준비 (최근 100개)
@@ -3900,7 +3929,7 @@ if True:
             counts_row_tm_kr = []
             for dt in df_sig_kr.index:
                 cnt = df_sig_kr.loc[dt, 'multi_count']
-                bg_color = '#FF0000' if cnt <= 7 else '#FFA500' if cnt <= 14 else '#FFFF00' if cnt <= 21 else '#008000' if cnt <= 28 else '#87CEEB' if cnt <= 35 else '#000080' if cnt <= 42 else '#800080'
+                bg_color = '#F44336' if cnt <= 7 else '#EF6C00' if cnt <= 14 else '#FFEE58' if cnt <= 21 else '#4CAF50' if cnt <= 28 else '#81D4FA' if cnt <= 35 else '#283593' if cnt <= 42 else '#9C27B0'
                 TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
                 dates_row_tm_kr.append(f"<td style='background:{bg_color};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
                 counts_row_tm_kr.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{cnt}개</td>")
@@ -3932,13 +3961,13 @@ if True:
             hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
             
         bar_colors_kr = {
-            '#FF0000': 'rgba(220, 30, 30, 0.5)',
-            '#FFA500': 'rgba(255, 165, 0, 0.5)',
-            '#FFFF00': 'rgba(255, 220, 0, 0.5)',
-            '#008000': 'rgba(0, 128, 0, 0.5)',
-            '#87CEEB': 'rgba(135, 206, 235, 0.5)',
-            '#000080': 'rgba(0, 0, 128, 0.5)',
-            '#800080': 'rgba(128, 0, 128, 0.5)'
+            '#F44336': 'rgba(220, 30, 30, 0.5)',
+            '#EF6C00': 'rgba(239, 108, 0, 0.6)',
+            '#FFEE58': 'rgba(255, 220, 0, 0.5)',
+            '#4CAF50': 'rgba(76, 175, 80, 0.6)',
+            '#81D4FA': 'rgba(129, 212, 250, 0.6)',
+            '#283593': 'rgba(40, 53, 147, 0.6)',
+            '#9C27B0': 'rgba(156, 39, 176, 0.6)'
         }
         for cond, color, label in cond_map_kr:
             fig_multi_kr.add_trace(go.Bar(
@@ -4074,7 +4103,7 @@ if True:
         if len(recent_100) > 0:
             dates_row = ""
             for dt in recent_100:
-                dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                dates_row += f"<td style='background:#9C27B0;color:white;font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
             
             table_html = f"""
             <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -4126,7 +4155,7 @@ if True:
         
         fig_pre.add_trace(go.Bar(
             x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * qqq_y_range[1], name='통합 감지 신호 (OR)',
-            marker_color='rgba(128, 0, 128, 0.5)',
+            marker_color='rgba(156, 39, 176, 0.6)',
             marker_line_width=0.5,
             marker_line_color='white',
             hovertemplate='신호 감지<extra></extra>'
@@ -4231,7 +4260,7 @@ if True:
             if len(recent_100) > 0:
                 dates_row = ""
                 for dt in recent_100:
-                    dates_row += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                    dates_row += f"<td style='background:#9C27B0;color:white;font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
                 
                 table_html = f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -4282,7 +4311,7 @@ if True:
             
             fig_pre.add_trace(go.Bar(
                 x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * (kospi_y_range[1] if kospi_y_range else 3000), name='통합 감지 신호 (OR)',
-                marker_color='rgba(128, 0, 128, 0.5)',
+                marker_color='rgba(156, 39, 176, 0.6)',
                 marker_line_width=0.5,
                 marker_line_color='white',
                 hovertemplate='신호 감지<extra></extra>'
@@ -4345,7 +4374,7 @@ if True:
                 counts_row_sl_test = []
                 for dt in r100_sl_test:
                     cnt = dc_top_sl_test.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_test.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -4354,11 +4383,11 @@ if True:
                         if dt in df.index and df.loc[dt, sc_col] <= th:
                             val_diff_pct = (th - df.loc[dt, sc_col]) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -4416,13 +4445,13 @@ if True:
                         fig_dsi_test.add_trace(go.Scatter(x=hd_df,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors_test = {
-                            1: 'rgba(255, 0, 0, 0.5)', # 빨강
-                            2: 'rgba(255, 165, 0, 0.5)',   # 주황
-                            3: 'rgba(255, 255, 0, 0.5)', # 노랑
-                            4: 'rgba(0, 128, 0, 0.5)', # 초록
-                            5: 'rgba(135, 206, 235, 0.5)', # 하늘
-                            6: 'rgba(0, 0, 128, 0.5)',     # 남색
-                            7: 'rgba(128, 0, 128, 0.5)'    # 보라
+                            1: 'rgba(244, 67, 54, 0.6)', # 빨강
+                            2: 'rgba(239, 108, 0, 0.6)',   # 주황
+                            3: 'rgba(255, 238, 88, 0.6)', # 노랑
+                            4: 'rgba(76, 175, 80, 0.6)', # 초록
+                            5: 'rgba(129, 212, 250, 0.6)', # 하늘
+                            6: 'rgba(40, 53, 147, 0.6)',     # 남색
+                            7: 'rgba(156, 39, 176, 0.6)'    # 보라
                         }
                         for cnt_val, bar_color in detect_colors_test.items():
                             cond_bar = (df['slope_detect_count_test'] == cnt_val)
@@ -4448,7 +4477,7 @@ if True:
                         # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
                         diff_pct = (thresh - df[sc]) / abs(thresh)
                         bottom_cond_vals_test = [
-                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(0, 128, 0, 0.5)'),   # 0~40%: 초록
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.6)'),   # 0~40%: 초록
                             ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.5)'),    # 40~60%: 노랑
                             ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.5)'),    # 60~80%: 빨강
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),                             # 80% 초과: 검정
@@ -4568,7 +4597,7 @@ if True:
                 counts_row_sl_test_kr = []
                 for dt in r100_sl_test_kr:
                     cnt = dc_top_sl_test_kr.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_test_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -4577,11 +4606,11 @@ if True:
                         if dt in df_kr.index and df_kr.loc[dt, sc_col] <= th:
                             val_diff_pct = (th - df_kr.loc[dt, sc_col]) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -4640,13 +4669,13 @@ if True:
                         fig_dsi_test_kr.add_trace(go.Scatter(x=hd_df_kr_test,y=df_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)',
-                            2: 'rgba(255, 165, 0, 0.5)',
-                            3: 'rgba(255, 255, 0, 0.5)',
-                            4: 'rgba(0, 128, 0, 0.5)',
-                            5: 'rgba(135, 206, 235, 0.5)',
-                            6: 'rgba(0, 0, 128, 0.5)',
-                            7: 'rgba(128, 0, 128, 0.5)'
+                            1: 'rgba(244, 67, 54, 0.6)',
+                            2: 'rgba(239, 108, 0, 0.6)',
+                            3: 'rgba(255, 238, 88, 0.6)',
+                            4: 'rgba(76, 175, 80, 0.6)',
+                            5: 'rgba(129, 212, 250, 0.6)',
+                            6: 'rgba(40, 53, 147, 0.6)',
+                            7: 'rgba(156, 39, 176, 0.6)'
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_kr['slope_detect_count_test_kr'] == cnt_val)
@@ -4670,7 +4699,7 @@ if True:
                         
                         diff_pct = (thresh - df_kr[sc]) / abs(thresh)
                         bottom_cond_vals = [
-                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)), 'rgba(0, 128, 0, 0.5)'),
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)), 'rgba(76, 175, 80, 0.6)'),
                             (((diff_pct > 0.40) & (diff_pct <= 0.60)), 'rgba(255, 220, 0, 0.5)'),
                             (((diff_pct > 0.60) & (diff_pct <= 0.80)), 'rgba(220, 30, 30, 0.5)'),
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),
@@ -5034,7 +5063,7 @@ with main_tabs[4]:
                 factor = (max_abs_cum * 0.7) / max_abs_flow if max_abs_flow > 0 else 1.0
                 sq_val = raw_flow * factor
                 
-                bar_colors = ['rgba(255, 105, 180, 0.5)' if val >= 0 else 'rgba(135, 206, 235, 0.5)' for val in df_mon_plot['Foreign']]
+                bar_colors = ['rgba(255, 105, 180, 0.5)' if val >= 0 else 'rgba(129, 212, 250, 0.6)' for val in df_mon_plot['Foreign']]
                 
                 fig_mon3.add_trace(go.Bar(
                     x=hd_mon, 
@@ -5095,7 +5124,7 @@ with main_tabs[4]:
             headers.append("<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>상하비율</th>")
         
             rows = []
-            CM = {'상한가':'#CC0000','상승':'#FF6B9D','보합':'#DDDDDD','하락':'#87CEEB','하한가':'#3399FF'}
+            CM = {'상한가':'#CC0000','상승':'#FF6B9D','보합':'#DDDDDD','하락':'#81D4FA','하한가':'#3399FF'}
             for idx, row in df_sub.iloc[::-1].iterrows():
                 date_str = pd.to_datetime(idx).strftime('%Y-%m-%d')
                 row_html = [f"<td style='padding:3px 6px;border:1px solid #444;text-align:center;font-weight:bold;'>{date_str}</td>"]
@@ -5114,7 +5143,7 @@ with main_tabs[4]:
             
                 tot_val = up_val + dn_val
                 ratio = ((up_val - dn_val) / tot_val * 100) if tot_val > 0 else 0.0
-                r_color = '#FF6B9D' if ratio >= 0 else '#87CEEB'
+                r_color = '#FF6B9D' if ratio >= 0 else '#81D4FA'
                 row_html.append(f"<td style='padding:3px 6px;border:1px solid #444;font-weight:bold;color:{r_color};text-align:center;'>{ratio:.2f}</td>")
             
                 rows.append(f"<tr>{''.join(row_html)}</tr>")
@@ -5288,7 +5317,7 @@ with main_tabs[4]:
                 cs_types_row = []
                 for dt, row in combined_single.iterrows():
                     t = row['type']
-                    bg = '#008000' if t == '저점' else '#FF0000'
+                    bg = '#4CAF50' if t == '저점' else '#F44336'
                     cs_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
                     cs_types_row.append(f"<td style='color:black;font-weight:bold;{TD_SIG}'>{t}</td>")
                     
@@ -5319,7 +5348,7 @@ with main_tabs[4]:
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, 0),
                     name="저점 신호 감지",
-                    marker_color="rgba(46, 204, 113, 0.5)",
+                    marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0, hoverinfo="skip", showlegend=False
                 ),
                 secondary_y=False
@@ -5329,7 +5358,7 @@ with main_tabs[4]:
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, 0),
                     name="고점 신호 감지",
-                    marker_color="rgba(231, 76, 60, 0.5)",
+                    marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0, hoverinfo="skip", showlegend=False
                 ),
                 secondary_y=False
@@ -5452,7 +5481,7 @@ with main_tabs[4]:
                 hb_levels_row = []
                 for dt in hb_sig_dates:
                     cnt = df_gex.loc[dt, 'Score_Bottom']
-                    bg = '#800080' if cnt >= 20.0 else '#000080' if cnt >= 19.0 else '#87CEEB' if cnt >= 18.0 else '#008000' if cnt >= 17.0 else '#FFFF00' if cnt >= 16.0 else '#FFA500' if cnt >= 15.0 else '#FF0000'
+                    bg = '#9C27B0' if cnt >= 20.0 else '#283593' if cnt >= 19.0 else '#81D4FA' if cnt >= 18.0 else '#4CAF50' if cnt >= 17.0 else '#FFEE58' if cnt >= 16.0 else '#EF6C00' if cnt >= 15.0 else '#F44336'
                     lvl = "7단계" if cnt >= 20.0 else "6단계" if cnt >= 19.0 else "5단계" if cnt >= 18.0 else "4단계" if cnt >= 17.0 else "3단계" if cnt >= 16.0 else "2단계" if cnt >= 15.0 else "1단계"
 
                     hb_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
@@ -5484,7 +5513,7 @@ with main_tabs[4]:
                 ht_levels_row = []
                 for dt in ht_sig_dates:
                     cnt = df_gex.loc[dt, 'Score_Top']
-                    bg = '#800080' if cnt >= 16.5 else '#000080' if cnt >= 16.0 else '#87CEEB' if cnt >= 15.5 else '#008000' if cnt >= 15.0 else '#FFFF00' if cnt >= 14.5 else '#FFA500' if cnt >= 14.0 else '#FF0000'
+                    bg = '#9C27B0' if cnt >= 16.5 else '#283593' if cnt >= 16.0 else '#81D4FA' if cnt >= 15.5 else '#4CAF50' if cnt >= 15.0 else '#FFEE58' if cnt >= 14.5 else '#EF6C00' if cnt >= 14.0 else '#F44336'
                     lvl = "7단계" if cnt >= 16.5 else "6단계" if cnt >= 16.0 else "5단계" if cnt >= 15.5 else "4단계" if cnt >= 15.0 else "3단계" if cnt >= 14.5 else "2단계" if cnt >= 14.0 else "1단계"
 
                     ht_dates_row.append(f"<td style='background:{bg};color:white;font-weight:bold;{TD_SIG}'>{fmt_date_kor(dt)}</td>")
@@ -5520,7 +5549,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 14.0, qmax * 1.5, 0),
-                    name="저점 1단계 (빨강)", marker_color="rgba(255, 0, 0, 0.5)",
+                    name="저점 1단계 (빨강)", marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5528,7 +5557,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 15.0, qmax * 1.5, 0),
-                    name="저점 2단계 (주황)", marker_color="rgba(255, 165, 0, 0.5)",
+                    name="저점 2단계 (주황)", marker_color="rgba(239, 108, 0, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5536,7 +5565,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 16.0, qmax * 1.5, 0),
-                    name="저점 3단계 (노랑)", marker_color="rgba(255, 255, 0, 0.5)",
+                    name="저점 3단계 (노랑)", marker_color="rgba(255, 238, 88, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5544,7 +5573,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 17.0, qmax * 1.5, 0),
-                    name="저점 4단계 (초록)", marker_color="rgba(0, 128, 0, 0.5)",
+                    name="저점 4단계 (초록)", marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5552,7 +5581,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 18.0, qmax * 1.5, 0),
-                    name="저점 5단계 (하늘)", marker_color="rgba(135, 206, 235, 0.5)",
+                    name="저점 5단계 (하늘)", marker_color="rgba(129, 212, 250, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5560,7 +5589,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 19.0, qmax * 1.5, 0),
-                    name="저점 6단계 (남색)", marker_color="rgba(0, 0, 128, 0.5)",
+                    name="저점 6단계 (남색)", marker_color="rgba(40, 53, 147, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5568,7 +5597,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, 0),
-                    name="저점 7단계 (보라)", marker_color="rgba(128, 0, 128, 0.5)",
+                    name="저점 7단계 (보라)", marker_color="rgba(156, 39, 176, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=1, col=1, secondary_y=False
@@ -5588,7 +5617,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 13.5, qmax * 1.5, 0),
-                    name="고점 1단계 (빨강)", marker_color="rgba(255, 0, 0, 0.5)",
+                    name="고점 1단계 (빨강)", marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -5596,7 +5625,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.0, qmax * 1.5, 0),
-                    name="고점 2단계 (주황)", marker_color="rgba(255, 165, 0, 0.5)",
+                    name="고점 2단계 (주황)", marker_color="rgba(239, 108, 0, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -5604,7 +5633,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.5, qmax * 1.5, 0),
-                    name="고점 3단계 (노랑)", marker_color="rgba(255, 255, 0, 0.5)",
+                    name="고점 3단계 (노랑)", marker_color="rgba(255, 238, 88, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -5612,7 +5641,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.0, qmax * 1.5, 0),
-                    name="고점 4단계 (초록)", marker_color="rgba(0, 128, 0, 0.5)",
+                    name="고점 4단계 (초록)", marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -5620,7 +5649,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.5, qmax * 1.5, 0),
-                    name="고점 5단계 (하늘)", marker_color="rgba(135, 206, 235, 0.5)",
+                    name="고점 5단계 (하늘)", marker_color="rgba(129, 212, 250, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -5628,7 +5657,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.0, qmax * 1.5, 0),
-                    name="고점 6단계 (남색)", marker_color="rgba(0, 0, 128, 0.5)",
+                    name="고점 6단계 (남색)", marker_color="rgba(40, 53, 147, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -5636,7 +5665,7 @@ with main_tabs[4]:
             fig_hybrid_combined.add_trace(
                 go.Bar(
                     x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, 0),
-                    name="고점 7단계 (보라)", marker_color="rgba(128, 0, 128, 0.5)",
+                    name="고점 7단계 (보라)", marker_color="rgba(156, 39, 176, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
                     hoverinfo="skip", showlegend=False
                 ), row=2, col=1, secondary_y=False
@@ -6114,7 +6143,7 @@ with sub_tabs[4]:
                     s_hd = [fmt_date_kor(d) for d in parsed_dates]
                     c = colors[c_idx % len(colors)]
         
-                    mem_palette = ['rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(0, 0, 128, 0.5)', 'rgba(128, 0, 128, 0.5)', 'rgba(165, 42, 42, 0.5)', 'rgba(135, 206, 235, 0.5)']
+                    mem_palette = ['rgba(244, 67, 54, 0.6)', 'rgba(255, 238, 88, 0.6)', 'rgba(76, 175, 80, 0.6)', 'rgba(40, 53, 147, 0.6)', 'rgba(156, 39, 176, 0.6)', 'rgba(165, 42, 42, 0.5)', 'rgba(129, 212, 250, 0.6)']
                     fig_mem.add_trace(go.Scatter(
                         x=s_hd, y=spot_v, name=item_name, mode='lines', line=dict(color=mem_palette[c_idx % len(mem_palette)], width=1),
                         hovertemplate=f'{item_name}: %{{y:.3f}}<extra></extra>', showlegend=False
@@ -6286,7 +6315,7 @@ if True:
                 for dt in r100_sl:
                     cnt = dc_top_fv5_sl.get(dt, 1)
                     # 1개(빨강), 2개(주황), 3개(노랑), 4개(초록), 5개(하늘), 6개(남색), 7개(보라)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -6296,11 +6325,11 @@ if True:
                             # 초과율(%) 계산: (슬로프합 - 상한선) / abs(상한선)
                             val_diff_pct = (df.loc[dt, sc_col] - th) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000' # 초록
+                                color = '#4CAF50' # 초록
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00' # 노랑
+                                color = '#FFEE58' # 노랑
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000' # 빨강
+                                color = '#F44336' # 빨강
                             else:
                                 color = '#595959' # 검정
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -6360,13 +6389,13 @@ if True:
                         fig_dsi.add_trace(go.Scatter(x=hd_df, y=df['(FGI-VIX)/5'], name='(FGI-VIX)/5', line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='(FGI-VIX)/5: %{y:.2f}<extra></extra>'), row=row_i, col=1, secondary_y=True)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)', # 빨강
-                            2: 'rgba(255, 165, 0, 0.5)',   # 주황
-                            3: 'rgba(255, 255, 0, 0.5)', # 노랑
-                            4: 'rgba(0, 128, 0, 0.5)', # 초록
-                            5: 'rgba(135, 206, 235, 0.5)', # 하늘
-                            6: 'rgba(0, 0, 128, 0.5)',     # 남색
-                            7: 'rgba(128, 0, 128, 0.5)'    # 보라
+                            1: 'rgba(244, 67, 54, 0.6)', # 빨강
+                            2: 'rgba(239, 108, 0, 0.6)',   # 주황
+                            3: 'rgba(255, 238, 88, 0.6)', # 노랑
+                            4: 'rgba(76, 175, 80, 0.6)', # 초록
+                            5: 'rgba(129, 212, 250, 0.6)', # 하늘
+                            6: 'rgba(40, 53, 147, 0.6)',     # 남색
+                            7: 'rgba(156, 39, 176, 0.6)'    # 보라
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df['fv5_slope_detect_count'] == cnt_val)
@@ -6393,7 +6422,7 @@ if True:
                         # 초과 비율(%)에 따른 막대 그래프 렌더링 (0% 초과부터 표시)
                         diff_pct = (df[sc] - thresh) / abs(thresh)
                         bottom_cond_vals = [
-                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(0, 128, 0, 0.5)'),   # 0~40%: 초록색
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.6)'),   # 0~40%: 초록색
                             ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.5)'),   # 40% 초과 ~ 60% 이하: 노란색
                             ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.5)'),   # 60% 초과 ~ 80% 이하: 빨간색
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),                             # 80% 초과: 검은색
@@ -6527,7 +6556,7 @@ if True:
                 counts_row_sl = []
                 for dt in r100_sl:
                     cnt = dc_top_sl.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -6536,11 +6565,11 @@ if True:
                         if dt in df.index and df.loc[dt, sc_col] >= th:
                             val_diff_pct = (df.loc[dt, sc_col] - th) / th
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -6599,13 +6628,13 @@ if True:
                         fig_top_sl.add_trace(go.Scatter(x=hd_top_sl,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)', # 빨강
-                            2: 'rgba(255, 165, 0, 0.5)',   # 주황
-                            3: 'rgba(255, 255, 0, 0.5)', # 노랑
-                            4: 'rgba(0, 128, 0, 0.5)', # 초록
-                            5: 'rgba(135, 206, 235, 0.5)', # 하늘
-                            6: 'rgba(0, 0, 128, 0.5)',     # 남색
-                            7: 'rgba(128, 0, 128, 0.5)'    # 보라
+                            1: 'rgba(244, 67, 54, 0.6)', # 빨강
+                            2: 'rgba(239, 108, 0, 0.6)',   # 주황
+                            3: 'rgba(255, 238, 88, 0.6)', # 노랑
+                            4: 'rgba(76, 175, 80, 0.6)', # 초록
+                            5: 'rgba(129, 212, 250, 0.6)', # 하늘
+                            6: 'rgba(40, 53, 147, 0.6)',     # 남색
+                            7: 'rgba(156, 39, 176, 0.6)'    # 보라
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df['slope_detect_count'] == cnt_val)
@@ -6629,7 +6658,7 @@ if True:
                         
                         diff_pct = (df[sc] - thresh) / thresh
                         top_cond_vals = [
-                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)) & _not_bottom, 'rgba(0, 128, 0, 0.5)'),
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)) & _not_bottom, 'rgba(76, 175, 80, 0.6)'),
                             (((diff_pct > 0.40) & (diff_pct <= 0.60)) & _not_bottom, 'rgba(255, 220, 0, 0.5)'),
                             (((diff_pct > 0.60) & (diff_pct <= 0.80)) & _not_bottom, 'rgba(220, 30, 30, 0.5)'),
                             ((diff_pct > 0.80) & _not_bottom, 'rgba(0, 0, 0, 0.5)'),
@@ -6793,13 +6822,13 @@ if True:
             
             # 색상 매핑 (저점 다중지표 탭과 100% 동일하게 49개 기준으로 빨주노초하남보 설정)
             top_cond_map = [
-                ((df_top['top_multi_count'] >= 1) & (df_top['top_multi_count'] <= 7), 'rgba(220, 30, 30, 0.5)', '#FF0000', '1~7개 감지'), # 빨간색
-                ((df_top['top_multi_count'] >= 8) & (df_top['top_multi_count'] <= 14), 'rgba(255, 165, 0, 0.5)', '#FFA500', '8~14개 감지'), # 주황색
-                ((df_top['top_multi_count'] >= 15) & (df_top['top_multi_count'] <= 21), 'rgba(255, 220, 0, 0.5)', '#FFFF00', '15~21개 감지'), # 노란색
-                ((df_top['top_multi_count'] >= 22) & (df_top['top_multi_count'] <= 28), 'rgba(0, 128, 0, 0.5)', '#008000', '22~28개 감지'), # 초록색
-                ((df_top['top_multi_count'] >= 29) & (df_top['top_multi_count'] <= 35), 'rgba(135, 206, 235, 0.5)', '#87CEEB', '29~35개 감지'), # 하늘색
-                ((df_top['top_multi_count'] >= 36) & (df_top['top_multi_count'] <= 42), 'rgba(0, 0, 128, 0.5)', '#000080', '36~42개 감지'), # 남색
-                ((df_top['top_multi_count'] >= 43) & (df_top['top_multi_count'] <= 49), 'rgba(128, 0, 128, 0.5)', '#800080', '43~49개 감지'), # 보라색
+                ((df_top['top_multi_count'] >= 1) & (df_top['top_multi_count'] <= 7), 'rgba(220, 30, 30, 0.5)', '#F44336', '1~7개 감지'), # 빨간색
+                ((df_top['top_multi_count'] >= 8) & (df_top['top_multi_count'] <= 14), 'rgba(239, 108, 0, 0.6)', '#EF6C00', '8~14개 감지'), # 주황색
+                ((df_top['top_multi_count'] >= 15) & (df_top['top_multi_count'] <= 21), 'rgba(255, 220, 0, 0.5)', '#FFEE58', '15~21개 감지'), # 노란색
+                ((df_top['top_multi_count'] >= 22) & (df_top['top_multi_count'] <= 28), 'rgba(76, 175, 80, 0.6)', '#4CAF50', '22~28개 감지'), # 초록색
+                ((df_top['top_multi_count'] >= 29) & (df_top['top_multi_count'] <= 35), 'rgba(129, 212, 250, 0.6)', '#81D4FA', '29~35개 감지'), # 하늘색
+                ((df_top['top_multi_count'] >= 36) & (df_top['top_multi_count'] <= 42), 'rgba(40, 53, 147, 0.6)', '#283593', '36~42개 감지'), # 남색
+                ((df_top['top_multi_count'] >= 43) & (df_top['top_multi_count'] <= 49), 'rgba(156, 39, 176, 0.6)', '#9C27B0', '43~49개 감지'), # 보라색
             ]
             
             # 감지 신호표 (1개 이상 감지된 날 기준)
@@ -6809,7 +6838,7 @@ if True:
                 counts_row_tm = []
                 for dt, row in df_sig_tm.iterrows():
                     cnt = row['top_multi_count']
-                    bg = '#FF0000'
+                    bg = '#F44336'
                     for c, bar_c, tbl_c, lbl in top_cond_map:
                         if c.loc[dt]:
                             bg = tbl_c
@@ -6902,7 +6931,7 @@ if True:
                 dates_row_top = ""
                 for dt in recent_100_top:
                     cnt = int(c_top_1.loc[dt]) + int(c_top_2.loc[dt]) + int(c_top_3.loc[dt]) + int(c_top_4.loc[dt])
-                    bg = '#800080'
+                    bg = '#9C27B0'
                     fg = '#FFF'
                     dates_row_top += f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
                 
@@ -6948,7 +6977,7 @@ if True:
                 
                 fig_top_final.add_trace(go.Bar(
                     x=hd_top_final, y=c_top_all.reindex(df_top_plot.index).astype(int).values * (qqq_yr_tt[1] if qqq_yr_tt else 600), name='통합 고점 감지 (OR)',
-                    marker_color='rgba(128, 0, 128, 0.5)',
+                    marker_color='rgba(156, 39, 176, 0.6)',
                     marker_line_width=0.5, marker_line_color='white',
                     hovertemplate='고점 신호 감지<extra></extra>'
                 ), secondary_y=False)
@@ -7000,7 +7029,7 @@ if True:
                 counts_row_sl_test = []
                 for dt in r100_sl_test:
                     cnt = dc_top_sl_test.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_test.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -7009,11 +7038,11 @@ if True:
                         if dt in df.index and df.loc[dt, sc_col] >= th:
                             val_diff_pct = (df.loc[dt, sc_col] - th) / th
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -7072,13 +7101,13 @@ if True:
                         fig_top_sl_test.add_trace(go.Scatter(x=hd_df_test,y=df['QQQ'],name='QQQ 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='qqq',hovertemplate='QQQ: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)',
-                            2: 'rgba(255, 165, 0, 0.5)',
-                            3: 'rgba(255, 255, 0, 0.5)',
-                            4: 'rgba(0, 128, 0, 0.5)',
-                            5: 'rgba(135, 206, 235, 0.5)',
-                            6: 'rgba(0, 0, 128, 0.5)',
-                            7: 'rgba(128, 0, 128, 0.5)'
+                            1: 'rgba(244, 67, 54, 0.6)',
+                            2: 'rgba(239, 108, 0, 0.6)',
+                            3: 'rgba(255, 238, 88, 0.6)',
+                            4: 'rgba(76, 175, 80, 0.6)',
+                            5: 'rgba(129, 212, 250, 0.6)',
+                            6: 'rgba(40, 53, 147, 0.6)',
+                            7: 'rgba(156, 39, 176, 0.6)'
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df['slope_detect_count_test'] == cnt_val) & _not_bottom
@@ -7094,7 +7123,7 @@ if True:
                         
                         diff_pct = (df[sc] - thresh) / abs(thresh)
                         top_cond_vals = [
-                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)) & _not_bottom, 'rgba(0, 128, 0, 0.5)'),
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40)) & _not_bottom, 'rgba(76, 175, 80, 0.6)'),
                             (((diff_pct > 0.40) & (diff_pct <= 0.60)) & _not_bottom, 'rgba(255, 220, 0, 0.5)'),
                             (((diff_pct > 0.60) & (diff_pct <= 0.80)) & _not_bottom, 'rgba(220, 30, 30, 0.5)'),
                             ((diff_pct > 0.80) & _not_bottom, 'rgba(0, 0, 0, 0.5)'),
@@ -7283,7 +7312,7 @@ if True:
                 counts_row_sl_kr = []
                 for dt in r100_sl_kr:
                     cnt = dc_top_fv5_sl_kr.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_kr.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -7292,11 +7321,11 @@ if True:
                         if dt in df_top1_kr.index and df_top1_kr.loc[dt, sc_col] >= th:
                             val_diff_pct = (df_top1_kr.loc[dt, sc_col] - th) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -7356,13 +7385,13 @@ if True:
                         fig_dsi_kr.add_trace(go.Scatter(x=hd_df_kr, y=df_top1_kr['(FGI-VIX)/5'], name='(FGI-VKOSPI)/5', line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='(FGI-VKOSPI)/5: %{y:.2f}<extra></extra>'), row=row_i, col=1, secondary_y=True)
                         
                         detect_colors_kr = {
-                            1: 'rgba(255, 0, 0, 0.5)', # 빨강
-                            2: 'rgba(255, 165, 0, 0.5)',   # 주황
-                            3: 'rgba(255, 255, 0, 0.5)', # 노랑
-                            4: 'rgba(0, 128, 0, 0.5)', # 초록
-                            5: 'rgba(135, 206, 235, 0.5)', # 하늘
-                            6: 'rgba(0, 0, 128, 0.5)',     # 남색
-                            7: 'rgba(128, 0, 128, 0.5)'    # 보라
+                            1: 'rgba(244, 67, 54, 0.6)', # 빨강
+                            2: 'rgba(239, 108, 0, 0.6)',   # 주황
+                            3: 'rgba(255, 238, 88, 0.6)', # 노랑
+                            4: 'rgba(76, 175, 80, 0.6)', # 초록
+                            5: 'rgba(129, 212, 250, 0.6)', # 하늘
+                            6: 'rgba(40, 53, 147, 0.6)',     # 남색
+                            7: 'rgba(156, 39, 176, 0.6)'    # 보라
                         }
                         for cnt_val, bar_color in detect_colors_kr.items():
                             cond_bar = (df_top1_kr['fv5_slope_detect_count'] == cnt_val)
@@ -7388,7 +7417,7 @@ if True:
                         
                         diff_pct = (df_top1_kr[sc] - thresh) / abs(thresh)
                         bottom_cond_vals = [
-                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(0, 128, 0, 0.5)'),
+                            ((diff_pct >= 0.0) & (diff_pct <= 0.40), 'rgba(76, 175, 80, 0.6)'),
                             ((diff_pct > 0.40) & (diff_pct <= 0.60), 'rgba(255, 220, 0, 0.5)'),
                             ((diff_pct > 0.60) & (diff_pct <= 0.80), 'rgba(220, 30, 30, 0.5)'),
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),
@@ -7519,7 +7548,7 @@ if True:
                 counts_row_sl_kr_top = []
                 for dt in r100_sl_kr_top:
                     cnt = dc_top_sl_kr_top.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_kr_top.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -7528,11 +7557,11 @@ if True:
                         if dt in df_top_kr.index and df_top_kr.loc[dt, sc_col] >= th:
                             val_diff_pct = (df_top_kr.loc[dt, sc_col] - th) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -7591,13 +7620,13 @@ if True:
                         fig_dsi_kr_top.add_trace(go.Scatter(x=hd_df_kr_top,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)',
-                            2: 'rgba(255, 165, 0, 0.5)',
-                            3: 'rgba(255, 255, 0, 0.5)',
-                            4: 'rgba(0, 128, 0, 0.5)',
-                            5: 'rgba(135, 206, 235, 0.5)',
-                            6: 'rgba(0, 0, 128, 0.5)',
-                            7: 'rgba(128, 0, 128, 0.5)'
+                            1: 'rgba(244, 67, 54, 0.6)',
+                            2: 'rgba(239, 108, 0, 0.6)',
+                            3: 'rgba(255, 238, 88, 0.6)',
+                            4: 'rgba(76, 175, 80, 0.6)',
+                            5: 'rgba(129, 212, 250, 0.6)',
+                            6: 'rgba(40, 53, 147, 0.6)',
+                            7: 'rgba(156, 39, 176, 0.6)'
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_top_kr['slope_detect_count_top'] == cnt_val) & _not_bottom_kr
@@ -7614,7 +7643,7 @@ if True:
                         
                         diff_pct = (df_top_kr[sc] - thresh) / abs(thresh)
                         bottom_cond_vals = [
-                            (((diff_pct >= 0.0) & (diff_pct <= 0.40) & _not_bottom_kr), 'rgba(0, 128, 0, 0.5)'),
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40) & _not_bottom_kr), 'rgba(76, 175, 80, 0.6)'),
                             (((diff_pct > 0.40) & (diff_pct <= 0.60) & _not_bottom_kr), 'rgba(255, 220, 0, 0.5)'),
                             (((diff_pct > 0.60) & (diff_pct <= 0.80) & _not_bottom_kr), 'rgba(220, 30, 30, 0.5)'),
                             (((diff_pct > 0.80) & _not_bottom_kr), 'rgba(0, 0, 0, 0.5)'),
@@ -7781,13 +7810,13 @@ if True:
             max_kospi_tm = float(df_top_kr['KOSPI'].max()) * 1.2
             
             top_cond_map_kr = [
-                ((df_top_kr['top_multi_count'] >= 1) & (df_top_kr['top_multi_count'] <= 7), 'rgba(220, 30, 30, 0.5)', '#FF0000', '1~7개 감지'), 
-                ((df_top_kr['top_multi_count'] >= 8) & (df_top_kr['top_multi_count'] <= 14), 'rgba(255, 165, 0, 0.5)', '#FFA500', '8~14개 감지'), 
-                ((df_top_kr['top_multi_count'] >= 15) & (df_top_kr['top_multi_count'] <= 21), 'rgba(255, 220, 0, 0.5)', '#FFFF00', '15~21개 감지'), 
-                ((df_top_kr['top_multi_count'] >= 22) & (df_top_kr['top_multi_count'] <= 28), 'rgba(0, 128, 0, 0.5)', '#008000', '22~28개 감지'), 
-                ((df_top_kr['top_multi_count'] >= 29) & (df_top_kr['top_multi_count'] <= 35), 'rgba(135, 206, 235, 0.5)', '#87CEEB', '29~35개 감지'), 
-                ((df_top_kr['top_multi_count'] >= 36) & (df_top_kr['top_multi_count'] <= 42), 'rgba(0, 0, 128, 0.5)', '#000080', '36~42개 감지'), 
-                ((df_top_kr['top_multi_count'] >= 43) & (df_top_kr['top_multi_count'] <= 49), 'rgba(128, 0, 128, 0.5)', '#800080', '43~49개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 1) & (df_top_kr['top_multi_count'] <= 7), 'rgba(220, 30, 30, 0.5)', '#F44336', '1~7개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 8) & (df_top_kr['top_multi_count'] <= 14), 'rgba(239, 108, 0, 0.6)', '#EF6C00', '8~14개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 15) & (df_top_kr['top_multi_count'] <= 21), 'rgba(255, 220, 0, 0.5)', '#FFEE58', '15~21개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 22) & (df_top_kr['top_multi_count'] <= 28), 'rgba(76, 175, 80, 0.6)', '#4CAF50', '22~28개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 29) & (df_top_kr['top_multi_count'] <= 35), 'rgba(129, 212, 250, 0.6)', '#81D4FA', '29~35개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 36) & (df_top_kr['top_multi_count'] <= 42), 'rgba(40, 53, 147, 0.6)', '#283593', '36~42개 감지'), 
+                ((df_top_kr['top_multi_count'] >= 43) & (df_top_kr['top_multi_count'] <= 49), 'rgba(156, 39, 176, 0.6)', '#9C27B0', '43~49개 감지'), 
             ]
             
             df_sig_tm_kr = df_top_kr[df_top_kr['top_multi_count'] >= 1].sort_index(ascending=False).head(100)
@@ -7796,7 +7825,7 @@ if True:
                 counts_row_tm_kr = []
                 for dt, row in df_sig_tm_kr.iterrows():
                     cnt = row['top_multi_count']
-                    bg = '#FF0000'
+                    bg = '#F44336'
                     for c, bar_c, tbl_c, lbl in top_cond_map_kr:
                         if c.loc[dt]:
                             bg = tbl_c
@@ -7880,7 +7909,7 @@ if True:
             if len(recent_100_top_kr) > 0:
                 dates_row_top_kr = ""
                 for dt in recent_100_top_kr:
-                    dates_row_top_kr += f"<td style='background:#800080;color:white;font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
+                    dates_row_top_kr += f"<td style='background:#9C27B0;color:white;font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>"
                 
                 table_html_top_kr = f"""
                 <div style='margin-bottom:0.3rem;overflow-x:auto;'>
@@ -7922,7 +7951,7 @@ if True:
                 
                 fig_top_final_kr.add_trace(go.Bar(
                     x=hd_top_final_kr, y=c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000), name='통합 고점 감지 (OR)',
-                    marker_color='rgba(128, 0, 128, 0.5)',
+                    marker_color='rgba(156, 39, 176, 0.6)',
                     marker_line_width=0.5, marker_line_color='white',
                     hovertemplate='고점 신호 감지<extra></extra>'
                 ), secondary_y=False)
@@ -7969,7 +7998,7 @@ if True:
                 counts_row_sl_kr_top_test = []
                 for dt in r100_sl_kr_top_test:
                     cnt = dc_top_sl_kr_top_test.get(dt, 1)
-                    bg = "#FF0000" if cnt==1 else "#FFA500" if cnt==2 else '#FFFF00' if cnt==3 else "#008000" if cnt==4 else "#87CEEB" if cnt==5 else "#000080" if cnt==6 else "#800080"
+                    bg = "#F44336" if cnt==1 else "#EF6C00" if cnt==2 else '#FFEE58' if cnt==3 else "#4CAF50" if cnt==4 else "#81D4FA" if cnt==5 else "#283593" if cnt==6 else "#9C27B0"
                     fg = "#FFF"
                     dates_row_sl_kr_top_test.append(f"<td style='background:{bg};color:{fg};font-weight:bold;text-align:center;border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;'>{fmt_date_kor(dt)}</td>")
                     
@@ -7978,11 +8007,11 @@ if True:
                         if dt in df_top_kr.index and df_top_kr.loc[dt, sc_col] >= th:
                             val_diff_pct = (df_top_kr.loc[dt, sc_col] - th) / abs(th)
                             if 0.0 <= val_diff_pct <= 0.40:
-                                color = '#008000'
+                                color = '#4CAF50'
                             elif 0.40 < val_diff_pct <= 0.60:
-                                color = '#FFFF00'
+                                color = '#FFEE58'
                             elif 0.60 < val_diff_pct <= 0.80:
-                                color = '#FF0000'
+                                color = '#F44336'
                             else:
                                 color = '#595959'
                             detected_items.append(f"<span style='color:{color};font-weight:bold;'>{days}일합</span>")
@@ -8041,13 +8070,13 @@ if True:
                         fig_dsi_kr_top_test.add_trace(go.Scatter(x=hd_df_kr_top_test,y=df_top_kr['KOSPI'],name='KOSPI 가격',mode='lines+markers',line=dict(color='rgba(0, 0, 0, 0.5)', width=2),marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),showlegend=False,legendgroup='kospi',hovertemplate='KOSPI: %{y:.2f}<extra></extra>'),row=row_i,col=1,secondary_y=False)
                         
                         detect_colors = {
-                            1: 'rgba(255, 0, 0, 0.5)',
-                            2: 'rgba(255, 165, 0, 0.5)',
-                            3: 'rgba(255, 255, 0, 0.5)',
-                            4: 'rgba(0, 128, 0, 0.5)',
-                            5: 'rgba(135, 206, 235, 0.5)',
-                            6: 'rgba(0, 0, 128, 0.5)',
-                            7: 'rgba(128, 0, 128, 0.5)'
+                            1: 'rgba(244, 67, 54, 0.6)',
+                            2: 'rgba(239, 108, 0, 0.6)',
+                            3: 'rgba(255, 238, 88, 0.6)',
+                            4: 'rgba(76, 175, 80, 0.6)',
+                            5: 'rgba(129, 212, 250, 0.6)',
+                            6: 'rgba(40, 53, 147, 0.6)',
+                            7: 'rgba(156, 39, 176, 0.6)'
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_top_kr['slope_detect_count_top_kr_test'] == cnt_val) & _not_bottom_kr
@@ -8064,7 +8093,7 @@ if True:
                         
                         diff_pct = (df_top_kr[sc] - thresh) / abs(thresh)
                         bottom_cond_vals = [
-                            (((diff_pct >= 0.0) & (diff_pct <= 0.40) & _not_bottom_kr), 'rgba(0, 128, 0, 0.5)'),
+                            (((diff_pct >= 0.0) & (diff_pct <= 0.40) & _not_bottom_kr), 'rgba(76, 175, 80, 0.6)'),
                             (((diff_pct > 0.40) & (diff_pct <= 0.60) & _not_bottom_kr), 'rgba(255, 220, 0, 0.5)'),
                             (((diff_pct > 0.60) & (diff_pct <= 0.80) & _not_bottom_kr), 'rgba(220, 30, 30, 0.5)'),
                             (((diff_pct > 0.80) & _not_bottom_kr), 'rgba(0, 0, 0, 0.5)'),
