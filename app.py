@@ -504,13 +504,20 @@ div.element-container:has(button[key="header_data_update"]) button {
 # Button and Gap CSS Injection
 st.markdown("""
 <style>
-/* Make refresh and update buttons inline */
-div.element-container:has(button[key="header_data_refresh"]),
-div.element-container:has(button[key="header_data_update"]) {
-    display: inline-block !important;
-    width: auto !important;
-    margin-right: 10px !important;
+
+/* Force the button columns to NEVER stack on mobile */
+div[data-testid="stHorizontalBlock"]:has(button[key="header_data_refresh"]) {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 2px !important; /* Reduce gap significantly */
+    justify-content: flex-start !important;
 }
+div[data-testid="stHorizontalBlock"]:has(button[key="header_data_refresh"]) > div[data-testid="column"] {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 0 1 auto !important;
+}
+
 /* Reduce gap below the buttons row */
 div.element-container:has(button[key="header_data_update"]) {
     margin-bottom: -15px !important;
@@ -550,14 +557,16 @@ div[data-baseweb="tab-panel"] {
 </style>
 """, unsafe_allow_html=True)
 
-if st.button("refresh", key="header_data_refresh"):
-    st.cache_data.clear()
-    st.rerun()
-
-if st.button("종목출입 업데이트", key="header_data_update"):
-    with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
-        update_tickers()
-    st.rerun()
+btn_c1, btn_c2 = st.columns([1, 1])
+with btn_c1:
+    if st.button("refresh", key="header_data_refresh"):
+        st.cache_data.clear()
+        st.rerun()
+with btn_c2:
+    if st.button("종목출입 업데이트", key="header_data_update"):
+        with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
+            update_tickers()
+        st.rerun()
 
 # -----------------
 
