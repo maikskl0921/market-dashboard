@@ -581,14 +581,28 @@ components.html(
                 if (container) {
                     container.style.flexWrap = 'nowrap';
                     container.style.flexDirection = 'row';
-                    container.style.gap = '2px';
+                    container.style.gap = '0px';
                     container.style.justifyContent = 'flex-start';
                     
                     const cols = container.querySelectorAll('div[data-testid="column"]');
-                    cols.forEach(col => {
+                    cols.forEach((col, index) => {
                         col.style.width = 'auto';
                         col.style.minWidth = '0';
                         col.style.flex = '0 1 auto';
+                        col.style.padding = '0px'; // Remove hidden column padding!
+                        col.style.margin = '0px';
+                        
+                        // Force inner containers to have no margin
+                        const innerContainers = col.querySelectorAll('div.element-container');
+                        innerContainers.forEach(ic => {
+                            ic.style.margin = '0px';
+                            ic.style.padding = '0px';
+                        });
+
+                        // For the second button, pull it tightly to the left with negative margin
+                        if (index === 1) {
+                            col.style.marginLeft = '-14px';
+                        }
                     });
                 }
             }
