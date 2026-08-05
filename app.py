@@ -751,6 +751,26 @@ TS = "width:100%;border-collapse:collapse;"
 TH = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;"
 TD = "text-align:center;padding:2px 4px;border:1px solid #555;"
 
+
+# Color Hover Helper
+def get_color_hover(color, cond=None):
+    if color in ['rgba(255, 0, 0, 0.8)', 'rgba(244, 67, 54, 0.6)', 'rgba(220, 30, 30, 0.5)']: t = '🔴 "빨강" : 빨강 감지<extra></extra>'
+    elif color in ['rgba(255, 165, 0, 0.8)', 'rgba(239, 108, 0, 0.6)']: t = '🟠 "주황" : 주황 감지<extra></extra>'
+    elif color in ['rgba(255, 255, 0, 0.8)', 'rgba(255, 238, 88, 0.6)', 'rgba(255, 220, 0, 0.5)']: t = '🟡 "노랑" : 노랑 감지<extra></extra>'
+    elif color in ['rgba(0, 128, 0, 0.8)', 'rgba(76, 175, 80, 0.6)']: t = '🟢 "초록" : 초록 감지<extra></extra>'
+    elif color in ['rgba(0, 0, 128, 0.8)', 'rgba(40, 53, 147, 0.6)']: t = '🔵 "남색" : 남색 감지<extra></extra>'
+    elif color in ['rgba(128, 0, 128, 0.8)', 'rgba(156, 39, 176, 0.6)']: t = '🟣 "보라" : 보라 감지<extra></extra>'
+    elif color in ['rgba(135, 206, 235, 0.8)', 'rgba(129, 212, 250, 0.6)']: t = '💎 "하늘" : 하늘 감지<extra></extra>'
+    elif color in ['rgba(165, 42, 42, 0.5)', 'rgba(165, 42, 42, 0.8)']: t = '🟤 "갈색" : 갈색 감지<extra></extra>'
+    elif color in ['rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 0.5)']: t = '⚫ "검정" : 검정 감지<extra></extra>'
+    elif color in ['rgba(128, 128, 128, 0.8)', 'rgba(150, 150, 150, 0.8)', 'rgba(150, 150, 150, 0.5)', 'rgba(150, 150, 150, 0.4)']: t = '⚪ "회색" : 회색 감지<extra></extra>'
+    else: t = '감지<extra></extra>'
+    
+    if cond is not None:
+        import numpy as np
+        return np.where(cond, t, None).tolist()
+    return t
+
 def crosshair_xaxis(**kwargs):
     return dict(
         showgrid=False,
@@ -2944,12 +2964,10 @@ if True:
         # 색깔 감지 그래프 윤곽선 추가: 두께 0.25, 색깔 흰색
         max_qqq = float(df1['QQQ'].max()) * 1.2
         for cond, _bg, _fg, fc in color_cond_map:
-            fig.add_trace(go.Bar(
-                x=hd1, y=cond.astype(int) * max_qqq, 
-                marker_color=fc, showlegend=False, hoverinfo='skip',
+            fig.add_trace(go.Bar(x=hd1, y=np.where(cond, max_qqq, np.nan), 
+                marker_color=fc, showlegend=False, 
                 marker_line_width=0.5,
-                marker_line_color='white'
-            ), secondary_y=False)
+                marker_line_color='white', hovertemplate=get_color_hover(fc, cond)), secondary_y=False)
         
         if active_period_days:
             target_date = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -3117,12 +3135,10 @@ if True:
         # 한국 색상바 추가 (미국과 동일 양식 설정)
         max_kospi = float(df1_kr['KOSPI'].max()) * 1.2
         for cond, _bg, _fg, fc in color_cond_map_kr:
-            fig_kr.add_trace(go.Bar(
-                x=hd1_kr, y=cond.astype(int) * max_kospi, 
-                marker_color=fc, showlegend=False, hoverinfo='skip',
+            fig_kr.add_trace(go.Bar(x=hd1_kr, y=np.where(cond, max_kospi, np.nan), 
+                marker_color=fc, showlegend=False, 
                 marker_line_width=0.5,
-                marker_line_color='white'
-            ), secondary_y=False)
+                marker_line_color='white', hovertemplate=get_color_hover(fc, cond)), secondary_y=False)
             
         if active_period_days:
             target_date_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -3297,15 +3313,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors_new.items():
                             cond_bar = (df['slope_detect_count_new'] == cnt_val)
-                            fig_dsi_new.add_trace(go.Bar(
-                                x=hd_df,
-                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_dsi_new.add_trace(go.Bar(x=hd_df,
+                                y=np.where(cond_bar, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -3325,7 +3337,7 @@ if True:
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),                             # 80% 초과: 검정
                         ]
                         for tc, tfc in bottom_cond_vals_new:
-                            fig_dsi_new.add_trace(go.Bar(x=hd_df, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_new.add_trace(go.Bar(x=hd_df, y=np.where(tc, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -3521,15 +3533,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_kr['slope_detect_count'] == cnt_val)
-                            fig_dsi_kr.add_trace(go.Bar(
-                                x=hd_df_kr,
-                                y=cond_bar.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr,
+                                y=np.where(cond_bar, float(df_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -3549,7 +3557,7 @@ if True:
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in bottom_cond_vals:
-                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr, y=tc.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr, y=np.where(tc, float(df_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -3789,14 +3797,12 @@ if True:
             '#9C27B0': 'rgba(156, 39, 176, 0.6)'
         }
         for cond, color, label in cond_map:
-            fig_multi.add_trace(go.Bar(
-                x=hd_multi, y=cond.astype(int) * max_qqq_multi,
+            fig_multi.add_trace(go.Bar(x=hd_multi, y=np.where(cond, max_qqq_multi, np.nan),
                 marker_color=bar_colors.get(color, 'rgba(0, 0, 0, 0.5)'),
                 showlegend=False,
-                hoverinfo='skip',
+                
                 marker_line_width=0.5,
-                marker_line_color='white'
-            ), secondary_y=False)
+                marker_line_color='white', hovertemplate=get_color_hover(bar_colors.get(color, 'rgba(0, 0, 0, 0.5)'), cond)), secondary_y=False)
             
         fig_multi.update_layout(
             **COMMON_LAYOUT, 
@@ -4026,14 +4032,12 @@ if True:
             '#9C27B0': 'rgba(156, 39, 176, 0.6)'
         }
         for cond, color, label in cond_map_kr:
-            fig_multi_kr.add_trace(go.Bar(
-                x=hd_multi_kr, y=cond.astype(int) * max_kospi_multi,
+            fig_multi_kr.add_trace(go.Bar(x=hd_multi_kr, y=np.where(cond, max_kospi_multi, np.nan),
                 marker_color=bar_colors_kr.get(color, 'rgba(0, 0, 0, 0.5)'),
                 showlegend=False,
-                hoverinfo='skip',
+                
                 marker_line_width=0.5,
-                marker_line_color='white'
-            ), secondary_y=False)
+                marker_line_color='white', hovertemplate=get_color_hover(bar_colors_kr.get(color, 'rgba(0, 0, 0, 0.5)'), cond)), secondary_y=False)
             
         fig_multi_kr.update_layout(
             **COMMON_LAYOUT, 
@@ -4209,13 +4213,11 @@ if True:
             hovertemplate='QQQ: %{y:.2f}<extra></extra>'
         ), secondary_y=False)
         
-        fig_pre.add_trace(go.Bar(
-            x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * qqq_y_range[1], name='통합 감지 신호 (OR)',
+        fig_pre.add_trace(go.Bar(x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * qqq_y_range[1], name='통합 감지 신호 (OR)',
             marker_color='rgba(156, 39, 176, 0.6)',
             marker_line_width=0.5,
             marker_line_color='white',
-            hovertemplate='신호 감지<extra></extra>'
-        ), secondary_y=False)
+            hovertemplate=get_color_hover('rgba(156, 39, 176, 0.6)', (c_or_final.reindex(df_pre_plot.index).astype(int) * qqq_y_range[1] > 0))), secondary_y=False)
         
         fig_pre.update_layout(
             **COMMON_LAYOUT,
@@ -4365,13 +4367,11 @@ if True:
                 hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
             ), secondary_y=False)
             
-            fig_pre.add_trace(go.Bar(
-                x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * (kospi_y_range[1] if kospi_y_range else 3000), name='통합 감지 신호 (OR)',
+            fig_pre.add_trace(go.Bar(x=hd_pre, y=c_or_final.reindex(df_pre_plot.index).astype(int) * (kospi_y_range[1] if kospi_y_range else 3000), name='통합 감지 신호 (OR)',
                 marker_color='rgba(156, 39, 176, 0.6)',
                 marker_line_width=0.5,
                 marker_line_color='white',
-                hovertemplate='신호 감지<extra></extra>'
-            ), secondary_y=False)
+                hovertemplate=get_color_hover('rgba(156, 39, 176, 0.6)', (c_or_final.reindex(df_pre_plot.index).astype(int) * (kospi_y_range[1] if kospi_y_range else 3000) > 0))), secondary_y=False)
             
             fig_pre.update_layout(
                 **COMMON_LAYOUT,
@@ -4511,15 +4511,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors_test.items():
                             cond_bar = (df['slope_detect_count_test'] == cnt_val)
-                            fig_dsi_test.add_trace(go.Bar(
-                                x=hd_df,
-                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_dsi_test.add_trace(go.Bar(x=hd_df,
+                                y=np.where(cond_bar, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -4539,7 +4535,7 @@ if True:
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),                             # 80% 초과: 검정
                         ]
                         for tc, tfc in bottom_cond_vals_test:
-                            fig_dsi_test.add_trace(go.Bar(x=hd_df, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_test.add_trace(go.Bar(x=hd_df, y=np.where(tc, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -4735,15 +4731,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_kr['slope_detect_count_test_kr'] == cnt_val)
-                            fig_dsi_test_kr.add_trace(go.Bar(
-                                x=hd_df_kr_test,
-                                y=cond_bar.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_dsi_test_kr.add_trace(go.Bar(x=hd_df_kr_test,
+                                y=np.where(cond_bar, float(df_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -4761,7 +4753,7 @@ if True:
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in bottom_cond_vals:
-                            fig_dsi_test_kr.add_trace(go.Bar(x=hd_df_kr_test, y=tc.astype(int).values * float(df_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_test_kr.add_trace(go.Bar(x=hd_df_kr_test, y=np.where(tc, float(df_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi_test_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -5401,22 +5393,18 @@ with main_tabs[4]:
 
             # 저점 신호 감지막대 배경
             fig_single_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, np.nan),
                     name="저점 신호 감지",
                     marker_color="rgba(76, 175, 80, 0.6)",
-                    marker_line_width=0, hoverinfo="skip", showlegend=False
-                ),
+                    marker_line_width=0,  showlegend=False, hovertemplate=get_color_hover("rgba(76, 175, 80, 0.6)", df_gex['GammaPutCall_Bottom_Signal'])),
                 secondary_y=False
             )
             # 고점 신호 감지막대 배경
             fig_single_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, np.nan),
                     name="고점 신호 감지",
                     marker_color="rgba(244, 67, 54, 0.6)",
-                    marker_line_width=0, hoverinfo="skip", showlegend=False
-                ),
+                    marker_line_width=0,  showlegend=False, hovertemplate=get_color_hover("rgba(244, 67, 54, 0.6)", df_gex['GammaPutCall_Top_Signal'])),
                 secondary_y=False
             )
 
@@ -5603,60 +5591,46 @@ with main_tabs[4]:
 
             # Row 1 (저점 7단계)
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 14.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Bottom'] >= 14.0) & (df_gex['Score_Bottom'] < 15.0), qmax * 1.5, np.nan),
                     name="저점 1단계 (빨강)", marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(244, 67, 54, 0.6)", df_gex['Score_Bottom'] >= 14.0)), row=1, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 15.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Bottom'] >= 15.0) & (df_gex['Score_Bottom'] < 16.0), qmax * 1.5, np.nan),
                     name="저점 2단계 (주황)", marker_color="rgba(239, 108, 0, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(239, 108, 0, 0.6)", df_gex['Score_Bottom'] >= 15.0)), row=1, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 16.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Bottom'] >= 16.0) & (df_gex['Score_Bottom'] < 17.0), qmax * 1.5, np.nan),
                     name="저점 3단계 (노랑)", marker_color="rgba(255, 238, 88, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(255, 238, 88, 0.6)", df_gex['Score_Bottom'] >= 16.0)), row=1, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 17.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Bottom'] >= 17.0) & (df_gex['Score_Bottom'] < 18.0), qmax * 1.5, np.nan),
                     name="저점 4단계 (초록)", marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(76, 175, 80, 0.6)", df_gex['Score_Bottom'] >= 17.0)), row=1, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 18.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Bottom'] >= 18.0) & (df_gex['Score_Bottom'] < 19.0), qmax * 1.5, np.nan),
                     name="저점 5단계 (하늘)", marker_color="rgba(129, 212, 250, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(129, 212, 250, 0.6)", df_gex['Score_Bottom'] >= 18.0)), row=1, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 19.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Bottom'] >= 19.0) & (df_gex['Score_Bottom'] < 20.0), qmax * 1.5, np.nan),
                     name="저점 6단계 (남색)", marker_color="rgba(40, 53, 147, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(40, 53, 147, 0.6)", df_gex['Score_Bottom'] >= 19.0)), row=1, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where(df_gex['Score_Bottom'] >= 20.0, qmax * 1.5, np.nan),
                     name="저점 7단계 (보라)", marker_color="rgba(156, 39, 176, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=1, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(156, 39, 176, 0.6)", df_gex['Score_Bottom'] >= 20.0)), row=1, col=1, secondary_y=False
             )
             # QQQ 가격 (Row 1)
             fig_hybrid_combined.add_trace(
@@ -5671,60 +5645,46 @@ with main_tabs[4]:
 
             # Row 2 (고점 7단계)
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 13.5, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Top'] >= 13.5) & (df_gex['Score_Top'] < 14.0), qmax * 1.5, np.nan),
                     name="고점 1단계 (빨강)", marker_color="rgba(244, 67, 54, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(244, 67, 54, 0.6)", df_gex['Score_Top'] >= 13.5)), row=2, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Top'] >= 14.0) & (df_gex['Score_Top'] < 14.5), qmax * 1.5, np.nan),
                     name="고점 2단계 (주황)", marker_color="rgba(239, 108, 0, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(239, 108, 0, 0.6)", df_gex['Score_Top'] >= 14.0)), row=2, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 14.5, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Top'] >= 14.5) & (df_gex['Score_Top'] < 15.0), qmax * 1.5, np.nan),
                     name="고점 3단계 (노랑)", marker_color="rgba(255, 238, 88, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(255, 238, 88, 0.6)", df_gex['Score_Top'] >= 14.5)), row=2, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Top'] >= 15.0) & (df_gex['Score_Top'] < 15.5), qmax * 1.5, np.nan),
                     name="고점 4단계 (초록)", marker_color="rgba(76, 175, 80, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(76, 175, 80, 0.6)", df_gex['Score_Top'] >= 15.0)), row=2, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 15.5, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Top'] >= 15.5) & (df_gex['Score_Top'] < 16.0), qmax * 1.5, np.nan),
                     name="고점 5단계 (하늘)", marker_color="rgba(129, 212, 250, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(129, 212, 250, 0.6)", df_gex['Score_Top'] >= 15.5)), row=2, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.0, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where((df_gex['Score_Top'] >= 16.0) & (df_gex['Score_Top'] < 16.5), qmax * 1.5, np.nan),
                     name="고점 6단계 (남색)", marker_color="rgba(40, 53, 147, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(40, 53, 147, 0.6)", df_gex['Score_Top'] >= 16.0)), row=2, col=1, secondary_y=False
             )
             fig_hybrid_combined.add_trace(
-                go.Bar(
-                    x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, 0),
+                go.Bar(x=hd_gex, y=np.where(df_gex['Score_Top'] >= 16.5, qmax * 1.5, np.nan),
                     name="고점 7단계 (보라)", marker_color="rgba(156, 39, 176, 0.6)",
                     marker_line_width=0.5, marker_line_color='white',
-                    hoverinfo="skip", showlegend=False
-                ), row=2, col=1, secondary_y=False
+                     showlegend=False, hovertemplate=get_color_hover("rgba(156, 39, 176, 0.6)", df_gex['Score_Top'] >= 16.5)), row=2, col=1, secondary_y=False
             )
             # QQQ 가격 (Row 2)
             fig_hybrid_combined.add_trace(
@@ -6455,15 +6415,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df['fv5_slope_detect_count'] == cnt_val)
-                            fig_dsi.add_trace(go.Bar(
-                                x=hd_df,
-                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_dsi.add_trace(go.Bar(x=hd_df,
+                                y=np.where(cond_bar, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -6484,7 +6440,7 @@ if True:
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),                             # 80% 초과: 검은색
                         ]
                         for tc, tfc in bottom_cond_vals:
-                            fig_dsi.add_trace(go.Bar(x=hd_df, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi.add_trace(go.Bar(x=hd_df, y=np.where(tc, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -6694,15 +6650,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df['slope_detect_count'] == cnt_val)
-                            fig_top_sl.add_trace(go.Bar(
-                                x=hd_top_sl,
-                                y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_top_sl.add_trace(go.Bar(x=hd_top_sl,
+                                y=np.where(cond_bar, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -6720,7 +6672,7 @@ if True:
                             ((diff_pct > 0.80) & _not_bottom, 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in top_cond_vals:
-                            fig_top_sl.add_trace(go.Bar(x=hd_top_sl, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_top_sl.add_trace(go.Bar(x=hd_top_sl, y=np.where(tc, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_tsl = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -6931,9 +6883,8 @@ if True:
             
             # 그래프 막대: top_cond_map의 bar_color 사용 (표와 동일 계열)
             for cond, bar_color, tbl_color, label in top_cond_map:
-                fig_top_multi.add_trace(go.Bar(x=hd_top_multi, y=cond.astype(int).values * max_qqq_tm,
-                    marker_color=bar_color, showlegend=False, hoverinfo='skip',
-                    marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
+                fig_top_multi.add_trace(go.Bar(x=hd_top_multi, y=np.where(cond, max_qqq_tm, np.nan), marker_color=bar_color, showlegend=False, 
+                    marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond)), secondary_y=False)
             
             fig_top_multi.update_layout(**COMMON_LAYOUT, height=540, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
@@ -7031,12 +6982,10 @@ if True:
                     hovertemplate='QQQ: %{y:.2f}<extra></extra>'
                 ), secondary_y=False)
                 
-                fig_top_final.add_trace(go.Bar(
-                    x=hd_top_final, y=c_top_all.reindex(df_top_plot.index).astype(int).values * (qqq_yr_tt[1] if qqq_yr_tt else 600), name='통합 고점 감지 (OR)',
+                fig_top_final.add_trace(go.Bar(x=hd_top_final, y=c_top_all.reindex(df_top_plot.index).astype(int).values * (qqq_yr_tt[1] if qqq_yr_tt else 600), name='통합 고점 감지 (OR)',
                     marker_color='rgba(156, 39, 176, 0.6)',
                     marker_line_width=0.5, marker_line_color='white',
-                    hovertemplate='고점 신호 감지<extra></extra>'
-                ), secondary_y=False)
+                    hovertemplate=get_color_hover('rgba(156, 39, 176, 0.6)', (c_top_all.reindex(df_top_plot.index).astype(int).values * (qqq_yr_tt[1] if qqq_yr_tt else 600) > 0))), secondary_y=False)
                 
                 fig_top_final.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
@@ -7167,7 +7116,7 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df['slope_detect_count_test'] == cnt_val) & _not_bottom
-                            fig_top_sl_test.add_trace(go.Bar(x=hd_df_test, y=cond_bar.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
+                            fig_top_sl_test.add_trace(go.Bar(x=hd_df_test, y=np.where(cond_bar, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -7185,7 +7134,7 @@ if True:
                             ((diff_pct > 0.80) & _not_bottom, 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in top_cond_vals:
-                            fig_top_sl_test.add_trace(go.Bar(x=hd_df_test, y=tc.astype(int).values * float(df['QQQ'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_top_sl_test.add_trace(go.Bar(x=hd_df_test, y=np.where(tc, float(df['QQQ'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_tsl_test = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -7451,15 +7400,11 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors_kr.items():
                             cond_bar = (df_top1_kr['fv5_slope_detect_count'] == cnt_val)
-                            fig_dsi_kr.add_trace(go.Bar(
-                                x=hd_df_kr,
-                                y=cond_bar.astype(int).values * float(df_top1_kr['KOSPI'].max()) * 1.2,
-                                marker_color=bar_color,
-                                showlegend=False,
-                                hoverinfo='skip',
+                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr,
+                                y=np.where(cond_bar, float(df_top1_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,
+                                
                                 marker_line_width=0.5,
-                                marker_line_color='white'
-                            ), row=row_i, col=1, secondary_y=False)
+                                marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -7479,7 +7424,7 @@ if True:
                             ((diff_pct > 0.80), 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in bottom_cond_vals:
-                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr, y=tc.astype(int).values * float(df_top1_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_kr.add_trace(go.Bar(x=hd_df_kr, y=np.where(tc, float(df_top1_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -7686,7 +7631,7 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_top_kr['slope_detect_count_top'] == cnt_val) & _not_bottom_kr
-                            fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=cond_bar.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
+                            fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=np.where(cond_bar, float(df_top_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -7705,7 +7650,7 @@ if True:
                             (((diff_pct > 0.80) & _not_bottom_kr), 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in bottom_cond_vals:
-                            fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=tc.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_kr_top.add_trace(go.Bar(x=hd_df_kr_top, y=np.where(tc, float(df_top_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi_kr = datetime.date.today() - datetime.timedelta(days=active_period_days)
@@ -7917,9 +7862,8 @@ if True:
                 hovertemplate='KOSPI: %{y:.2f}<extra></extra>'), secondary_y=False)
             
             for cond, bar_color, tbl_color, label in top_cond_map_kr:
-                fig_top_multi_kr.add_trace(go.Bar(x=hd_top_multi_kr, y=cond.astype(int).values * max_kospi_tm,
-                    marker_color=bar_color, showlegend=False, hoverinfo='skip',
-                    marker_line_width=0.5, marker_line_color='white'), secondary_y=False)
+                fig_top_multi_kr.add_trace(go.Bar(x=hd_top_multi_kr, y=np.where(cond, max_kospi_tm, np.nan), marker_color=bar_color, showlegend=False, 
+                    marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond)), secondary_y=False)
             
             fig_top_multi_kr.update_layout(**COMMON_LAYOUT, height=540, margin=dict(l=0,r=50,t=30,b=10), showlegend=False, barmode='overlay', bargap=0,
                 shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))])
@@ -8005,12 +7949,10 @@ if True:
                     hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
                 ), secondary_y=False)
                 
-                fig_top_final_kr.add_trace(go.Bar(
-                    x=hd_top_final_kr, y=c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000), name='통합 고점 감지 (OR)',
+                fig_top_final_kr.add_trace(go.Bar(x=hd_top_final_kr, y=c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000), name='통합 고점 감지 (OR)',
                     marker_color='rgba(156, 39, 176, 0.6)',
                     marker_line_width=0.5, marker_line_color='white',
-                    hovertemplate='고점 신호 감지<extra></extra>'
-                ), secondary_y=False)
+                    hovertemplate=get_color_hover('rgba(156, 39, 176, 0.6)', (c_top_all_kr.reindex(df_top_plot_kr.index).astype(int).values * (kospi_yr_tt[1] if kospi_yr_tt else 3000) > 0))), secondary_y=False)
                 
                 fig_top_final_kr.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0,r=50,t=10,b=10), showlegend=False,
                     shapes=[dict(type="rect", xref="paper", yref="paper", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.0))])
@@ -8136,7 +8078,7 @@ if True:
                         }
                         for cnt_val, bar_color in detect_colors.items():
                             cond_bar = (df_top_kr['slope_detect_count_top_kr_test'] == cnt_val) & _not_bottom_kr
-                            fig_dsi_kr_top_test.add_trace(go.Bar(x=hd_df_kr_top_test, y=cond_bar.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=bar_color, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'), row=row_i, col=1, secondary_y=False)
+                            fig_dsi_kr_top_test.add_trace(go.Bar(x=hd_df_kr_top_test, y=np.where(cond_bar, float(df_top_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=bar_color, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(bar_color, cond_bar)), row=row_i, col=1, secondary_y=False)
                             
                     else:
                         days = int(choice.replace("일합", ""))
@@ -8155,7 +8097,7 @@ if True:
                             (((diff_pct > 0.80) & _not_bottom_kr), 'rgba(0, 0, 0, 0.5)'),
                         ]
                         for tc, tfc in bottom_cond_vals:
-                            fig_dsi_kr_top_test.add_trace(go.Bar(x=hd_df_kr_top_test, y=tc.astype(int).values * float(df_top_kr['KOSPI'].max()) * 1.2, marker_color=tfc, showlegend=False, hoverinfo='skip', marker_line_width=0.5, marker_line_color='white'),row=row_i,col=1,secondary_y=False)
+                            fig_dsi_kr_top_test.add_trace(go.Bar(x=hd_df_kr_top_test, y=np.where(tc, float(df_top_kr['KOSPI'].max()) * 1.2, np.nan), marker_color=tfc, showlegend=False,  marker_line_width=0.5, marker_line_color='white', hovertemplate=get_color_hover(tfc, tc)),row=row_i,col=1,secondary_y=False)
                 
                 if active_period_days:
                     target_date_dsi_kr_test = datetime.date.today() - datetime.timedelta(days=active_period_days)
