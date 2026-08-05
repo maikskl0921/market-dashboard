@@ -561,16 +561,16 @@ st.markdown("""
     }
     
     /* 3. 메인 탭 및 서브 탭 글씨 강제 축소 */
-    div[data-testid="stTabs"] [data-baseweb="tab-list"] button p {
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] button p, div[data-testid="stTabs"] [data-baseweb="tab-list"] button span, div[data-testid="stTabs"] [data-baseweb="tab-list"] button {
         font-size: 8px !important;
-        transform: scale(0.9) !important;
+        transform: scale(0.7) !important;
         transform-origin: center center !important;
     }
     
     /* 4. 라디오 버튼 (세부/1M) 글씨 강제 축소 */
     div[data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
         font-size: 10px !important;
-        transform: scale(0.9) !important;
+        transform: scale(0.7) !important;
         transform-origin: left center !important;
     }
 }
