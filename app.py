@@ -329,9 +329,9 @@ def calculate_indicator_stats(df_target, price_col, conditions, window=41, dd_th
         })
     return stats_list
 
-def render_stats_table(stats_list, title):
+def render_stats_table(stats_list, title, target_type="저점"):
     with st.expander(f"💡 {title}"):
-        tbl_html = '<table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;text-align:center;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">저점 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
+        tbl_html = f'<table style="width:100%; border-collapse: collapse; margin-top: 5px; border: 1px solid #555;text-align:center;"><thead><tr style="background-color: #1F4E79; color: white;"><th style="width: 18%; border: 1px solid #555; padding: 6px 8px; text-align: left;">감지 조건</th><th style="width: 32%; border: 1px solid #555; padding: 6px 8px; text-align: left;">조건 세부 내용</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">발생 횟수</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">{target_type} 적중 (Hit Rate)</th><th style="width: 13%; border: 1px solid #555; padding: 6px 8px; text-align: center;">{target_type} 포착 (Recall)</th><th style="width: 12%; border: 1px solid #555; padding: 6px 8px; text-align: center;">종합 점수</th></tr></thead><tbody>'
         for item in stats_list:
             name_html = item['name'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
             desc_html = item['desc'].replace('**', '<strong>', 1).replace('**', '</strong>', 1)
@@ -3196,6 +3196,7 @@ if True:
 
     # ── 소분류 1: 공탐변동 ──
     if True:
+        
         with main_tabs[0], bottom_sub_tabs_us[0]:
             render_bottom_panic_us()
         with main_tabs[2], bottom_sub_tabs_kr[0]:
@@ -4075,7 +4076,7 @@ if True:
 
     # ── 소분류 4: 다중지표 ──
     if True:
-        with main_tabs[0], bottom_sub_tabs_us[3]:
+        with main_tabs[0], bottom_sub_tabs_us[2]:
             render_bottom_multi_us()
         with main_tabs[2], bottom_sub_tabs_kr[3]:
             render_bottom_multi_kr()
@@ -6297,10 +6298,413 @@ if True:
         _not_bottom = ~is_any_bottom.reindex(df_top.index).fillna(False)
         
         # ===== 소분류 탭 구성 =====
-        top_sub_tabs = st.tabs(['공탐변동', '슬로프합', '기울기합', '다중지표', '통합지표'])
+        top_sub_tabs = st.tabs(['테스트', '공탐변동', '슬로프합', '기울기합', '다중지표', '통합지표'])
         
         # ── 소분류 1: 공탐변동 고점 ──
+
+        # ===== 테스트 탭 (미국고점) =====
         with top_sub_tabs[0]:
+            st.markdown("#### 7대 고점 감지 지표 및 정밀 분석")
+            df_test = df_top.copy()
+            
+            # --- Indicators Calculation ---
+            df_test['QQQ_20MA'] = df_test['QQQ'].rolling(20).mean()
+            df_test['QQQ_20MA_slope'] = df_test['QQQ_20MA'].diff()
+            df_test['FGI_20MA'] = df_test['FearGreedIndex'].rolling(20).mean()
+            df_test['FGI_20MA_slope'] = df_test['FGI_20MA'].diff()
+            
+            df_test['FGI_Corr'] = df_test['QQQ'].rolling(20).corr(df_test['FearGreedIndex'])
+            
+            df_test['FGI_5MA'] = df_test['FearGreedIndex'].rolling(5).mean()
+            df_test['QQQ_diff_MA'] = (df_test['QQQ'] - df_test['QQQ_20MA']) / (df_test['QQQ_20MA'] + 1e-9) * 100
+            df_test['FGI_5MA_diff_20MA'] = df_test['FGI_5MA'] - df_test['FGI_20MA']
+            
+            # Condition 4: VIX Complacency (ROC < 0)
+            df_test['VIX_ROC_20'] = df_test['VIX'].pct_change(20)
+            
+            # Condition 5: RSI Delayed Divergence
+            delta = df_test['QQQ'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / (loss + 1e-9)
+            df_test['RSI'] = 100 - (100 / (1 + rs))
+            
+            df_test['RSI_was_above_70'] = (df_test['RSI'] > 70).rolling(20).max()
+            df_test['RSI_was_above_75'] = (df_test['RSI'] > 75).rolling(20).max()
+            df_test['RSI_was_above_80'] = (df_test['RSI'] > 80).rolling(20).max()
+            df_test['RSI_falling'] = df_test['RSI'].diff(5) < 0
+            
+            # Condition 7: Multi-RSI
+            rsi_windows = [5, 8, 11, 14, 17, 20, 23]
+            for w in rsi_windows:
+                gain_w = (delta.where(delta > 0, 0)).rolling(window=w).mean()
+                loss_w = (-delta.where(delta < 0, 0)).rolling(window=w).mean()
+                rs_w = gain_w / (loss_w + 1e-9)
+                df_test[f'RSI_{w}'] = 100 - (100 / (1 + rs_w))
+                
+            df_test['RSI_gt_75_count'] = sum((df_test[f'RSI_{w}'] > 75).astype(int) for w in rsi_windows)
+            df_test['Max_RSI_gt_75_count_20d'] = df_test['RSI_gt_75_count'].rolling(20).max()
+            df_test['RSI_lt_60_count'] = sum((df_test[f'RSI_{w}'] < 60).astype(int) for w in rsi_windows)
+            df_test['Multi_RSI_Score'] = df_test['Max_RSI_gt_75_count_20d'] * df_test['RSI_lt_60_count']
+            
+            # --- Condition 1: QQQ vs QQQ 20MA slope vs FGI 20MA slope ---
+            c1_1 = (df_test['QQQ_20MA_slope'] > 0.0) & (df_test['FGI_20MA_slope'] < 0.0)
+            c1_2 = (df_test['QQQ_20MA_slope'] > 0.5) & (df_test['FGI_20MA_slope'] < -0.1)
+            c1_3 = (df_test['QQQ_20MA_slope'] > 0.5) & (df_test['FGI_20MA_slope'] < -0.3)
+            c1_4 = (df_test['QQQ_20MA_slope'] > 1.0) & (df_test['FGI_20MA_slope'] < -0.5)
+            c1_5 = (df_test['QQQ_20MA_slope'] > 1.0) & (df_test['FGI_20MA_slope'] < -0.7)
+            c1_6 = (df_test['QQQ_20MA_slope'] > 1.5) & (df_test['FGI_20MA_slope'] < -0.9)
+            c1_7 = (df_test['QQQ_20MA_slope'] > 2.0) & (df_test['FGI_20MA_slope'] < -1.1)
+            score1 = c1_1.astype(int) + c1_2.astype(int) + c1_3.astype(int) + c1_4.astype(int) + c1_5.astype(int) + c1_6.astype(int) + c1_7.astype(int)
+            
+            # --- Condition 2: Correlation ---
+            c2_1 = (df_test['FGI_Corr'] < 0.0) & (df_test['FearGreedIndex'] >= 55)
+            c2_2 = (df_test['FGI_Corr'] < -0.1) & (df_test['FearGreedIndex'] >= 55)
+            c2_3 = (df_test['FGI_Corr'] < -0.2) & (df_test['FearGreedIndex'] >= 56)
+            c2_4 = (df_test['FGI_Corr'] < -0.3) & (df_test['FearGreedIndex'] >= 57)
+            c2_5 = (df_test['FGI_Corr'] < -0.4) & (df_test['FearGreedIndex'] >= 58)
+            c2_6 = (df_test['FGI_Corr'] < -0.5) & (df_test['FearGreedIndex'] >= 59)
+            c2_7 = (df_test['FGI_Corr'] < -0.6) & (df_test['FearGreedIndex'] >= 60)
+            score2 = c2_1.astype(int) + c2_2.astype(int) + c2_3.astype(int) + c2_4.astype(int) + c2_5.astype(int) + c2_6.astype(int) + c2_7.astype(int)
+            
+            # --- Condition 3: Death Cross ---
+            c3_1 = (df_test['QQQ_diff_MA'] > 0.0) & (df_test['FGI_5MA_diff_20MA'] < 0.0)
+            c3_2 = (df_test['QQQ_diff_MA'] > 1.0) & (df_test['FGI_5MA_diff_20MA'] < -0.5)
+            c3_3 = (df_test['QQQ_diff_MA'] > 1.5) & (df_test['FGI_5MA_diff_20MA'] < -1.0)
+            c3_4 = (df_test['QQQ_diff_MA'] > 2.0) & (df_test['FGI_5MA_diff_20MA'] < -1.5)
+            c3_5 = (df_test['QQQ_diff_MA'] > 2.5) & (df_test['FGI_5MA_diff_20MA'] < -2.0)
+            c3_6 = (df_test['QQQ_diff_MA'] > 3.0) & (df_test['FGI_5MA_diff_20MA'] < -3.0)
+            c3_7 = (df_test['QQQ_diff_MA'] > 3.5) & (df_test['FGI_5MA_diff_20MA'] < -4.0)
+            score3 = c3_1.astype(int) + c3_2.astype(int) + c3_3.astype(int) + c3_4.astype(int) + c3_5.astype(int) + c3_6.astype(int) + c3_7.astype(int)
+            
+            # --- Condition 4: VIX Complacency (Previous logic) ---
+            c4_1 = (df_test['VIX'] < 20) & (df_test['VIX_ROC_20'] < 0.0)
+            c4_2 = (df_test['VIX'] < 19) & (df_test['VIX_ROC_20'] < -0.05)
+            c4_3 = (df_test['VIX'] < 18) & (df_test['VIX_ROC_20'] < -0.10)
+            c4_4 = (df_test['VIX'] < 17) & (df_test['VIX_ROC_20'] < -0.15)
+            c4_5 = (df_test['VIX'] < 16) & (df_test['VIX_ROC_20'] < -0.20)
+            c4_6 = (df_test['VIX'] < 15) & (df_test['VIX_ROC_20'] < -0.25)
+            c4_7 = (df_test['VIX'] < 14) & (df_test['VIX_ROC_20'] < -0.30)
+            score4 = c4_1.astype(int) + c4_2.astype(int) + c4_3.astype(int) + c4_4.astype(int) + c4_5.astype(int) + c4_6.astype(int) + c4_7.astype(int)
+            
+            # --- Condition 5: RSI Delayed Divergence (Previous logic) ---
+            c5_1 = (df_test['RSI_was_above_70'] == 1) & (df_test['RSI'] < 70) & df_test['RSI_falling']
+            c5_2 = (df_test['RSI_was_above_70'] == 1) & (df_test['RSI'] < 65) & df_test['RSI_falling']
+            c5_3 = (df_test['RSI_was_above_75'] == 1) & (df_test['RSI'] < 70) & df_test['RSI_falling']
+            c5_4 = (df_test['RSI_was_above_75'] == 1) & (df_test['RSI'] < 65) & df_test['RSI_falling']
+            c5_5 = (df_test['RSI_was_above_75'] == 1) & (df_test['RSI'] < 60) & df_test['RSI_falling']
+            c5_6 = (df_test['RSI_was_above_80'] == 1) & (df_test['RSI'] < 70) & df_test['RSI_falling']
+            c5_7 = (df_test['RSI_was_above_80'] == 1) & (df_test['RSI'] < 65) & df_test['RSI_falling']
+            score5 = c5_1.astype(int) + c5_2.astype(int) + c5_3.astype(int) + c5_4.astype(int) + c5_5.astype(int) + c5_6.astype(int) + c5_7.astype(int)
+            
+            # --- Condition 6: Deep Correlation (-0.32 ~ -0.64) (No FGI condition) ---
+            c6_1 = (df_test['FGI_Corr'] <= -0.32)
+            c6_2 = (df_test['FGI_Corr'] <= -0.35)
+            c6_3 = (df_test['FGI_Corr'] <= -0.38)
+            c6_4 = (df_test['FGI_Corr'] <= -0.41)
+            c6_5 = (df_test['FGI_Corr'] <= -0.44)
+            c6_6 = (df_test['FGI_Corr'] <= -0.54)
+            c6_7 = (df_test['FGI_Corr'] <= -0.64)
+            score6 = c6_1.astype(int) + c6_2.astype(int) + c6_3.astype(int) + c6_4.astype(int) + c6_5.astype(int) + c6_6.astype(int) + c6_7.astype(int)
+            
+            # --- Condition 7: Multi-RSI ---
+            c7_1 = (df_test['Multi_RSI_Score'] >= 7)
+            c7_2 = (df_test['Multi_RSI_Score'] >= 14)
+            c7_3 = (df_test['Multi_RSI_Score'] >= 21)
+            c7_4 = (df_test['Multi_RSI_Score'] >= 28)
+            c7_5 = (df_test['Multi_RSI_Score'] >= 35)
+            c7_6 = (df_test['Multi_RSI_Score'] >= 42)
+            c7_7 = (df_test['Multi_RSI_Score'] >= 49)
+            score7 = c7_1.astype(int) + c7_2.astype(int) + c7_3.astype(int) + c7_4.astype(int) + c7_5.astype(int) + c7_6.astype(int) + c7_7.astype(int)
+            
+
+            def render_color_dates_html_test(score_series, df):
+                color_map_ui = {
+                    1: ('rgba(244,67,54,1)', 'white', '빨간색(1개)'),
+                    2: ('rgba(239,108,0,1)', 'white', '주황색(2개)'),
+                    3: ('rgba(255,238,88,1)', 'black', '노란색(3개)'),
+                    4: ('rgba(76,175,80,1)', 'white', '초록색(4개)'),
+                    5: ('rgba(129,212,250,1)', 'black', '하늘색(5개)'),
+                    6: ('rgba(40,53,147,1)', 'white', '남색(6개)'),
+                    7: ('rgba(156,39,176,1)', 'white', '보라색(7개)')
+                }
+                date_color_map = {}
+                for d, s in score_series.items():
+                    s = int(s)
+                    if s >= 1:
+                        bg, fg, name = color_map_ui.get(s, ('black', 'white', ''))
+                        date_color_map[d] = (bg, fg)
+                
+                all_detected_sorted = sorted(date_color_map.keys(), reverse=True)[:100]
+                if not all_detected_sorted:
+                    return "<div style='font-size:0.75rem; color:#888;'>최근 감지 이력이 없습니다.</div>"
+
+                TH_SIG = "border:1px solid #555;padding:2px 4px;text-align:center;background:#1F4E79;color:white;font-size:0.55rem;white-space:nowrap;"
+                TD_SIG = "border:1px solid #555;padding:2px 3px;text-align:center;font-size:0.55rem;white-space:nowrap;"
+                
+                date_cells = "".join([f"<td style='background:{date_color_map[d][0]};color:{date_color_map[d][1]};font-weight:bold;{TD_SIG}'>{fmt_date_kor(d)}</td>" for d in all_detected_sorted])
+                vix_cells = "".join([f"<td style='color:black;font-weight:bold;{TD_SIG}'>{df.loc[d, 'VIX']:.2f}</td>" for d in all_detected_sorted])
+                fgi_cells = "".join([f"<td style='color:black;font-weight:bold;{TD_SIG}'>{df.loc[d, 'FearGreedIndex']:.1f}</td>" for d in all_detected_sorted])
+                
+                if '(FGI-VIX)/5' in df.columns:
+                    fv5_cells = "".join([f"<td style='color:black;font-weight:bold;{TD_SIG}'>{df.loc[d, '(FGI-VIX)/5']:.2f}</td>" for d in all_detected_sorted])
+                else:
+                    fv5_cells = "".join([f"<td style='color:black;font-weight:bold;{TD_SIG}'>-</td>" for d in all_detected_sorted])
+                    
+                _html_val = (
+                    f"<div style='margin-bottom:1rem;margin-top:0.5rem;'>"
+                    f"<span style='font-size:0.72rem;color:#aaa;font-weight:600;'>📌 색깔 감지 날짜 (최근 100개)</span>"
+                    f"<div style='overflow-x:auto;margin-top:3px;'>"
+                    f"<table style='border-collapse:collapse;font-size:0.55rem;text-align:center;'>"
+                    f"<tbody>"
+                    f"<tr><th style='{TH_SIG}'>날짜</th>{date_cells}</tr>"
+                    f"<tr><th style='{TH_SIG}'>VIX</th>{vix_cells}</tr>"
+                    f"<tr><th style='{TH_SIG}'>FGI</th>{fgi_cells}</tr>"
+                    f"<tr><th style='{TH_SIG}'>FV5</th>{fv5_cells}</tr>"
+                    f"</tbody>"
+                    f"</table></div></div>"
+                )
+                return _html_val
+
+            def render_condition_block(score_series, title, description):
+                st.markdown(f"#### {title}")
+                st.markdown(f"{description}")
+                conds_dict = {
+                    "**[빨강] 1단계**": (score_series >= 1, "동시 감지 1개"),
+                    "**[주황] 2단계**": (score_series >= 2, "동시 감지 2개"),
+                    "**[노랑] 3단계**": (score_series >= 3, "동시 감지 3개"),
+                    "**[초록] 4단계**": (score_series >= 4, "동시 감지 4개"),
+                    "**[하늘] 5단계**": (score_series >= 5, "동시 감지 5개"),
+                    "**[남색] 6단계**": (score_series >= 6, "동시 감지 6개"),
+                    "**[보라] 7단계**": (score_series >= 7, "동시 감지 7개"),
+                }
+                stats_df = calculate_top_stats(df_test, 'QQQ', conds_dict)
+                render_stats_table(stats_df, "지표검증결과 (발생횟수 및 적중률 통계)", target_type="고점")
+                
+                html_dates = render_color_dates_html_test(score_series, df_test)
+                st.markdown(html_dates, unsafe_allow_html=True)
+                st.markdown("<hr style='border: 2px solid #ccc;'/>", unsafe_allow_html=True)
+                
+            scores = [score1, score2, score3, score4, score5, score6, score7]
+            
+            total_score = score1 + score2 + score3 + score4 + score5 + score6 + score7
+            u_1 = (total_score >= 1)
+            u_2 = (total_score >= 8)
+            u_3 = (total_score >= 15)
+            u_4 = (total_score >= 22)
+            u_5 = (total_score >= 29)
+            u_6 = (total_score >= 36)
+            u_7 = (total_score >= 43)
+            score_u = u_1.astype(int) + u_2.astype(int) + u_3.astype(int) + u_4.astype(int) + u_5.astype(int) + u_6.astype(int) + u_7.astype(int)
+            
+
+            
+
+            
+            color_map = {1: 'rgba(244,67,54,1)', 2: 'rgba(239,108,0,1)', 3: 'rgba(255,238,88,1)', 4: 'rgba(76,175,80,1)', 5: 'rgba(129,212,250,1)', 6: 'rgba(40,53,147,1)', 7: 'rgba(156,39,176,1)'}
+            hd = [fmt_date_kor(d) for d in df_test.index]
+            qqq_max = float(df_test['QQQ'].max()) * 1.1
+            
+            if active_period_days:
+                target_dt = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                try:
+                    start_idx = df_test.index.get_indexer([target_dt], method='nearest')[0]
+                except:
+                    start_idx = max(0, len(df_test) - active_period_days)
+            else:
+                start_idx = 0
+            end_idx = len(df_test) - 1
+            
+            st.markdown("### 🌟 조건 1~7 통합 감지 차트 (X축 독립)")
+            fig_u = go.Figure()
+            bg_colors_u = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u]
+            y_vals_u = [qqq_max if s >= 1 else 0 for s in score_u]
+            fig_u.add_trace(go.Bar(x=hd, y=y_vals_u, marker_color=bg_colors_u, marker_line_width=0.5, marker_line_color='white', hoverinfo='skip'))
+            fig_u.add_trace(go.Scatter(x=hd, y=df_test['QQQ'], mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2), marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)), hovertemplate='QQQ: %{y:.2f}'))
+            fig_u.update_layout(height=400, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=0, t=10, b=0))
+            fig_u.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
+            fig_u.update_yaxes(**crosshair_yaxis())
+            st.plotly_chart(fig_u, width='stretch', config=COMMON_CONFIG, key="unified_chart_top")
+            
+            with st.expander("📊 통합 감지 분석 및 성능검증표 열기", expanded=True):
+                render_condition_block(score_u, "조건 1~7 통합 점수 산출", "- **감지수식**: 조건 1~7의 점수(각 0~7점)를 모두 합산하여, 최대 49점 만점을 7점 단위(1, 8, 15, 22, 29, 36, 43점 이상)로 매핑합니다.")
+            
+            st.markdown("<br><br>", unsafe_allow_html=True)
+
+            
+            fig = make_subplots(
+                rows=7, cols=1, 
+                shared_xaxes=True, 
+                vertical_spacing=0.03,
+                subplot_titles=[
+                    "조건 1: QQQ 20일선 기울기 vs FGI 20일선 기울기 (슬로프 역행)",
+                    "조건 2: QQQ vs FGI 상관계수 역전",
+                    "조건 3: QQQ 이격도 vs FGI 데드크로스",
+                    "조건 4: VIX 극단적 방심 장기화 (Complacency & ROC 지속 하락)",
+                    "조건 5: RSI 14일 후행 다이버전스 (과열 이후 냉각기 진입)",
+                    "조건 6: QQQ vs FGI 심화 상관계수 역전 (-0.32 ~ -0.64)",
+                    "조건 7: 다중 RSI(5~23) 다이버전스 (과열 개수 × 하락 개수)"
+                ],
+                specs=[[{"secondary_y": True}]] * 7
+            )
+            
+
+            
+            for row_i, sc in enumerate(scores, start=1):
+                bg_colors = [color_map.get(s, 'rgba(0,0,0,0)') for s in sc]
+                y_vals = [qqq_max if s >= 1 else 0 for s in sc]
+                
+                # Background bars
+                fig.add_trace(
+                    go.Bar(
+                        x=hd, y=y_vals,
+                        marker_color=bg_colors,
+                        marker_line_width=0.5,
+                        marker_line_color='white',
+                        hoverinfo='skip',
+                        showlegend=False
+                    ),
+                    row=row_i, col=1, secondary_y=False
+                )
+                
+                # QQQ Line
+                fig.add_trace(
+                    go.Scatter(
+                        x=hd, y=df_test['QQQ'], name='QQQ' if row_i==1 else '',
+                        mode='lines+markers',
+                        line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
+                        marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                        hovertemplate='QQQ: %{y:.2f}', showlegend=False
+                    ),
+                    row=row_i, col=1, secondary_y=False
+                )
+
+            # Row 1 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['QQQ_20MA_slope'], name='QQQ 20MA 기울기', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=1, col=1, secondary_y=True)
+            fig.add_trace(go.Scatter(x=hd, y=df_test['FGI_20MA_slope'], name='FGI 20MA 기울기', line=dict(color='rgba(255,255,0,0.8)', width=1), showlegend=False), row=1, col=1, secondary_y=True)
+
+            # Row 2 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['FGI_Corr'], name='상관계수', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=2, col=1, secondary_y=True)
+
+            # Row 3 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['QQQ_diff_MA'], name='QQQ 이격도(%)', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=3, col=1, secondary_y=True)
+            fig.add_trace(go.Scatter(x=hd, y=df_test['FGI_5MA_diff_20MA'], name='FGI 5MA-20MA', line=dict(color='rgba(255,255,0,0.8)', width=1), showlegend=False), row=3, col=1, secondary_y=True)
+
+            # Row 4 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['VIX_ROC_20'], name='VIX 20일 변동률', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=4, col=1, secondary_y=True)
+
+            # Row 5 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['RSI'], name='RSI(14일)', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=5, col=1, secondary_y=True)
+            
+            # Row 6 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['FGI_Corr'], name='심화 상관계수', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=6, col=1, secondary_y=True)
+            fig.add_hline(y=-0.32, line_dash="dot", line_color="gray", row=6, col=1, secondary_y=True)
+            fig.add_hline(y=-0.64, line_dash="dot", line_color="gray", row=6, col=1, secondary_y=True)
+
+            # Row 7 Indicators
+            fig.add_trace(go.Scatter(x=hd, y=df_test['Multi_RSI_Score'], name='다중 RSI 스코어', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=7, col=1, secondary_y=True)
+            
+            fig.update_annotations(font_size=10)
+            fig.update_layout(
+                height=2100,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0, r=0, t=30, b=0),
+                hovermode="x unified",
+                dragmode="pan",
+                showlegend=False,
+                barmode='overlay'
+            )
+            
+            # --- Apply active_period_days to initial x-axis range ---
+
+            
+            fig.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
+            for i in range(1, 8):
+                if i > 1:
+                    fig.update_xaxes(range=[start_idx, end_idx], row=i, col=1)
+                fig.update_yaxes(**crosshair_yaxis(), secondary_y=False, row=i, col=1)
+                fig.update_yaxes(**crosshair_yaxis(), secondary_y=True, row=i, col=1)
+                
+            st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG, key="test_tab_us_top_multiplot")
+            
+            # --- Expander for Logic Explanation and Validation Tables ---
+            with st.expander("📊 조건식 상세 설명 및 지표검증결과 (각 조건별 분석 표)"):
+                st.markdown("### 📌 각 지표별 고점 감지 로직 및 지표 검증 결과")
+                
+                def render_condition_block(score_series, title, description):
+                    st.markdown(f"#### {title}")
+                    st.markdown(f"{description}")
+                    
+                    # 1. 지표검증결과 (calculate_top_stats)
+                    conds_dict = {
+                        "**[빨강] 1단계**": (score_series >= 1, "동시 감지 1개"),
+                        "**[주황] 2단계**": (score_series >= 2, "동시 감지 2개"),
+                        "**[노랑] 3단계**": (score_series >= 3, "동시 감지 3개"),
+                        "**[초록] 4단계**": (score_series >= 4, "동시 감지 4개"),
+                        "**[하늘] 5단계**": (score_series >= 5, "동시 감지 5개"),
+                        "**[남색] 6단계**": (score_series >= 6, "동시 감지 6개"),
+                        "**[보라] 7단계**": (score_series >= 7, "동시 감지 7개"),
+                    }
+                    stats_df = calculate_top_stats(df_test, 'QQQ', conds_dict)
+                    render_stats_table(stats_df, "지표검증결과 (발생횟수 및 적중률 통계)", target_type="고점")
+                    
+                    # 2. 색깔 감지 날짜 표 (가로 HTML)
+                    html_dates = render_color_dates_html_test(score_series, df_test)
+                    st.markdown(html_dates, unsafe_allow_html=True)
+                    
+                    st.markdown("<hr style='border: 2px solid #ccc;'/>", unsafe_allow_html=True)
+                
+                # Cond 1
+                desc1 = """
+                - **감지수식**: QQQ_20MA_slope > 0.0 ~ 2.0 & FGI_20MA_slope < 0.0 ~ -1.1
+                - **상세설명**: 주가(QQQ)는 단기 추세선(20MA)을 따라 상승하고 있으나, 탐욕지수(FGI)의 상승 모멘텀은 하락으로 꺾인 상태입니다.
+                """
+                render_condition_block(score1, "조건 1: QQQ vs FGI 슬로프 역행", desc1)
+                
+                # Cond 2
+                desc2 = """
+                - **감지수식**: FGI_Corr < 0.0 ~ -0.6 & FGI >= 55 ~ 60
+                - **상세설명**: 절대적 탐욕 상태에서 주가와 FGI가 동반 상승하지 않고 역전 현상(상관계수 음수)이 심화되는 것을 감지합니다.
+                """
+                render_condition_block(score2, "조건 2: 상관계수 역전", desc2)
+                
+                # Cond 3
+                desc3 = """
+                - **감지수식**: QQQ 이격도 > 0.0% ~ 3.5% & FGI 5MA - FGI 20MA < 0.0 ~ -4.0
+                - **상세설명**: 주가가 20일선 위로 높게 떠있는 과열 상태에서, FGI 단기선(5MA)이 장기선(20MA)을 하향 돌파(Death Cross)하는 강도를 측정합니다.
+                """
+                render_condition_block(score3, "조건 3: QQQ 이격도 vs FGI 데드크로스", desc3)
+                
+                # Cond 4
+                desc4 = """
+                - **감지수식**: VIX < 20 ~ 14 & VIX_ROC_20 < 0% ~ -30% (극도로 타이트한 조건)
+                - **상세설명**: VIX가 20 미만의 낮은 수치를 유지하는 와중에, 최근 20일 동안 VIX가 점점 더 가파르게 하락하여 시장이 완벽하게 방심한 폭풍전야 상태를 감지합니다.
+                """
+                render_condition_block(score4, "조건 4: VIX 극단적 방심 장기화", desc4)
+                
+                # Cond 5
+                desc5 = """
+                - **감지수식**: 최근 20일 내 RSI 터치 (70~80 이상) & 현재 RSI 꺾임 (70~60 미만) & RSI 5일전 대비 하락중
+                - **상세설명 (지연 지표)**: 극단적 과매수(75 이상)를 찍었다는 사실을 기억한 채, 현재 RSI가 명백히 꺾여 내려오는 '하락 다이버전스 타점'만을 핀셋처럼 잡아냅니다.
+                """
+                render_condition_block(score5, "조건 5: RSI 14일 후행 다이버전스", desc5)
+                
+                # Cond 6
+                desc6 = """
+                - **감지수식**: FGI_Corr <= -0.32 ~ -0.64
+                - **상세설명**: 사진 4의 요청에 따라, 상관계수 역전의 임계값을 -0.32부터 -0.64까지 7단계로 극단적으로 낮추어 매우 심화된 역전 현상만을 잡아냅니다.
+                """
+                render_condition_block(score6, "조건 6: 심화 상관계수 역전", desc6)
+                
+                # Cond 7
+                desc7 = """
+                - **감지수식**: Multi_RSI_Score = Max(최근 20일 중 과열된 RSI 개수) × 현재 하락한 RSI 개수
+                - **상세설명**: 5, 8, 11, 14, 17, 20, 23일선 7개의 RSI를 동시 가동합니다. 과거의 뜨거웠던 열기가 현재 얼마나 차갑게 식었는지 곱연산으로 산출(최대 49점)하여, 7점 단위로 1~7단계를 출력하는 궁극의 지표입니다.
+                """
+                render_condition_block(score7, "조건 7: 다중 RSI(5~23) 다이버전스", desc7)
+
+        with top_sub_tabs[1]:
             fv5_factor = 0.60
             SLOPE_FV5_HIGH_CHARTS = [
                 (2, 10, 'FV5_슬로프10일합', round(6.8 * fv5_factor, 2)),
@@ -6539,7 +6943,7 @@ if True:
             render_slope_multi_stats_table(stats_top_fv5_multi, "📊 슬로프합 최종본 다중 감지 검증 결과")
         
         # ── 소분류 2: 슬로프합 고점 ──
-        with top_sub_tabs[1]:
+        with top_sub_tabs[2]:
             SLOPE_TOP_CHARTS = [
                 (2, 10, '슬로프10일합', 29),
                 (3, 20, '슬로프20일합', 39),
@@ -6746,7 +7150,7 @@ if True:
             render_slope_multi_stats_table(stats_top_sl_multi, "📊 슬로프합 최종본 다중 감지 검증 결과")
         
         # ── 소분류 4: 다중지표 고점 ──
-        with top_sub_tabs[3]:
+        with top_sub_tabs[4]:
             _nb_top = _not_bottom.reindex(df_top.index).fillna(True)
             
             # QQQ_RU 백분위 추가 (저점 DD_Pct 대칭용)
@@ -6912,7 +7316,7 @@ if True:
             render_top_stats_table(stats_top_multi, "지표검증결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
         
         # ── 소분류 5: 통합지표 고점 ──
-        with top_sub_tabs[4]:
+        with top_sub_tabs[5]:
             _nb_top2 = _not_bottom.reindex(df_top.index).fillna(True)
             
             # 후보1: 과열 에너지 공식 (포착률 10~15% 재조정)
@@ -7005,7 +7409,7 @@ if True:
                 render_top_stats_table(stats_top_final, "통합 고점지표 검증 결과 (2018.10 ~ 현재 QQQ 고점 대비, 저점 감지일 제외)")
             
         # ── 소분류 3: 기울기합 고점 ──
-        with top_sub_tabs[2]:
+        with top_sub_tabs[3]:
             SLOPE_TOP_CHARTS_TEST = [
                 (2, 10, '테스트_슬로프10일합', 29),
                 (3, 20, '테스트_슬로프20일합', 39),
