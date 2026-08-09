@@ -4076,7 +4076,7 @@ if True:
 
     # ── 소분류 4: 다중지표 ──
     if True:
-        with main_tabs[0], bottom_sub_tabs_us[2]:
+        with main_tabs[0], bottom_sub_tabs_us[3]:
             render_bottom_multi_us()
         with main_tabs[2], bottom_sub_tabs_kr[3]:
             render_bottom_multi_kr()
@@ -6358,13 +6358,13 @@ if True:
             score1 = c1_1.astype(int) + c1_2.astype(int) + c1_3.astype(int) + c1_4.astype(int) + c1_5.astype(int) + c1_6.astype(int) + c1_7.astype(int)
             
             # --- Condition 2: Correlation ---
-            c2_1 = (df_test['FGI_Corr'] < 0.0) & (df_test['FearGreedIndex'] >= 55)
-            c2_2 = (df_test['FGI_Corr'] < -0.1) & (df_test['FearGreedIndex'] >= 55)
-            c2_3 = (df_test['FGI_Corr'] < -0.2) & (df_test['FearGreedIndex'] >= 56)
-            c2_4 = (df_test['FGI_Corr'] < -0.3) & (df_test['FearGreedIndex'] >= 57)
-            c2_5 = (df_test['FGI_Corr'] < -0.4) & (df_test['FearGreedIndex'] >= 58)
-            c2_6 = (df_test['FGI_Corr'] < -0.5) & (df_test['FearGreedIndex'] >= 59)
-            c2_7 = (df_test['FGI_Corr'] < -0.6) & (df_test['FearGreedIndex'] >= 60)
+            c2_1 = (df_test['FGI_Corr'] < 0.0) & (df_test['FearGreedIndex'] >= 48)
+            c2_2 = (df_test['FGI_Corr'] < -0.1) & (df_test['FearGreedIndex'] >= 48)
+            c2_3 = (df_test['FGI_Corr'] < -0.2) & (df_test['FearGreedIndex'] >= 48)
+            c2_4 = (df_test['FGI_Corr'] < -0.3) & (df_test['FearGreedIndex'] >= 48)
+            c2_5 = (df_test['FGI_Corr'] < -0.4) & (df_test['FearGreedIndex'] >= 48)
+            c2_6 = (df_test['FGI_Corr'] < -0.5) & (df_test['FearGreedIndex'] >= 48)
+            c2_7 = (df_test['FGI_Corr'] < -0.6) & (df_test['FearGreedIndex'] >= 48)
             score2 = c2_1.astype(int) + c2_2.astype(int) + c2_3.astype(int) + c2_4.astype(int) + c2_5.astype(int) + c2_6.astype(int) + c2_7.astype(int)
             
             # --- Condition 3: Death Cross ---
@@ -6378,13 +6378,13 @@ if True:
             score3 = c3_1.astype(int) + c3_2.astype(int) + c3_3.astype(int) + c3_4.astype(int) + c3_5.astype(int) + c3_6.astype(int) + c3_7.astype(int)
             
             # --- Condition 4: VIX Complacency (Previous logic) ---
-            c4_1 = (df_test['VIX'] < 20) & (df_test['VIX_ROC_20'] < 0.0)
-            c4_2 = (df_test['VIX'] < 19) & (df_test['VIX_ROC_20'] < -0.05)
-            c4_3 = (df_test['VIX'] < 18) & (df_test['VIX_ROC_20'] < -0.10)
-            c4_4 = (df_test['VIX'] < 17) & (df_test['VIX_ROC_20'] < -0.15)
-            c4_5 = (df_test['VIX'] < 16) & (df_test['VIX_ROC_20'] < -0.20)
-            c4_6 = (df_test['VIX'] < 15) & (df_test['VIX_ROC_20'] < -0.25)
-            c4_7 = (df_test['VIX'] < 14) & (df_test['VIX_ROC_20'] < -0.30)
+            c4_1 = (df_test['VIX'] < 18) & (df_test['VIX_ROC_20'] < 0.0)
+            c4_2 = (df_test['VIX'] < 17) & (df_test['VIX_ROC_20'] < -0.05)
+            c4_3 = (df_test['VIX'] < 16) & (df_test['VIX_ROC_20'] < -0.10)
+            c4_4 = (df_test['VIX'] < 15) & (df_test['VIX_ROC_20'] < -0.15)
+            c4_5 = (df_test['VIX'] < 14) & (df_test['VIX_ROC_20'] < -0.20)
+            c4_6 = (df_test['VIX'] < 13) & (df_test['VIX_ROC_20'] < -0.25)
+            c4_7 = (df_test['VIX'] < 12) & (df_test['VIX_ROC_20'] < -0.30)
             score4 = c4_1.astype(int) + c4_2.astype(int) + c4_3.astype(int) + c4_4.astype(int) + c4_5.astype(int) + c4_6.astype(int) + c4_7.astype(int)
             
             # --- Condition 5: RSI Delayed Divergence (Previous logic) ---
@@ -6408,7 +6408,7 @@ if True:
             score6 = c6_1.astype(int) + c6_2.astype(int) + c6_3.astype(int) + c6_4.astype(int) + c6_5.astype(int) + c6_6.astype(int) + c6_7.astype(int)
             
             # --- Condition 7: Multi-RSI ---
-            c7_1 = (df_test['Multi_RSI_Score'] >= 7)
+            c7_1 = (df_test['Multi_RSI_Score'] >= 6)
             c7_2 = (df_test['Multi_RSI_Score'] >= 14)
             c7_3 = (df_test['Multi_RSI_Score'] >= 21)
             c7_4 = (df_test['Multi_RSI_Score'] >= 28)
@@ -6487,16 +6487,15 @@ if True:
                 
             scores = [score1, score2, score3, score4, score5, score6, score7]
             
-            total_score = score1 + score2 + score3 + score4 + score5 + score6 + score7
-            u_1 = (total_score >= 1)
-            u_2 = (total_score >= 8)
-            u_3 = (total_score >= 15)
-            u_4 = (total_score >= 22)
-            u_5 = (total_score >= 29)
-            u_6 = (total_score >= 36)
-            u_7 = (total_score >= 43)
-            score_u = u_1.astype(int) + u_2.astype(int) + u_3.astype(int) + u_4.astype(int) + u_5.astype(int) + u_6.astype(int) + u_7.astype(int)
-            
+            score_sum = score1 + score2 + score3 + score4 + score5 + score6 + score7
+            score_u = pd.Series(0, index=df_test.index)
+            score_u[score_sum >= 2] = 1
+            score_u[score_sum >= 4] = 2
+            score_u[score_sum >= 8] = 3
+            score_u[score_sum >= 12] = 4
+            score_u[score_sum >= 18] = 5
+            score_u[score_sum >= 24] = 6
+            score_u[score_sum >= 28] = 7
 
             
 
@@ -6527,7 +6526,7 @@ if True:
             st.plotly_chart(fig_u, width='stretch', config=COMMON_CONFIG, key="unified_chart_top")
             
             with st.expander("📊 통합 감지 분석 및 성능검증표 열기", expanded=True):
-                render_condition_block(score_u, "조건 1~7 통합 점수 산출", "- **감지수식**: 조건 1~7의 점수(각 0~7점)를 모두 합산하여, 최대 49점 만점을 7점 단위(1, 8, 15, 22, 29, 36, 43점 이상)로 매핑합니다.")
+                render_condition_block(score_u, "조건 1~7 통합 감지 (총합 49점 만점)", "- **감지수식**: 조건 1~7에서 감지된 단계(점수)를 모두 합산한 총점(Max 49점)을 기준으로 색상 커트라인(2, 4, 8, 12, 18, 24, 28점)을 적용합니다.")
             
             st.markdown("<br><br>", unsafe_allow_html=True)
 
