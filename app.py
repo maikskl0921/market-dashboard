@@ -6466,17 +6466,21 @@ if True:
                 )
                 return _html_val
 
-            def render_condition_block(score_series, title, description):
+            def render_condition_block(score_series, title, description, labels=None):
                 st.markdown(f"#### {title}")
                 st.markdown(f"{description}")
+                
+                if labels is None:
+                    labels = ["동시 감지 1개", "동시 감지 2개", "동시 감지 3개", "동시 감지 4개", "동시 감지 5개", "동시 감지 6개", "동시 감지 7개"]
+                    
                 conds_dict = {
-                    "**[빨강] 1단계**": (score_series >= 1, "동시 감지 1개"),
-                    "**[주황] 2단계**": (score_series >= 2, "동시 감지 2개"),
-                    "**[노랑] 3단계**": (score_series >= 3, "동시 감지 3개"),
-                    "**[초록] 4단계**": (score_series >= 4, "동시 감지 4개"),
-                    "**[하늘] 5단계**": (score_series >= 5, "동시 감지 5개"),
-                    "**[남색] 6단계**": (score_series >= 6, "동시 감지 6개"),
-                    "**[보라] 7단계**": (score_series >= 7, "동시 감지 7개"),
+                    "**[빨강] 1단계**": (score_series >= 1, labels[0]),
+                    "**[주황] 2단계**": (score_series >= 2, labels[1]),
+                    "**[노랑] 3단계**": (score_series >= 3, labels[2]),
+                    "**[초록] 4단계**": (score_series >= 4, labels[3]),
+                    "**[하늘] 5단계**": (score_series >= 5, labels[4]),
+                    "**[남색] 6단계**": (score_series >= 6, labels[5]),
+                    "**[보라] 7단계**": (score_series >= 7, labels[6]),
                 }
                 stats_df = calculate_top_stats(df_test, 'QQQ', conds_dict)
                 render_stats_table(stats_df, "지표검증결과 (발생횟수 및 적중률 통계)", target_type="고점")
@@ -6514,19 +6518,39 @@ if True:
                 start_idx = 0
             end_idx = len(df_test) - 1
             
+            if start_idx < len(df_test):
+                qqq_slice = df_test['QQQ'].iloc[start_idx:end_idx+1]
+                qmin = float(qqq_slice.min())
+                qmax = float(qqq_slice.max())
+            else:
+                qmin = float(df_test['QQQ'].min())
+                qmax = float(df_test['QQQ'].max())
+            
             st.markdown("### 🌟 조건 1~7 통합 감지 차트 (X축 독립)")
             fig_u = go.Figure()
             bg_colors_u = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u]
-            y_vals_u = [qqq_max if s >= 1 else 0 for s in score_u]
-            fig_u.add_trace(go.Bar(x=hd, y=y_vals_u, marker_color=bg_colors_u, marker_line_width=0.5, marker_line_color='white', hoverinfo='skip'))
+            
+            # 룰6에 따라 배경 바 높이 설정
+            bg_height = float(df_test['QQQ'].max()) * 1.2
+            y_vals_u = [bg_height if s >= 1 else 0 for s in score_u]
+            
+            # 호버 텍스트 (색깔과 점수 표시)
+            color_name_map = {1: '빨간색', 2: '주황색', 3: '노란색', 4: '초록색', 5: '하늘색', 6: '남색', 7: '보라색'}
+            customdata_u = [f"{color_name_map[s]} ({sum_s}점)" if s >= 1 else "" for s, sum_s in zip(score_u, score_sum)]
+            
             fig_u.add_trace(go.Scatter(x=hd, y=df_test['QQQ'], mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2), marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)), hovertemplate='QQQ: %{y:.2f}'))
-            fig_u.update_layout(height=400, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=0, t=10, b=0))
+            fig_u.add_trace(go.Bar(
+                x=hd, y=y_vals_u, marker_color=bg_colors_u, marker_line_width=0.5, marker_line_color='white',
+                customdata=customdata_u, hovertemplate='%{customdata}<extra></extra>'
+            ))
+            fig_u.update_layout(height=472, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=0, t=10, b=0))
             fig_u.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
-            fig_u.update_yaxes(**crosshair_yaxis())
+            fig_u.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis())
             st.plotly_chart(fig_u, width='stretch', config=COMMON_CONFIG, key="unified_chart_top")
             
             with st.expander("📊 통합 감지 분석 및 성능검증표 열기", expanded=True):
-                render_condition_block(score_u, "조건 1~7 통합 감지 (총합 49점 만점)", "- **감지수식**: 조건 1~7에서 감지된 단계(점수)를 모두 합산한 총점(Max 49점)을 기준으로 색상 커트라인(2, 4, 8, 12, 18, 24, 28점)을 적용합니다.")
+                labels_u = ["7대 감지지표 합산 >= 2점", "7대 감지지표 합산 >= 4점", "7대 감지지표 합산 >= 8점", "7대 감지지표 합산 >= 12점", "7대 감지지표 합산 >= 18점", "7대 감지지표 합산 >= 24점", "7대 감지지표 합산 >= 28점"]
+                render_condition_block(score_u, "조건 1~7 통합 감지 (총합 49점 만점)", "- **감지수식**: 조건 1~7에서 감지된 단계(점수)를 모두 합산한 총점(Max 49점)을 기준으로 색상 커트라인(2, 4, 8, 12, 18, 24, 28점)을 적용합니다.", labels_u)
             
             st.markdown("<br><br>", unsafe_allow_html=True)
 
@@ -6549,24 +6573,8 @@ if True:
             
 
             
-            for row_i, sc in enumerate(scores, start=1):
-                bg_colors = [color_map.get(s, 'rgba(0,0,0,0)') for s in sc]
-                y_vals = [qqq_max if s >= 1 else 0 for s in sc]
-                
-                # Background bars
-                fig.add_trace(
-                    go.Bar(
-                        x=hd, y=y_vals,
-                        marker_color=bg_colors,
-                        marker_line_width=0.5,
-                        marker_line_color='white',
-                        hoverinfo='skip',
-                        showlegend=False
-                    ),
-                    row=row_i, col=1, secondary_y=False
-                )
-                
-                # QQQ Line
+            # 1. QQQ Line
+            for row_i in range(1, 8):
                 fig.add_trace(
                     go.Scatter(
                         x=hd, y=df_test['QQQ'], name='QQQ' if row_i==1 else '',
@@ -6578,6 +6586,7 @@ if True:
                     row=row_i, col=1, secondary_y=False
                 )
 
+            # 2. Indicators
             # Row 1 Indicators
             fig.add_trace(go.Scatter(x=hd, y=df_test['QQQ_20MA_slope'], name='QQQ 20MA 기울기', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=1, col=1, secondary_y=True)
             fig.add_trace(go.Scatter(x=hd, y=df_test['FGI_20MA_slope'], name='FGI 20MA 기울기', line=dict(color='rgba(255,255,0,0.8)', width=1), showlegend=False), row=1, col=1, secondary_y=True)
@@ -6602,10 +6611,29 @@ if True:
 
             # Row 7 Indicators
             fig.add_trace(go.Scatter(x=hd, y=df_test['Multi_RSI_Score'], name='다중 RSI 스코어', line=dict(color='rgba(255,0,0,0.8)', width=1), showlegend=False), row=7, col=1, secondary_y=True)
+
+            # 3. Background bars (Added last so they appear at the bottom of the hoverbox)
+            for row_i, sc in enumerate(scores, start=1):
+                bg_colors = [color_map.get(s, 'rgba(0,0,0,0)') for s in sc]
+                customdata_bar = [f"{color_name_map[s]} ({sum_s}점)" if s >= 1 else "" for s, sum_s in zip(sc, score_sum)]
+                y_vals = [bg_height if s >= 1 else 0 for s in sc]
+                
+                fig.add_trace(
+                    go.Bar(
+                        x=hd, y=y_vals,
+                        marker_color=bg_colors,
+                        marker_line_width=0.5,
+                        marker_line_color='white',
+                        customdata=customdata_bar,
+                        hovertemplate='%{customdata}<extra></extra>',
+                        showlegend=False
+                    ),
+                    row=row_i, col=1, secondary_y=False
+                )
             
             fig.update_annotations(font_size=10)
             fig.update_layout(
-                height=2100,
+                height=3304,
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
                 margin=dict(l=0, r=0, t=30, b=0),
@@ -6622,7 +6650,7 @@ if True:
             for i in range(1, 8):
                 if i > 1:
                     fig.update_xaxes(range=[start_idx, end_idx], row=i, col=1)
-                fig.update_yaxes(**crosshair_yaxis(), secondary_y=False, row=i, col=1)
+                fig.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False, row=i, col=1)
                 fig.update_yaxes(**crosshair_yaxis(), secondary_y=True, row=i, col=1)
                 
             st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG, key="test_tab_us_top_multiplot")
@@ -6631,19 +6659,22 @@ if True:
             with st.expander("📊 조건식 상세 설명 및 지표검증결과 (각 조건별 분석 표)"):
                 st.markdown("### 📌 각 지표별 고점 감지 로직 및 지표 검증 결과")
                 
-                def render_condition_block(score_series, title, description):
+                def render_condition_block_2(score_series, title, description, labels=None):
                     st.markdown(f"#### {title}")
                     st.markdown(f"{description}")
                     
+                    if labels is None:
+                        labels = ["동시 감지 1개", "동시 감지 2개", "동시 감지 3개", "동시 감지 4개", "동시 감지 5개", "동시 감지 6개", "동시 감지 7개"]
+                    
                     # 1. 지표검증결과 (calculate_top_stats)
                     conds_dict = {
-                        "**[빨강] 1단계**": (score_series >= 1, "동시 감지 1개"),
-                        "**[주황] 2단계**": (score_series >= 2, "동시 감지 2개"),
-                        "**[노랑] 3단계**": (score_series >= 3, "동시 감지 3개"),
-                        "**[초록] 4단계**": (score_series >= 4, "동시 감지 4개"),
-                        "**[하늘] 5단계**": (score_series >= 5, "동시 감지 5개"),
-                        "**[남색] 6단계**": (score_series >= 6, "동시 감지 6개"),
-                        "**[보라] 7단계**": (score_series >= 7, "동시 감지 7개"),
+                        "**[빨강] 1단계**": (score_series >= 1, labels[0]),
+                        "**[주황] 2단계**": (score_series >= 2, labels[1]),
+                        "**[노랑] 3단계**": (score_series >= 3, labels[2]),
+                        "**[초록] 4단계**": (score_series >= 4, labels[3]),
+                        "**[하늘] 5단계**": (score_series >= 5, labels[4]),
+                        "**[남색] 6단계**": (score_series >= 6, labels[5]),
+                        "**[보라] 7단계**": (score_series >= 7, labels[6]),
                     }
                     stats_df = calculate_top_stats(df_test, 'QQQ', conds_dict)
                     render_stats_table(stats_df, "지표검증결과 (발생횟수 및 적중률 통계)", target_type="고점")
@@ -6659,49 +6690,56 @@ if True:
                 - **감지수식**: QQQ_20MA_slope > 0.0 ~ 2.0 & FGI_20MA_slope < 0.0 ~ -1.1
                 - **상세설명**: 주가(QQQ)는 단기 추세선(20MA)을 따라 상승하고 있으나, 탐욕지수(FGI)의 상승 모멘텀은 하락으로 꺾인 상태입니다.
                 """
-                render_condition_block(score1, "조건 1: QQQ vs FGI 슬로프 역행", desc1)
+                labels_1 = ["QQQ기울기>0.0 & FGI기울기<0.0", "QQQ기울기>0.5 & FGI기울기<-0.1", "QQQ기울기>0.5 & FGI기울기<-0.3", "QQQ기울기>1.0 & FGI기울기<-0.5", "QQQ기울기>1.0 & FGI기울기<-0.7", "QQQ기울기>1.5 & FGI기울기<-0.9", "QQQ기울기>2.0 & FGI기울기<-1.1"]
+                render_condition_block_2(score1, "조건 1: QQQ vs FGI 슬로프 역행", desc1, labels_1)
                 
                 # Cond 2
                 desc2 = """
                 - **감지수식**: FGI_Corr < 0.0 ~ -0.6 & FGI >= 55 ~ 60
                 - **상세설명**: 절대적 탐욕 상태에서 주가와 FGI가 동반 상승하지 않고 역전 현상(상관계수 음수)이 심화되는 것을 감지합니다.
                 """
-                render_condition_block(score2, "조건 2: 상관계수 역전", desc2)
+                labels_2 = ["상관계수<0.0 & FGI>=48", "상관계수<-0.1 & FGI>=48", "상관계수<-0.2 & FGI>=48", "상관계수<-0.3 & FGI>=48", "상관계수<-0.4 & FGI>=48", "상관계수<-0.5 & FGI>=48", "상관계수<-0.6 & FGI>=48"]
+                render_condition_block_2(score2, "조건 2: 상관계수 역전", desc2, labels_2)
                 
                 # Cond 3
                 desc3 = """
                 - **감지수식**: QQQ 이격도 > 0.0% ~ 3.5% & FGI 5MA - FGI 20MA < 0.0 ~ -4.0
                 - **상세설명**: 주가가 20일선 위로 높게 떠있는 과열 상태에서, FGI 단기선(5MA)이 장기선(20MA)을 하향 돌파(Death Cross)하는 강도를 측정합니다.
                 """
-                render_condition_block(score3, "조건 3: QQQ 이격도 vs FGI 데드크로스", desc3)
+                labels_3 = ["이격도>0.0% & FGI데크<0.0", "이격도>1.0% & FGI데크<-0.5", "이격도>1.5% & FGI데크<-1.0", "이격도>2.0% & FGI데크<-1.5", "이격도>2.5% & FGI데크<-2.0", "이격도>3.0% & FGI데크<-3.0", "이격도>3.5% & FGI데크<-4.0"]
+                render_condition_block_2(score3, "조건 3: QQQ 이격도 vs FGI 데드크로스", desc3, labels_3)
                 
                 # Cond 4
                 desc4 = """
                 - **감지수식**: VIX < 20 ~ 14 & VIX_ROC_20 < 0% ~ -30% (극도로 타이트한 조건)
                 - **상세설명**: VIX가 20 미만의 낮은 수치를 유지하는 와중에, 최근 20일 동안 VIX가 점점 더 가파르게 하락하여 시장이 완벽하게 방심한 폭풍전야 상태를 감지합니다.
                 """
-                render_condition_block(score4, "조건 4: VIX 극단적 방심 장기화", desc4)
+                labels_4 = ["VIX<18 & 변동률<0.0%", "VIX<17 & 변동률<-5.0%", "VIX<16 & 변동률<-10.0%", "VIX<15 & 변동률<-15.0%", "VIX<14 & 변동률<-20.0%", "VIX<13 & 변동률<-25.0%", "VIX<12 & 변동률<-30.0%"]
+                render_condition_block_2(score4, "조건 4: VIX 극단적 방심 장기화", desc4, labels_4)
                 
                 # Cond 5
                 desc5 = """
                 - **감지수식**: 최근 20일 내 RSI 터치 (70~80 이상) & 현재 RSI 꺾임 (70~60 미만) & RSI 5일전 대비 하락중
                 - **상세설명 (지연 지표)**: 극단적 과매수(75 이상)를 찍었다는 사실을 기억한 채, 현재 RSI가 명백히 꺾여 내려오는 '하락 다이버전스 타점'만을 핀셋처럼 잡아냅니다.
                 """
-                render_condition_block(score5, "조건 5: RSI 14일 후행 다이버전스", desc5)
+                labels_5 = ["최근 RSI>70 & 현재<70 & 꺾임", "최근 RSI>70 & 현재<65 & 꺾임", "최근 RSI>75 & 현재<70 & 꺾임", "최근 RSI>75 & 현재<65 & 꺾임", "최근 RSI>75 & 현재<60 & 꺾임", "최근 RSI>80 & 현재<70 & 꺾임", "최근 RSI>80 & 현재<65 & 꺾임"]
+                render_condition_block_2(score5, "조건 5: RSI 14일 후행 다이버전스", desc5, labels_5)
                 
                 # Cond 6
                 desc6 = """
                 - **감지수식**: FGI_Corr <= -0.32 ~ -0.64
                 - **상세설명**: 사진 4의 요청에 따라, 상관계수 역전의 임계값을 -0.32부터 -0.64까지 7단계로 극단적으로 낮추어 매우 심화된 역전 현상만을 잡아냅니다.
                 """
-                render_condition_block(score6, "조건 6: 심화 상관계수 역전", desc6)
+                labels_6 = ["상관계수 <= -0.32", "상관계수 <= -0.35", "상관계수 <= -0.38", "상관계수 <= -0.41", "상관계수 <= -0.44", "상관계수 <= -0.54", "상관계수 <= -0.64"]
+                render_condition_block_2(score6, "조건 6: 심화 상관계수 역전", desc6, labels_6)
                 
                 # Cond 7
                 desc7 = """
                 - **감지수식**: Multi_RSI_Score = Max(최근 20일 중 과열된 RSI 개수) × 현재 하락한 RSI 개수
                 - **상세설명**: 5, 8, 11, 14, 17, 20, 23일선 7개의 RSI를 동시 가동합니다. 과거의 뜨거웠던 열기가 현재 얼마나 차갑게 식었는지 곱연산으로 산출(최대 49점)하여, 7점 단위로 1~7단계를 출력하는 궁극의 지표입니다.
                 """
-                render_condition_block(score7, "조건 7: 다중 RSI(5~23) 다이버전스", desc7)
+                labels_7 = ["다중 RSI 스코어 >= 7", "다중 RSI 스코어 >= 14", "다중 RSI 스코어 >= 21", "다중 RSI 스코어 >= 28", "다중 RSI 스코어 >= 35", "다중 RSI 스코어 >= 42", "다중 RSI 스코어 >= 49"]
+                render_condition_block_2(score7, "조건 7: 다중 RSI(5~23) 다이버전스", desc7, labels_7)
 
         with top_sub_tabs[1]:
             fv5_factor = 0.60
