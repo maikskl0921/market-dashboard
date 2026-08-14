@@ -5242,16 +5242,20 @@ with main_tabs[4]:
 
         fig_tic.update_annotations(font_size=10)
         fig_tic.update_yaxes(**crosshair_yaxis())
+        fig_tic.add_shape(
+            type="rect", xref="x domain", yref="y domain",
+            x0=0, y0=0, x1=1, y1=1,
+            line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2)
+        )
 
         layout_update = dict(
+            **COMMON_LAYOUT,
             showlegend=False,
             height=500,
-            margin=dict(l=0, r=0, t=30, b=0),
+            margin=dict(l=0, r=50, t=30, b=10),
             barmode='group',
             bargap=0,
-            bargroupgap=0,
-            dragmode='pan',
-            hovermode='x unified'
+            bargroupgap=0
         )
         if b_data is not None:
             layout_update['yaxis3'] = dict(
@@ -5292,7 +5296,7 @@ with main_tabs[4]:
             ))
 
         fig_tic.update_layout(**layout_update)
-        st.plotly_chart(fig_tic, use_container_width=True, config=COMMON_CONFIG)
+        st.plotly_chart(fig_tic, width='stretch', config=COMMON_CONFIG, key="tic_chart")
 
         if b_data is not None and len(b_data) > 0:
             st.markdown("<br><h4>주요 10개 기관 통합 매매 동향 (상위 10종목)</h4>", unsafe_allow_html=True)
@@ -6709,7 +6713,7 @@ with sub_tabs[5]:
             fig_mem.update_layout(
                 **COMMON_LAYOUT,
                 height=2970, 
-                margin=dict(l=0, r=0, t=30, b=10),
+                margin=dict(l=0, r=50, t=30, b=10),
                 showlegend=False,
             )
             fig_mem.update_annotations(font_size=10)
