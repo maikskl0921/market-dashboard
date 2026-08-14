@@ -157,7 +157,7 @@ def load_tickers():
 def scrape_korean_tickers(sosok):
     try:
         url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}"
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
         soup = BeautifulSoup(res.text, 'html.parser')
         links = soup.select('a.tltle')
         tickers = []
@@ -176,7 +176,7 @@ def scrape_nasdaq_tickers():
     # We will try to parse slickcharts as a fallback or return None to use defaults
     try:
         url = 'https://en.wikipedia.org/wiki/Nasdaq-100'
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
         soup = BeautifulSoup(res.text, 'html.parser')
         # This might not find anything if Wikipedia changes, returning None uses the default
         tables = soup.find_all('table', {'class': 'wikitable'})
@@ -691,7 +691,7 @@ def parse_period(period_str):
         except Exception:
             dt = pd.to_datetime(datetime.date.today())
             return dt - datetime.timedelta(days=7), dt + datetime.timedelta(days=7)
-    with main_tabs[3]:
+    else:
         try:
             dt = pd.to_datetime(period_str)
             return dt - datetime.timedelta(days=7), dt + datetime.timedelta(days=7)
@@ -1078,8 +1078,8 @@ def fetch_and_process_data():
         if not data:
             data = [{'x': int(datetime.datetime.now().timestamp()*1000), 'y': 50.0}]
             
-    qqq_df.index = qqq_df.index.normalize()
-    vix_df.index = vix_df.index.normalize()
+    if hasattr(qqq_df.index, 'normalize'): qqq_df.index = qqq_df.index.normalize()
+    if hasattr(vix_df.index, 'normalize'): vix_df.index = vix_df.index.normalize()
     fg_df = pd.DataFrame(data)
     fg_df['Date'] = pd.to_datetime(fg_df['x'], unit='ms').dt.normalize()
     fg_df = fg_df.set_index('Date').rename(columns={'y': 'FearGreedIndex'})[['FearGreedIndex']]
@@ -1231,7 +1231,7 @@ def fetch_and_process_data():
     # ── 감마익스포저(GEX) 및 풋콜레이쇼(PCR) 데이터 가공 ──
     try:
         dix_url = "https://squeezemetrics.com/monitor/static/DIX.csv"
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
         r = requests.get(dix_url, headers=headers, timeout=10)
         from io import StringIO
         dix_df = pd.read_csv(StringIO(r.text))
@@ -1338,7 +1338,7 @@ def fetch_korean_market_data_v2(df_us=None):
 
     
     # 2. 한국 공포탐욕지수 & 실시간 VKOSPI 가져오기
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
     realtime_score = 50
     realtime_vkospi = 20.0
     history_records = {}
@@ -1396,7 +1396,7 @@ def fetch_korean_market_data_v2(df_us=None):
     except Exception:
         pass
     
-    kospi_df.index = kospi_df.index.normalize()
+    if hasattr(kospi_df.index, 'normalize'): kospi_df.index = kospi_df.index.normalize()
     if is_after_hours_kr and next_trading_day_kr is not None:
         history_records[next_trading_day_kr] = float(realtime_score)
     elif last_closed_date_kr is not None:
@@ -1609,7 +1609,7 @@ def fetch_korean_market_data_v2(df_us=None):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_monitoring_data_v2(num_pages=25):
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
     try:
         r_k1 = requests.get('https://finance.naver.com/sise/sise_index_day.naver?code=KOSPI&page=1', headers=headers, timeout=5)
         dfs_k1 = pd.read_html(StringIO(r_k1.text), encoding='euc-kr')
@@ -1668,7 +1668,7 @@ def fetch_monitoring_data_v2(num_pages=25):
             pass
         return pd.DataFrame()
 
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         deposits = list(executor.map(fetch_page_deposit, range(1, num_pages + 1)))
         investors = list(executor.map(fetch_page_investor, range(1, num_pages + 1)))
         kospi = list(executor.map(fetch_page_kospi, range(1, num_pages + 1)))
@@ -1718,6 +1718,10 @@ def fetch_monitoring_data_v2(num_pages=25):
     if not yf_kosdaq.empty:
         df_merged = df_merged.join(yf_kosdaq[['Close']].rename(columns={'Close': 'KOSDAQ'}), how='outer')
         
+    # 투자자 데이터가 실제 존재하는 첫 날짜부터만 누적합산 (이전 날짜 0채움으로 인한 수평선 버그 방지)
+    first_inv_date = df_merged[['Retail', 'Foreign', 'Institution']].dropna(how='all').index.min()
+    if pd.notna(first_inv_date):
+        df_merged.loc[df_merged.index < first_inv_date, ['Retail', 'Foreign', 'Institution']] = np.nan
     df_merged['Retail_Cum'] = df_merged['Retail'].fillna(0).cumsum()
     df_merged['Foreign_Cum'] = df_merged['Foreign'].fillna(0).cumsum()
     df_merged['Institution_Cum'] = df_merged['Institution'].fillna(0).cumsum()
@@ -1781,7 +1785,7 @@ def update_and_get_dram_history():
             
     scraped_prices = {}
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
         res = requests.get('https://www.dramexchange.com', headers=headers, timeout=10)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, 'html.parser')
@@ -1830,7 +1834,7 @@ def calculate_latest_signals(df, df_kr):
         vol_data = _vol['Volume'] if not _vol.empty and 'Volume' in _vol.columns else pd.Series(0, index=df_pre.index)
         if isinstance(vol_data, pd.DataFrame): 
             vol_data = vol_data.iloc[:, 0]
-        vol_data.index = vol_data.index.normalize()
+        if hasattr(vol_data.index, 'normalize'): vol_data.index = vol_data.index.normalize()
         df_pre['Volume'] = vol_data.reindex(df_pre.index).ffill()
     except Exception as e:
         df_pre['Volume'] = 0
@@ -2042,7 +2046,7 @@ def calculate_latest_signals(df, df_kr):
         vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series(0, index=df_pre_kr.index)
         if isinstance(vol_data_kr, pd.DataFrame): 
             vol_data_kr = vol_data_kr.iloc[:, 0]
-        vol_data_kr.index = vol_data_kr.index.normalize()
+        if hasattr(vol_data_kr.index, 'normalize'): vol_data_kr.index = vol_data_kr.index.normalize()
         df_pre_kr['Volume'] = vol_data_kr.reindex(df_pre_kr.index).ffill()
     except Exception as e:
         df_pre_kr['Volume'] = 0
@@ -2305,7 +2309,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_us_low_slope:
         bg, _ = get_cnt_color(len(detected_us_low_slope))
         res["us_low_slope"] = {"detected": True, "items": detected_us_low_slope, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_low_slope"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 3. us_low_slope_test
@@ -2322,7 +2326,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_us_low_slope_test:
         bg, _ = get_cnt_color(len(detected_us_low_slope_test))
         res["us_low_slope_test"] = {"detected": True, "items": detected_us_low_slope_test, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_low_slope_test"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 4. us_low_multi
@@ -2331,14 +2335,14 @@ def calculate_latest_signals(df, df_kr):
         c = '#F44336' if cnt_us_low_multi <= 7 else '#EF6C00' if cnt_us_low_multi <= 14 else '#FFEE58' if cnt_us_low_multi <= 21 else '#4CAF50' if cnt_us_low_multi <= 28 else '#81D4FA' if cnt_us_low_multi <= 35 else '#283593' if cnt_us_low_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["us_low_multi"] = {"detected": True, "items": [(f"{cnt_us_low_multi}개", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_low_multi"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 5. us_low_unified
     if df_pre['c_or_final'].iloc[-1]:
         bg, fg = to_rgba5_and_fg('#9C27B0')
         res["us_low_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_low_unified"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 6. us_low_gamma_hybrid
@@ -2347,7 +2351,7 @@ def calculate_latest_signals(df, df_kr):
         stage = int(score_b_us - 13)
         bg, fg = get_cnt_color(stage)
         res["us_low_gamma_hybrid"] = {"detected": True, "items": [(f"{stage}단계", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_low_gamma_hybrid"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 7. us_high_panic
@@ -2365,7 +2369,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_us_high_panic:
         bg, _ = get_cnt_color(len(detected_us_high_panic))
         res["us_high_panic"] = {"detected": True, "items": detected_us_high_panic, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_high_panic"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 8. us_high_slope
@@ -2382,7 +2386,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_us_high_slope:
         bg, _ = get_cnt_color(len(detected_us_high_slope))
         res["us_high_slope"] = {"detected": True, "items": detected_us_high_slope, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_high_slope"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 9. us_high_slope_test
@@ -2399,7 +2403,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_us_high_slope_test:
         bg, _ = get_cnt_color(len(detected_us_high_slope_test))
         res["us_high_slope_test"] = {"detected": True, "items": detected_us_high_slope_test, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_high_slope_test"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 10. us_high_multi
@@ -2408,14 +2412,14 @@ def calculate_latest_signals(df, df_kr):
         c = '#F44336' if cnt_us_high_multi <= 7 else '#EF6C00' if cnt_us_high_multi <= 14 else '#FFEE58' if cnt_us_high_multi <= 21 else '#4CAF50' if cnt_us_high_multi <= 28 else '#81D4FA' if cnt_us_high_multi <= 35 else '#283593' if cnt_us_high_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["us_high_multi"] = {"detected": True, "items": [(f"{cnt_us_high_multi}개", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_high_multi"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 11. us_high_unified
     if c_top_all.iloc[-1]:
         bg, fg = to_rgba5_and_fg('#9C27B0')
         res["us_high_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_high_unified"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 12. us_high_gamma_hybrid
@@ -2424,7 +2428,7 @@ def calculate_latest_signals(df, df_kr):
         stage = int((score_t_us - 13.0) * 2)
         bg, fg = get_cnt_color(stage)
         res["us_high_gamma_hybrid"] = {"detected": True, "items": [(f"{stage}단계", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["us_high_gamma_hybrid"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 13. us_mon_gamma_single
@@ -2471,7 +2475,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_kr_low_slope:
         bg, _ = get_cnt_color(len(detected_kr_low_slope))
         res["kr_low_slope"] = {"detected": True, "items": detected_kr_low_slope, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_low_slope"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 16. kr_low_slope_test
@@ -2488,7 +2492,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_kr_low_slope_test:
         bg, _ = get_cnt_color(len(detected_kr_low_slope_test))
         res["kr_low_slope_test"] = {"detected": True, "items": detected_kr_low_slope_test, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_low_slope_test"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 17. kr_low_multi
@@ -2497,14 +2501,14 @@ def calculate_latest_signals(df, df_kr):
         c = '#F44336' if cnt_kr_low_multi <= 7 else '#EF6C00' if cnt_kr_low_multi <= 14 else '#FFEE58' if cnt_kr_low_multi <= 21 else '#4CAF50' if cnt_kr_low_multi <= 28 else '#81D4FA' if cnt_kr_low_multi <= 35 else '#283593' if cnt_kr_low_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["kr_low_multi"] = {"detected": True, "items": [(f"{cnt_kr_low_multi}개", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_low_multi"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 18. kr_low_unified
     if c_or_final_k.iloc[-1]:
         bg, fg = to_rgba5_and_fg('#9C27B0')
         res["kr_low_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_low_unified"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 19. kr_high_panic
@@ -2522,7 +2526,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_kr_high_panic:
         bg, _ = get_cnt_color(len(detected_kr_high_panic))
         res["kr_high_panic"] = {"detected": True, "items": detected_kr_high_panic, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_high_panic"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 20. kr_high_slope
@@ -2539,7 +2543,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_kr_high_slope:
         bg, _ = get_cnt_color(len(detected_kr_high_slope))
         res["kr_high_slope"] = {"detected": True, "items": detected_kr_high_slope, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_high_slope"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 21. kr_high_slope_test
@@ -2556,7 +2560,7 @@ def calculate_latest_signals(df, df_kr):
     if detected_kr_high_slope_test:
         bg, _ = get_cnt_color(len(detected_kr_high_slope_test))
         res["kr_high_slope_test"] = {"detected": True, "items": detected_kr_high_slope_test, "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_high_slope_test"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 22. kr_high_multi
@@ -2565,14 +2569,14 @@ def calculate_latest_signals(df, df_kr):
         c = '#F44336' if cnt_kr_high_multi <= 7 else '#EF6C00' if cnt_kr_high_multi <= 14 else '#FFEE58' if cnt_kr_high_multi <= 21 else '#4CAF50' if cnt_kr_high_multi <= 28 else '#81D4FA' if cnt_kr_high_multi <= 35 else '#283593' if cnt_kr_high_multi <= 42 else '#9C27B0'
         bg, fg = to_rgba5_and_fg(c)
         res["kr_high_multi"] = {"detected": True, "items": [(f"{cnt_kr_high_multi}개", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_high_multi"] = {"detected": False, "items": [], "bg_color": ""}
 
     # 23. kr_high_unified
     if c_top_all_kr.iloc[-1]:
         bg, fg = to_rgba5_and_fg('#9C27B0')
         res["kr_high_unified"] = {"detected": True, "items": [("감지", fg)], "bg_color": bg}
-    with main_tabs[3]:
+    else:
         res["kr_high_unified"] = {"detected": False, "items": [], "bg_color": ""}
 
     return res
@@ -3854,7 +3858,7 @@ if True:
         vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
         if isinstance(vol_data_kr, pd.DataFrame): 
             vol_data_kr = vol_data_kr.iloc[:, 0]
-        vol_data_kr.index = vol_data_kr.index.normalize()
+        if hasattr(vol_data_kr.index, 'normalize'): vol_data_kr.index = vol_data_kr.index.normalize()
         df_multi_kr['Volume'] = vol_data_kr.reindex(df_multi_kr.index).ffill()
         df_multi_kr['Vol_Z'] = (df_multi_kr['Volume'] - df_multi_kr['Volume'].rolling(50).mean()) / (df_multi_kr['Volume'].rolling(50).std() + 1e-5)
         
@@ -4090,7 +4094,7 @@ if True:
             vol_data = _vol['Volume'] if not _vol.empty and 'Volume' in _vol.columns else pd.Series()
             if isinstance(vol_data, pd.DataFrame): 
                 vol_data = vol_data.iloc[:, 0]
-            vol_data.index = vol_data.index.normalize()
+            if hasattr(vol_data.index, 'normalize'): vol_data.index = vol_data.index.normalize()
             df_pre['Volume'] = vol_data.reindex(df_pre.index).ffill()
             
             ema12 = df_pre['QQQ'].ewm(span=12, adjust=False).mean()
@@ -4247,7 +4251,7 @@ if True:
             vol_data_kr = _vol_kr['Volume'] if not _vol_kr.empty and 'Volume' in _vol_kr.columns else pd.Series()
             if isinstance(vol_data_kr, pd.DataFrame): 
                 vol_data_kr = vol_data_kr.iloc[:, 0]
-            vol_data_kr.index = vol_data_kr.index.normalize()
+            if hasattr(vol_data_kr.index, 'normalize'): vol_data_kr.index = vol_data_kr.index.normalize()
             df_pre_kr['Volume'] = vol_data_kr.reindex(df_pre_kr.index).ffill()
             
             ema12_kr = df_pre_kr['KOSPI'].ewm(span=12, adjust=False).mean()
@@ -4841,11 +4845,513 @@ if True:
 
 # ── Tab 3: 모니터링 ──
 with main_tabs[4]:
-    sub_tab_names = ['매매동향', '등락현황', '감마풋콜', '채권환율', '메모리']
+    sub_tab_names = ['테스트', '매매동향', '등락현황', '감마풋콜', '채권환율', '메모리']
     sub_tabs = st.tabs(sub_tab_names)
 
-    # ── 소분류 1: 매매동향 ──
+    
+    # ── 소분류 0: 테스트 ──
     with sub_tabs[0]:
+        st.markdown("### 테스트 (TIC 및 버크셔 13F 모니터링)")
+        import requests
+        import urllib.request
+        import json
+        import xml.etree.ElementTree as ET
+        import io
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        @st.cache_data(ttl=86400, show_spinner=False)
+        def get_tic_data_v2(force=True):
+            try:
+                import pandas_datareader.data as web
+                import datetime
+                df_tic = web.DataReader('FORLTEQTYNET99996', 'fred', datetime.datetime(2020, 1, 1), datetime.datetime.today())
+                df_tic.rename(columns={'FORLTEQTYNET99996': 'TIC'}, inplace=True)
+                df_tic['TIC'] = pd.to_numeric(df_tic['TIC'], errors='coerce')
+                return df_tic
+            except Exception as e:
+                return pd.DataFrame()
+
+        import os
+        import pickle
+        from collections import defaultdict
+
+        CIK_INFO = {
+            '0001067983': {'name': '워런 버핏(버크셔)', 'color': '#FF0000'},
+            '0001350694': {'name': '브리지워터', 'color': '#0000FF'},
+            '0001037389': {'name': '르네상스', 'color': '#00FF00'},
+            '0001423053': {'name': '시타델', 'color': '#FFA500'},
+            '0001179929': {'name': '투시그마', 'color': '#800080'},
+            '0001273087': {'name': '밀레니엄', 'color': '#A52A2A'},
+            '0001336528': {'name': '퍼싱 스퀘어', 'color': '#FFD700'},
+            '0001550906': {'name': '듀케인', 'color': '#FFC0CB'},
+            '0001006438': {'name': '아팔루사', 'color': '#00FFFF'},
+            '0001029160': {'name': '소로스', 'color': '#FF00FF'},
+            '0001649339': {'name': '타이거 글로벌', 'color': '#32CD32'},
+            '0001097278': {'name': '코튜', 'color': '#008080'},
+            '0001009207': {'name': 'D.E. 쇼', 'color': '#000080'},
+            '0001569187': {'name': '포인트72', 'color': '#808000'},
+            '0000922844': {'name': '엘리엇', 'color': '#808080'}
+        }
+
+        QQQ_KOR = {
+            'ADOBE': '어도비', 'ADP': '오토매틱 데이터', 'AMD': 'AMD', 'AIRBNB': '에어비앤비', 'ALNYLAM': '앨나일람',
+            'ALPHABET': '알파벳(구글)', 'AMAZON': '아마존', 'AEP': '아메리칸 일렉트릭', 'AMGEN': '암젠', 'ANALOG': '아날로그 디바이스',
+            'APPLE': '애플', 'APPLIED': '어플라이드 머티어리얼즈', 'APPLOVIN': '앱러빈', 'ARM': 'ARM', 'ASML': 'ASML',
+            'ASTERA': '아스테라', 'AUTODESK': '오토데스크', 'AXON': '액슨 엔터프라이즈', 'BAKER HUGHES': '베이커 휴즈', 'BOOKING': '부킹홀딩스',
+            'BROADCOM': '브로드컴', 'CADENCE': '케이던스', 'CINTAS': '신타스', 'CISCO': '시스코', 'COCA': '코카콜라',
+            'COMCAST': '컴캐스트', 'CONSTELLATION': '콘스텔레이션', 'COPART': '코파트', 'COREWEAVE': '코어위브', 'COSTCO': '코스트코',
+            'CROWDSTRIKE': '크라우드스트라이크', 'CSX': 'CSX', 'DATADOG': '데이터독', 'DEXCOM': '덱스컴', 'DIAMONDBACK': '다이아몬드백',
+            'DOORDASH': '도어대시', 'EXELON': '엑셀론', 'FASTENAL': '패스널', 'FERROVIAL': '페로비알', 'FORTINET': '포티넷',
+            'GE ': 'GE', 'GILEAD': '길리어드', 'HONEYWELL': '허니웰', 'IDEXX': '아이덱스', 'INTEL': '인텔', 'INTUIT': '인튜이트',
+            'INTUITIVE': '인튜이티브 서지컬', 'KEURIG': '큐리그', 'KLA ': 'KLA', 'KRAFT': '크래프트 하인즈', 'LAM ': '램리서치',
+            'LINDE': '린데', 'LUMENTUM': '루멘텀', 'MARRIOTT': '메리어트', 'MARVELL': '마벨', 'MERCADO': '메르카도리브레',
+            'META': '메타(페이스북)', 'MICROCHIP': '마이크로칩', 'MICRON': '마이크론', 'MICROSOFT': '마이크로소프트', 'MICROSTRATEGY': '마이크로스트레티지',
+            'MONDELEZ': '몬델레즈', 'MONOLITHIC': '모놀리식 파워', 'MONSTER': '몬스터 베버리지', 'NEBIUS': '네비우스', 'NETFLIX': '넷플릭스',
+            'NVIDIA': '엔비디아', 'NXP': 'NXP', "O'REILLY": '오라일리', 'OLD DOMINION': '올드 도미니언', 'PACCAR': '파카',
+            'PALANTIR': '팔란티어', 'PALO ALTO': '팔로알토', 'PAYCHEX': '페이첵스', 'PAYPAL': '페이팔', 'PDD': 'PDD(핀둬둬)',
+            'PEPSICO': '펩시코', 'QUALCOMM': '퀄컴', 'REGENERON': '리제네론', 'ROCKET': '로켓 컴퍼니', 'ROPER': '로퍼 테크놀로지',
+            'ROSS': '로스 스토어', 'SANDISK': '샌디스크', 'SEAGATE': '씨게이트', 'SHOPIFY': '쇼피파이', 'SPACEX': '스페이스X',
+            'STARBUCKS': '스타벅스', 'SYNOPSYS': '시놉시스', 'T-MOBILE': 'T-모바일', 'TAKE-TWO': '테이크투', 'TERADYNE': '테라다인',
+            'TESLA': '테슬라', 'TEXAS INSTRUMENTS': '텍사스 인스트루먼트', 'THOMSON': '톰슨 로이터', 'VERTEX': '버텍스', 'WALMART': '월마트',
+            'WARNER': '워너 브라더스', 'WESTERN DIGITAL': '웨스턴 디지털', 'WORKDAY': '워크데이', 'XCEL': '엑셀 에너지'
+        }
+
+
+
+        def get_institutions_13f_aggregated(force_update=False):
+            cache_file = '13f_historical_cache.pkl'
+            raw_data = []
+            if os.path.exists(cache_file):
+                try:
+                    with open(cache_file, 'rb') as f:
+                        raw_data = pickle.load(f)
+                    import pandas as pd
+                    raw_data = [item for item in raw_data if pd.to_datetime(item['report_date']) >= pd.to_datetime('2020-01-01')]
+                except:
+                    pass
+
+            new_data_found = False
+            
+            # Always run crawling for the recent 2 quarters
+            headers = {'User-Agent': 'Sample Company Name AdminContact@samplecompanydomain.com'}
+            QQQ_KEYWORDS = ['ADOBE', 'ADP', 'AMD', 'AIRBNB', 'ALNYLAM', 'ALPHABET', 'AMAZON', 'AEP', 'AMGEN', 'ANALOG', 'APPLE', 'APPLIED', 'APPLOVIN', 'ARM', 'ASML', 'ASTERA', 'AUTODESK', 'AXON', 'BAKER HUGHES', 'BOOKING', 'BROADCOM', 'CADENCE', 'CINTAS', 'CISCO', 'COCA', 'COMCAST', 'CONSTELLATION', 'COPART', 'COREWEAVE', 'COSTCO', 'CROWDSTRIKE', 'CSX', 'DATADOG', 'DEXCOM', 'DIAMONDBACK', 'DOORDASH', 'EXELON', 'FASTENAL', 'FERROVIAL', 'FORTINET', 'GE ', 'GILEAD', 'HONEYWELL', 'IDEXX', 'INTEL', 'INTUIT', 'INTUITIVE', 'KEURIG', 'KLA ', 'KRAFT', 'LAM ', 'LINDE', 'LUMENTUM', 'MARRIOTT', 'MARVELL', 'MERCADO', 'META ', 'MICROCHIP', 'MICRON', 'MICROSOFT', 'MICROSTRATEGY', 'MONDELEZ', 'MONOLITHIC', 'MONSTER', 'NEBIUS', 'NETFLIX', 'NVIDIA', 'NXP', "O'REILLY", 'OLD DOMINION', 'PACCAR', 'PALANTIR', 'PALO ALTO', 'PAYCHEX', 'PAYPAL', 'PDD ', 'PEPSICO', 'QUALCOMM', 'REGENERON', 'ROCKET', 'ROPER', 'ROSS', 'SANDISK', 'SEAGATE', 'SHOPIFY', 'SPACEX', 'STARBUCKS', 'SYNOPSYS', 'T-MOBILE', 'TAKE-TWO', 'TERADYNE', 'TESLA', 'TEXAS INSTRUMENTS', 'THOMSON', 'VERTEX', 'WALMART', 'WARNER', 'WESTERN DIGITAL', 'WORKDAY', 'XCEL']
+            
+            
+            
+            new_records_to_add = []
+            
+            for cik in CIK_INFO.keys():
+                url = f'https://data.sec.gov/submissions/CIK{cik}.json'
+                try:
+                    req = urllib.request.Request(url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        data = json.loads(response.read().decode())
+                    df_13f = pd.DataFrame(data['filings']['recent'])
+                    df_13f = df_13f[df_13f['form'] == '13F-HR']
+                    df_13f = df_13f.sort_values('reportDate', ascending=False).head(2) # 최근 2개 분기만
+            
+                    for _, row in df_13f.iterrows():
+                        report_date = row['reportDate']
+                        
+                        # 이미 기존 캐시에 이 데이터가 있는지 확인
+                        exists = False
+                        for old_item in raw_data + new_records_to_add:
+                            if old_item['cik'] == cik and old_item['report_date'] == report_date:
+                                exists = True
+                                break
+                        if exists and not force_update:
+                            continue
+                            
+                        # 크롤링 수행
+                        acc_no = row['accessionNumber'].replace('-', '')
+                
+                        index_url = f'https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc_no}/index.json'
+                        req_idx = urllib.request.Request(index_url, headers=headers)
+                        xml_name = None
+                        try:
+                            with urllib.request.urlopen(req_idx, timeout=5) as r_idx:
+                                idx_data = json.loads(r_idx.read().decode())
+                                xml_name = next((i['name'] for i in idx_data['directory']['item'] if i['name'].endswith('.xml') and 'primary_doc' not in i['name']), None)
+                        except:
+                            pass
+                
+                        if not xml_name:
+                            import time
+                            time.sleep(0.15)
+                            continue
+                
+                        info_url = f'https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc_no}/{xml_name}'
+                        req_xml = urllib.request.Request(info_url, headers=headers)
+                        try:
+                            import time
+                            with urllib.request.urlopen(req_xml, timeout=5) as r_xml:
+                                xml_data = r_xml.read()
+                    
+                            import xml.etree.ElementTree as ET
+                            root = ET.fromstring(xml_data)
+                            ns = {'ns': 'http://www.sec.gov/edgar/document/thirteenf/informationtable'}
+                            if not root.findall('.//ns:infoTable', ns):
+                                ns = {'ns': root.tag.split('}')[0].strip('{')}
+                        
+                            records = []
+                            for info in root.findall('.//ns:infoTable', ns):
+                                name = info.find('ns:nameOfIssuer', ns)
+                                name = name.text if name is not None else ''
+                                shrs = info.find('.//ns:shrsOrPrnAmt/ns:sshPrnamt', ns)
+                                shrs = int(shrs.text) if shrs is not None else 0
+                                val = info.find('ns:value', ns)
+                                val = int(val.text) if val is not None else 0
+                                records.append({'Name': name, 'Shares': shrs, 'Value': val})
+                        
+                            if records:
+                                df_q = pd.DataFrame(records)
+                                df_q = df_q[df_q['Name'].apply(lambda x: any(kw in str(x).upper() for kw in QQQ_KEYWORDS))]
+                                df_q = df_q.groupby('Name', as_index=False)[['Shares', 'Value']].sum()
+                                
+                                new_records_to_add.append({'cik': cik, 'report_date': report_date, 'df': df_q})
+                                new_data_found = True
+                        except Exception as e:
+                            print('ERROR:', e)
+                        import time
+                        time.sleep(0.15)
+                except Exception as e:
+                    print('OUTER ERROR:', e)
+            
+            if new_data_found:
+                # 기존 데이터에 새로운 데이터 병합
+                for new_item in new_records_to_add:
+                    raw_data = [item for item in raw_data if not (item['cik'] == new_item['cik'] and item['report_date'] == new_item['report_date'])]
+                    raw_data.append(new_item)
+                    
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(raw_data, f)
+                st.warning('🚨 기관 신규 매매 업데이트 발생 🚨')
+        
+            # Process the raw_data
+            date_to_ciks = defaultdict(lambda: defaultdict(pd.DataFrame))
+            for item in raw_data:
+                date_to_ciks[item['report_date']][item['cik']] = item['df']
+        
+            sorted_dates = sorted(list(date_to_ciks.keys()), reverse=True)
+            quarter_diffs = []
+    
+            for i in range(len(sorted_dates)-1):
+                date_new = sorted_dates[i]
+                date_old = sorted_dates[i+1]
+        
+                ciks_new = date_to_ciks[date_new]
+                ciks_old = date_to_ciks[date_old]
+        
+                all_buy_records = []
+                all_sell_records = []
+        
+                for cik in CIK_INFO.keys():
+                    if cik not in ciks_new or cik not in ciks_old: continue
+                    df_new = ciks_new[cik]
+                    df_old = ciks_old[cik]
+            
+                    if df_new.empty and df_old.empty: continue
+            
+                    df_merged = pd.merge(df_new, df_old, on='Name', how='outer', suffixes=('_new', '_old')).fillna(0)
+                    df_merged['Diff_Shares'] = df_merged['Shares_new'] - df_merged['Shares_old']
+            
+                    def calc_trade_val(row):
+                        # SEC rule changed in 2023: pre-2023 values are in thousands, 2023+ values are exact dollars.
+                        unit_new = 1000 if date_new < '2022-12-31' else 1
+                        unit_old = 1000 if date_old < '2022-12-31' else 1
+                        
+                        if row['Shares_new'] > 0:
+                            price = (row['Value_new'] * unit_new) / row['Shares_new']
+                        elif row['Shares_old'] > 0:
+                            price = (row['Value_old'] * unit_old) / row['Shares_old']
+                        else:
+                            price = 0
+                        return row['Diff_Shares'] * price
+
+                    if not df_merged.empty:
+                        df_merged['Trade_Value'] = df_merged.apply(calc_trade_val, axis=1) / 100000000.0 # 억달러
+                        df_trade = df_merged[df_merged['Trade_Value'] != 0].copy()
+                        df_trade['cik'] = cik
+                        
+                        def translate_name(name):
+                            for kw, kor in QQQ_KOR.items():
+                                if kw in str(name).upper(): return kor
+                            return name
+                        df_trade['Name'] = df_trade['Name'].apply(translate_name)
+                        
+                        all_buy_records.append(df_trade[df_trade['Trade_Value'] > 0][['Name', 'Trade_Value', 'cik']])
+                        all_sell_records.append(df_trade[df_trade['Trade_Value'] < 0][['Name', 'Trade_Value', 'cik']])
+                
+                if not all_buy_records and not all_sell_records:
+                    continue
+            
+                buy_df = pd.concat(all_buy_records) if all_buy_records else pd.DataFrame(columns=['Name', 'Trade_Value', 'cik'])
+                if not buy_df.empty: buy_df = buy_df.groupby(['Name', 'cik'], as_index=False)['Trade_Value'].sum()
+                sell_df = pd.concat(all_sell_records) if all_sell_records else pd.DataFrame(columns=['Name', 'Trade_Value', 'cik'])
+                if not sell_df.empty: sell_df = sell_df.groupby(['Name', 'cik'], as_index=False)['Trade_Value'].sum()
+        
+                def agg_trades(df, type_str):
+                    if df.empty: return pd.DataFrame(columns=['Name', 'Trade_Value', 'Badges', 'Name_Display'])
+                    grouped = df.groupby('Name')
+                    res = []
+                    for name, group in grouped:
+                        total_val = group['Trade_Value'].sum()
+                        
+                        cnames = [CIK_INFO[c]['name'] for c in group['cik']]
+                        tooltip_text = f"{type_str} 기관: " + ", ".join(cnames)
+                        
+                        badges_inner = ""
+                        for c in group['cik']:
+                            color = CIK_INFO[c]['color']
+                            badges_inner += f"<span style='display:inline-block; width:10px; height:10px; background-color:{color}; margin-left:3px; border-radius:2px; border:1px solid #000;'></span>"
+                        
+                        badges_html = f"<span title='{tooltip_text}' style='cursor:help;'>{badges_inner}</span>"
+                        name_display = f"<span title='{tooltip_text}' style='cursor:help;'>{name} {badges_inner}</span>"
+                        
+                        res.append({'Name': name, 'Trade_Value': total_val, 'Badges': badges_html, 'Name_Display': name_display})
+                    return pd.DataFrame(res)
+            
+                buy_agg = agg_trades(buy_df, '매수').sort_values('Trade_Value', ascending=False)
+                sell_agg = agg_trades(sell_df, '매도').sort_values('Trade_Value', ascending=True)
+            
+                
+                buy_top10 = buy_agg.head(10)[['Name_Display', 'Trade_Value']] if not buy_agg.empty else pd.DataFrame()
+                if len(buy_agg) > 10:
+                    other_val = buy_agg.iloc[10:]['Trade_Value'].sum()
+                    buy_top10 = pd.concat([buy_top10, pd.DataFrame({'Name_Display': ['[기타 종목]'], 'Trade_Value': [other_val]})], ignore_index=True)
+                    
+                sell_top10 = sell_agg.head(10)[['Name_Display', 'Trade_Value']] if not sell_agg.empty else pd.DataFrame()
+                if len(sell_agg) > 10:
+                    other_val = sell_agg.iloc[10:]['Trade_Value'].sum()
+                    sell_top10 = pd.concat([sell_top10, pd.DataFrame({'Name_Display': ['[기타 종목]'], 'Trade_Value': [other_val]})], ignore_index=True)
+                
+                quarter_diffs.append({
+                    'report_date': date_new,
+                    'date_old': date_old,
+                    'buy_sum': buy_agg['Trade_Value'].sum() if not buy_agg.empty else 0,
+                    'sell_sum': abs(sell_agg['Trade_Value'].sum()) if not sell_agg.empty else 0,
+                    'buy_top10': buy_top10,
+                    'sell_top10': sell_top10
+                })
+        
+            return quarter_diffs
+
+        st.subheader("QQQ vs TIC vs 10대 주요 기관 13F")
+        
+        col_upd1, col_upd2 = st.columns([8, 2])
+        with col_upd2:
+            force_upd = st.button("🔄 13F 데이터 업데이트")
+            
+        if force_upd:
+            with st.spinner("최대 1~2분 소요됩니다..."):
+                b_data = get_institutions_13f_aggregated(force_update=True)
+                st.success("데이터 업데이트 완료!")
+        else:
+            b_data = get_institutions_13f_aggregated(force_update=False)
+            
+        tic_data = get_tic_data_v2(force=True)
+
+        fig_tic = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        if b_data is not None:
+            buy_dates_all = []
+            buy_vals_all = []
+            sell_dates_all = []
+            sell_vals_all = []
+            net_dates_all = []
+            net_vals_all = []
+            
+            for q in b_data:
+                report_date = pd.to_datetime(q['report_date'])
+                if report_date.year < 2020:
+                    continue
+                mid_date = report_date - pd.Timedelta(days=45)
+                buy_dates_all.append(mid_date)
+                buy_vals_all.append(q['buy_sum'])
+                sell_dates_all.append(mid_date)
+                sell_vals_all.append(q['sell_sum'])
+                net_dates_all.append(mid_date)
+                net_vals_all.append(q['buy_sum'] - q['sell_sum'])
+                
+                fig_tic.add_shape(type="line", x0=report_date, y0=0, x1=report_date, y1=1, xref='x', yref='paper', line=dict(color="rgba(0,0,0,0.5)", width=0.5, dash="solid"), layer="above")
+                
+            korean_days = ['월', '화', '수', '목', '금', '토', '일']
+            buy_custom = [f"{d.strftime('%Y-%m-%d')}({korean_days[d.weekday()]})" for d in buy_dates_all]
+            sell_custom = [f"{d.strftime('%Y-%m-%d')}({korean_days[d.weekday()]})" for d in sell_dates_all]
+            net_custom = [f"{d.strftime('%Y-%m-%d')}({korean_days[d.weekday()]})" for d in net_dates_all]
+
+            # 매수 막대 먼저, 매도 막대 나중 (요청: 매수→매도 순서)
+            fig_tic.add_trace(go.Bar(x=buy_dates_all, y=buy_vals_all, marker_color='rgba(255, 0, 0, 0.15)', name='매수대금', yaxis='y3', hovertemplate="매수: %{y:,.0f}억$<extra></extra>"))
+            fig_tic.add_trace(go.Bar(x=sell_dates_all, y=sell_vals_all, marker_color='rgba(0, 0, 255, 0.15)', name='매도대금', yaxis='y3', hovertemplate="매도: %{y:,.0f}억$<extra></extra>"))
+            fig_tic.add_trace(go.Scatter(x=net_dates_all, y=net_vals_all, name='순매수(Net)', mode='lines', line=dict(color='rgba(0, 128, 0, 0.8)', width=2), yaxis='y3', hovertemplate="순매수: %{y:,.0f}억$<extra></extra>"))
+
+            # 분기 경계선 (1분기: 1~3월, 2분기: 4~6월, 3분기: 7~9월, 4분기: 10~12월)
+            q_starts = [1, 4, 7, 10]
+            seen_years = set()
+            for d in buy_dates_all:
+                for q_m in q_starts:
+                    yr = d.year
+                    boundary = pd.Timestamp(yr, q_m, 1)
+                    key = (yr, q_m)
+                    if key not in seen_years and d >= boundary:
+                        seen_years.add(key)
+                        fig_tic.add_shape(type="line", x0=boundary, y0=0, x1=boundary, y1=1,
+                            xref='x', yref='paper', line=dict(color="rgba(150,150,150,0.5)", width=1, dash="solid"), layer="below")
+
+        # QQQ / TIC 트레이스 (df 없어도 직접 yfinance로 폴백)
+        qqq_series = None
+        if 'QQQ' in df.columns:
+            qqq_series = df['QQQ'].dropna()
+        if qqq_series is None or qqq_series.empty:
+            try:
+                import yfinance as yf
+                _yf_q = yf.download('QQQ', start='2020-01-01', progress=False)
+                if isinstance(_yf_q.columns, pd.MultiIndex): _yf_q.columns = _yf_q.columns.get_level_values(0)
+                if not _yf_q.empty:
+                    qqq_series = _yf_q['Close'].dropna()
+                    if getattr(qqq_series.index, 'tz', None) is not None:
+                        qqq_series.index = qqq_series.index.tz_localize(None)
+            except Exception:
+                pass
+
+        # 2020년 이전 데이터 제거
+        if qqq_series is not None and not qqq_series.empty:
+            qqq_series = qqq_series[qqq_series.index >= pd.Timestamp('2020-01-01')]
+
+        if qqq_series is not None and not qqq_series.empty:
+            fig_tic.add_trace(go.Scatter(
+                x=qqq_series.index, y=qqq_series,
+                name='QQQ', mode='lines+markers',
+                marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
+                line=dict(color='rgba(0,0,0,0.5)', width=2),
+                hovertemplate="QQQ: %{y:,.2f}<extra></extra>"
+            ), secondary_y=False)
+
+            if not tic_data.empty:
+                # Merge indices so interpolation doesn't drop unmatched TIC dates
+                combined_idx = qqq_series.index.union(tic_data.index).sort_values()
+                tic_daily = tic_data.reindex(combined_idx).interpolate(method='linear')
+                tic_daily = tic_daily.reindex(qqq_series.index)
+                if 'TIC' in tic_daily.columns:
+                    fig_tic.add_trace(go.Scatter(
+                        x=tic_daily.index, y=tic_daily['TIC'],
+                        name='TIC', line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
+                        hovertemplate="TIC: %{y:,.2f}<extra></extra>"
+                    ), secondary_y=True)
+
+        fig_tic.update_annotations(font_size=10)
+        fig_tic.update_yaxes(**crosshair_yaxis())
+
+        layout_update = dict(
+            showlegend=False,
+            height=500,
+            margin=dict(l=0, r=0, t=30, b=0),
+            barmode='group',
+            bargap=0,
+            bargroupgap=0,
+            dragmode='pan',
+            hovermode='x unified'
+        )
+        if b_data is not None:
+            layout_update['yaxis3'] = dict(
+                overlaying='y',
+                side='right',
+                position=1.0,
+                showticklabels=False,
+                showgrid=False
+            )
+
+        # 기간 라디오 버튼 연동 X축 범위
+        _ref_series = qqq_series if (qqq_series is not None and not qqq_series.empty) else None
+        if _ref_series is not None:
+            if active_period_days is not None:
+                _min_date = _ref_series.index.max() - pd.Timedelta(days=active_period_days)
+                layout_update['xaxis'] = dict(range=[_min_date, _ref_series.index.max()], hoverformat="%Y-%m-%d(%a)")
+            else:
+                layout_update['xaxis'] = dict(range=[_ref_series.index.min(), _ref_series.index.max()], hoverformat="%Y-%m-%d(%a)")
+
+        if buy_dates_all:
+            q_tickvals = []
+            q_ticktext = []
+            seen_q = set()
+            for d in sorted(buy_dates_all):
+                q = (d.month - 1) // 3 + 1
+                q_key = (d.year, q)
+                if q_key not in seen_q:
+                    seen_q.add(q_key)
+                    q_tickvals.append(d)
+                    q_ticktext.append(f"{d.year}Q{q}")
+            if 'xaxis' not in layout_update:
+                layout_update['xaxis'] = {}
+            layout_update['xaxis'].update(dict(
+                tickvals=q_tickvals,
+                ticktext=q_ticktext,
+                tickmode='array',
+                tickangle=-45
+            ))
+
+        fig_tic.update_layout(**layout_update)
+        st.plotly_chart(fig_tic, use_container_width=True, config=COMMON_CONFIG)
+
+        if b_data is not None and len(b_data) > 0:
+            st.markdown("<br><h4>주요 10개 기관 통합 매매 동향 (상위 10종목)</h4>", unsafe_allow_html=True)
+            
+            # Show legend for 15 institutions
+            legend_html = "<div style='font-size:12px; margin-bottom:10px; padding:10px; border:1px solid #ddd; border-radius:5px;'>"
+            legend_html += "<b>통합 10개 기관 범례:</b><br>"
+            for cik, info in CIK_INFO.items():
+                legend_html += f"<span style='display:inline-block; margin-right:15px;'><span style='display:inline-block; width:12px; height:12px; background-color:{info['color']}; border-radius:2px; border:1px solid #000; vertical-align:middle;'></span> {info['name']}</span>"
+            legend_html += "</div>"
+            st.markdown(legend_html, unsafe_allow_html=True)
+            
+            year_to_q = defaultdict(list)
+            for q in b_data:
+                year = pd.to_datetime(q['report_date']).year
+                if year < 2020:  # 2020년 이전 데이터 표시 제외
+                    continue
+                year_to_q[year].append(q)
+                
+            for year in sorted(year_to_q.keys(), reverse=True):
+                with st.expander(f"{year}년", expanded=(year==max(year_to_q.keys()))):
+                    for q in year_to_q[year]:
+                        r_date = pd.to_datetime(q['report_date'])
+                        quarter_num = (r_date.month - 1) // 3 + 1
+                        
+                        st.markdown(f"<div style='font-weight: bold; margin-top: 10px; margin-bottom: 5px;'>{quarter_num}분기 (보고일: {r_date.strftime('%Y-%m-%d')})</div>", unsafe_allow_html=True)
+                        c1, c2 = st.columns(2)
+                        
+                        buy_df = q['buy_top10'].copy()
+                        sell_df = q['sell_top10'].copy()
+                        
+                        buy_sum_q = q['buy_sum']
+                        sell_sum_q = q['sell_sum']
+                        
+                        if not buy_df.empty:
+                            summary_row_b = pd.DataFrame([{'Name_Display': '<b>[총 매수 합계]</b>', 'Trade_Value': buy_sum_q}])
+                            buy_df = pd.concat([summary_row_b, buy_df], ignore_index=True)
+                        if not sell_df.empty:
+                            summary_row_s = pd.DataFrame([{'Name_Display': '<b>[총 매도 합계]</b>', 'Trade_Value': sell_sum_q}])
+                            sell_df = pd.concat([summary_row_s, sell_df], ignore_index=True)
+                        
+                        # Apply styles
+                        def style_buy(val):
+                            return 'background-color: rgba(255, 0, 0, 0.15); font-size: 66%; text-align: center; vertical-align: middle;'
+                        def style_sell(val):
+                            return 'background-color: rgba(0, 0, 255, 0.15); font-size: 66%; text-align: center; vertical-align: middle;'
+                            
+                        styled_buy = buy_df.style.map(style_buy).format({'Trade_Value': '{:,.0f}억$'})
+                        styled_sell = sell_df.style.map(style_sell).format({'Trade_Value': '{:,.0f}억$'})
+                        
+                        with c1:
+                            st.markdown(styled_buy.to_html(escape=False, index=False), unsafe_allow_html=True)
+                        with c2:
+                            st.markdown(styled_sell.to_html(escape=False, index=False), unsafe_allow_html=True)
+                            
+
+
+# ── 소분류 1: 매매동향 ──
+    with sub_tabs[1]:
         st.markdown("### 국내 증시 자금 및 매매동향 모니터링")
     
         # 1. 3대 모니터링 요약 표 (상단 가로 배치)
@@ -5000,17 +5506,110 @@ with main_tabs[4]:
                     initial_x_range_mon = [detected_indices[0], len(hd_mon) - 1] if detected_indices else None
                 else:
                     initial_x_range_mon = None
-                
+
                 if active_period_days and detected_indices:
                     k_prices = df_mon_plot['KOSPI'].iloc[detected_indices[0]:]
-                    kmin, kmax = float(k_prices.min()), float(k_prices.max())
+                    if not k_prices.dropna().empty:
+                        kmin, kmax = float(k_prices.dropna().min()), float(k_prices.dropna().max())
+                    else:
+                        kmin, kmax = 0, 100
                 else:
-                    kmin, kmax = float(df_mon_plot['KOSPI'].min()), float(df_mon_plot['KOSPI'].max())
+                    k_prices_all = df_mon_plot['KOSPI'].dropna()
+                    if not k_prices_all.empty:
+                        kmin, kmax = float(k_prices_all.min()), float(k_prices_all.max())
+                    else:
+                        kmin, kmax = 0, 100
 
-                # Helper to add KOSPI trace
+                # ── 통합 요약 표 (차트 위에 배치) ──
+                df_tbl = df_mon_plot.dropna(subset=['KOSPI']).tail(6).copy()
+
+                def _fc(v_t, v_y, div, unit):
+                    if pd.isna(v_t) or pd.isna(v_y):
+                        return "<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>-</td>"
+                    diff = v_t - v_y
+                    pct = (diff / abs(v_y)) * 100 if v_y != 0 else 0
+                    color = 'red' if diff > 0 else 'blue' if diff < 0 else '#ccc'
+                    dv = diff / div
+                    ds = f"{dv:.2f}{unit}" if div != 1 else f"{int(dv):,d}{unit}"
+                    return f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;font-weight:bold;color:{color};'>{ds}<br><span style='font-size:0.65em;'>({pct:.1f}%)</span></td>"
+
+                def _v(v, div, unit, fmt='.2f'):
+                    if pd.isna(v): return "-"
+                    vv = v / div
+                    if fmt == 'd': return f"{int(vv):,d}{unit}"
+                    return f"{vv:{fmt}}{unit}"
+
+                tbl_rows = []
+                for i in range(len(df_tbl) - 1, 0, -1):
+                    rt = df_tbl.iloc[i]
+                    ry = df_tbl.iloc[i - 1]
+                    ds = df_tbl.index[i].strftime('%Y-%m-%d')
+                    kospi_str = _v(rt.get('KOSPI', float('nan')), 1, '', '.2f')
+                    margin_str = _v(rt.get('Margin', float('nan')), 10000, '조')
+                    deposit_str = _v(rt.get('Deposit', float('nan')), 10000, '조')
+                    trading_str = _v(rt.get('TradingValue', float('nan')), 1000000, '조')
+                    retail_str = _v(rt.get('Retail', float('nan')), 1, '억', 'd')
+                    foreign_str = _v(rt.get('Foreign', float('nan')), 1, '억', 'd')
+                    inst_str = _v(rt.get('Institution', float('nan')), 1, '억', 'd')
+
+                    margin_chg = _fc(rt.get('Margin', float('nan')), ry.get('Margin', float('nan')), 10000, '조')
+                    deposit_chg = _fc(rt.get('Deposit', float('nan')), ry.get('Deposit', float('nan')), 10000, '조')
+                    trading_chg = _fc(rt.get('TradingValue', float('nan')), ry.get('TradingValue', float('nan')), 1000000, '조')
+                    retail_chg = _fc(rt.get('Retail', float('nan')), ry.get('Retail', float('nan')), 1, '억')
+                    foreign_chg = _fc(rt.get('Foreign', float('nan')), ry.get('Foreign', float('nan')), 1, '억')
+                    inst_chg = _fc(rt.get('Institution', float('nan')), ry.get('Institution', float('nan')), 1, '억')
+
+                    tbl_rows.append(
+                        f"<tr>"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;font-weight:bold;'>{ds}</td>"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{kospi_str}</td>"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{margin_str}</td>"
+                        f"{margin_chg}"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{deposit_str}</td>"
+                        f"{deposit_chg}"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{trading_str}</td>"
+                        f"{trading_chg}"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{retail_str}</td>"
+                        f"{retail_chg}"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{foreign_str}</td>"
+                        f"{foreign_chg}"
+                        f"<td style='padding:2px 5px;border:1px solid #444;text-align:center;'>{inst_str}</td>"
+                        f"{inst_chg}"
+                        f"</tr>"
+                    )
+
+                th_style = "padding:3px 5px;border:1px solid #444;text-align:center;"
+                unified_table_html = (
+                    "<div style='margin-bottom:0.8rem;'>"
+                    "<span style='font-size:0.75rem;font-weight:600;'>📊 국내 증시 일일 지표 요약 (최근 5일)</span>"
+                    "<div style='overflow-x:auto;'>"
+                    "<table style='border-collapse:collapse;width:100%;margin-top:4px;font-size:0.68rem;line-height:1.2;text-align:center;'>"
+                    "<thead>"
+                    "<tr style='background:#1F4E79;color:white;'>"
+                    f"<th style='{th_style}'>날짜</th>"
+                    f"<th style='{th_style}'>코스피</th>"
+                    f"<th style='{th_style}'>신용잔고</th>"
+                    f"<th style='{th_style}'>신용잔고 증감</th>"
+                    f"<th style='{th_style}'>예탁금</th>"
+                    f"<th style='{th_style}'>예탁금 증감</th>"
+                    f"<th style='{th_style}'>거래대금</th>"
+                    f"<th style='{th_style}'>거래대금 증감</th>"
+                    f"<th style='{th_style}'>개인 순매수</th>"
+                    f"<th style='{th_style}'>개인 증감</th>"
+                    f"<th style='{th_style}'>외국인 순매수</th>"
+                    f"<th style='{th_style}'>외국인 증감</th>"
+                    f"<th style='{th_style}'>기관 순매수</th>"
+                    f"<th style='{th_style}'>기관 증감</th>"
+                    "</tr></thead>"
+                    f"<tbody>{''.join(tbl_rows)}</tbody>"
+                    "</table></div></div>"
+                )
+                st.markdown(unified_table_html, unsafe_allow_html=True)
+
+                # ── Helper: KOSPI 트레이스 추가 ──
                 def add_kospi_trace(fig, row=1, show_leg=False):
                     fig.add_trace(go.Scatter(
-                        x=hd_mon, y=df_mon_plot['KOSPI'], 
+                        x=hd_mon, y=df_mon_plot['KOSPI'],
                         name="코스피 지수", mode='lines+markers',
                         line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
                         marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
@@ -5018,88 +5617,20 @@ with main_tabs[4]:
                         hovertemplate='코스피: %{y:,.2f}<extra></extra>'
                     ), row=row, col=1, secondary_y=False)
 
-                # --- 1. 신용잔고 / 예탁금 ---
-                st.markdown(build_monitoring_table_1(df_mon_latest), unsafe_allow_html=True)
+                # 신용잔고 스케일 조정
+                valid_dep = df_mon_plot['Deposit'].dropna()
+                valid_mar = df_mon_plot['Margin'].dropna()
                 
-                # 신용잔고(Margin) 변동성을 극대화하기 위해 고객예탁금(Deposit) 범위로 선형 매핑(Min-Max Scaling)
-                dep_min = float(df_mon_plot['Deposit'].min()) / 10000.0
-                dep_max = float(df_mon_plot['Deposit'].max()) / 10000.0
-                mar_min = float(df_mon_plot['Margin'].min()) / 10000.0
-                mar_max = float(df_mon_plot['Margin'].max()) / 10000.0
-                
+                dep_min = float(valid_dep.min()) / 10000.0 if not valid_dep.empty else 0
+                dep_max = float(valid_dep.max()) / 10000.0 if not valid_dep.empty else 1
+                mar_min = float(valid_mar.min()) / 10000.0 if not valid_mar.empty else 0
+                mar_max = float(valid_mar.max()) / 10000.0 if not valid_mar.empty else 1
                 if mar_max > mar_min:
                     df_mon_plot['Margin_Scaled'] = dep_min + (df_mon_plot['Margin']/10000.0 - mar_min) * (dep_max - dep_min) / (mar_max - mar_min)
                 else:
                     df_mon_plot['Margin_Scaled'] = df_mon_plot['Margin']/10000.0
-                
-                fig_mon1 = make_subplots(specs=[[{"secondary_y": True}]])
-                add_kospi_trace(fig_mon1)
-                fig_mon1.add_trace(go.Scatter(
-                    x=hd_mon, 
-                    y=df_mon_plot['Margin_Scaled'], 
-                    name="신용잔고 (조원, 스케일조정)", 
-                    line=dict(color='rgba(255, 0, 0, 0.8)', width=1), 
-                    customdata=df_mon_plot['Margin']/10000.0,
-                    hovertemplate='신용잔고: %{customdata:.2f}조 (실제)<extra></extra>', 
-                    connectgaps=True
-                ), secondary_y=True)
-                fig_mon1.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Deposit']/10000, name="고객예탁금 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='고객예탁금: %{y:.2f}조<extra></extra>', connectgaps=True), secondary_y=True)
-                fig_mon1.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
-                fig_mon1.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
-                fig_mon1.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
-                fig_mon1.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-                fig_mon1.update_xaxes(type='category', **crosshair_xaxis())
-                if initial_x_range_mon: fig_mon1.update_xaxes(range=initial_x_range_mon)
-                st.plotly_chart(fig_mon1, width='stretch', config=COMMON_CONFIG, key="mon_fig1")
 
-                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-
-                # --- 2. 거래대금 (기존 거래대금 탭 그래프 2개) ---
-                st.markdown(build_monitoring_table_2(df_mon_latest), unsafe_allow_html=True)
-            
-                fig_value = make_subplots(
-                    rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
-                    specs=[[{"secondary_y": True}], [{"secondary_y": True}]],
-                    subplot_titles=("코스피 지수 & 일일거래대금 추이", "코스피 지수 & 삼닉/그외 비율 추이")
-                )
-            
-                # Row 1: 거래대금
-                add_kospi_trace(fig_value, row=1)
-                fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['TradingValue']/1000000.0, name="코스피 거래대금", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="코스피 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
-                fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['SEC_HYNIX_Val']/1000000.0, name="삼닉 거래대금", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate="삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
-                fig_value.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['KOSPI_ex_SEC_HYNIX_Val']/1000000.0, name="코스피-삼닉 거래대금", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate="코스피-삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=1, col=1, secondary_y=True)
-            
-                # Row 2: 비율
-                add_kospi_trace(fig_value, row=2)
-                raw_ratio = df_mon_plot['SEC_HYNIX_Val'] / (df_mon_plot['KOSPI_ex_SEC_HYNIX_Val'] + 1e-10)
-                fig_value.add_trace(go.Scatter(x=hd_mon, y=raw_ratio, name="삼닉/그외 비율", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="삼닉/그외 비율: %{y:.4f}<extra></extra>"), row=2, col=1, secondary_y=True)
-                fig_value.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=1.0, row=2, col=1, secondary_y=True)
-            
-                # Layout setting
-                fig_value.update_layout(**COMMON_LAYOUT, height=945, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
-                fig_value.update_annotations(font_size=10)
-            
-                for r_idx in [1, 2]:
-                    fig_value.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=r_idx, col=1)
-                    fig_value.update_yaxes(range=[0, kmax * 1.1], **crosshair_yaxis(), secondary_y=False, row=r_idx, col=1)
-                    fig_value.update_xaxes(type="category", **crosshair_xaxis(), row=r_idx, col=1)
-            
-                fig_value.update_yaxes(range=[0, 120], **crosshair_yaxis(), secondary_y=True, row=1, col=1)
-                fig_value.update_yaxes(range=[0, 5], **crosshair_yaxis(), secondary_y=True, row=2, col=1)
-            
-                if initial_x_range_mon:
-                    fig_value.update_xaxes(range=initial_x_range_mon, row=2, col=1)
-                
-                st.plotly_chart(fig_value, width="stretch", config=COMMON_CONFIG, key="value_subplots")
-
-                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-
-                # --- 3. 투자자별 순매수 ---
-                st.markdown(build_monitoring_table_3(df_mon_latest), unsafe_allow_html=True)
-                fig_mon3 = make_subplots(specs=[[{"secondary_y": True}]])
-                add_kospi_trace(fig_mon3)
-                
-                # (일일 외국인순매수) 0기준 유지 대칭 선형 매핑 추가 (단위: 조원)
+                # 외국인 순매수 막대 스케일 조정
                 raw_flow = df_mon_plot['Foreign'] / 10000.0
                 max_abs_flow = float(raw_flow.abs().max())
                 max_abs_cum = float(pd.concat([
@@ -5107,64 +5638,129 @@ with main_tabs[4]:
                     (df_mon_plot['Foreign_Cum']/10000.0).abs(),
                     (df_mon_plot['Institution_Cum']/10000.0).abs()
                 ]).max())
-                
-                # 막대가 누적선 최대값의 70% 수준까지 오도록 대칭 배율 설정
                 factor = (max_abs_cum * 0.7) / max_abs_flow if max_abs_flow > 0 else 1.0
                 sq_val = raw_flow * factor
-                
                 bar_colors = ['rgba(255, 105, 180, 0.5)' if val >= 0 else 'rgba(129, 212, 250, 0.6)' for val in df_mon_plot['Foreign']]
-                
-                fig_mon3.add_trace(go.Bar(
-                    x=hd_mon, 
-                    y=sq_val, 
-                    name="(일일 외국인순매수) 스케일조정", 
+
+                # ── 4개 서브플롯으로 통합 (shared_xaxes=True → X축 연동) ──
+                fig_mon_all = make_subplots(
+                    rows=4, cols=1,
+                    shared_xaxes=True,
+                    vertical_spacing=0.05,
+                    subplot_titles=(
+                        "코스피 & 신용잔고 / 고객예탁금",
+                        "코스피 & 일일거래대금 추이",
+                        "코스피 & 삼성전자+하이닉스 비율",
+                        "코스피 & 투자자별 누적 및 일일 외국인 순매수"
+                    ),
+                    specs=[[{"secondary_y": True}]] * 4
+                )
+
+                # Row 1: 신용잔고 / 예탁금
+                add_kospi_trace(fig_mon_all, row=1)
+                fig_mon_all.add_trace(go.Scatter(
+                    x=hd_mon, y=df_mon_plot['Margin_Scaled'],
+                    name="신용잔고 (스케일조정)",
+                    line=dict(color='rgba(255, 0, 0, 0.8)', width=1),
+                    customdata=df_mon_plot['Margin']/10000.0,
+                    hovertemplate='신용잔고: %{customdata:.2f}조<extra></extra>',
+                    connectgaps=True
+                ), row=1, col=1, secondary_y=True)
+                fig_mon_all.add_trace(go.Scatter(
+                    x=hd_mon, y=df_mon_plot['Deposit']/10000,
+                    name="고객예탁금 (조원)",
+                    line=dict(color='rgba(255, 255, 0, 0.8)', width=1),
+                    hovertemplate='고객예탁금: %{y:.2f}조<extra></extra>',
+                    connectgaps=True
+                ), row=1, col=1, secondary_y=True)
+
+                # Row 2: 거래대금
+                add_kospi_trace(fig_mon_all, row=2)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['TradingValue']/1000000.0, name="코스피 거래대금", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="코스피 거래대금: %{y:.2f}조<extra></extra>"), row=2, col=1, secondary_y=True)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['SEC_HYNIX_Val']/1000000.0, name="삼닉 거래대금", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate="삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=2, col=1, secondary_y=True)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['KOSPI_ex_SEC_HYNIX_Val']/1000000.0, name="코스피-삼닉", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate="코스피-삼닉 거래대금: %{y:.2f}조<extra></extra>"), row=2, col=1, secondary_y=True)
+
+                # Row 3: 삼닉/그외 비율
+                add_kospi_trace(fig_mon_all, row=3)
+                raw_ratio = df_mon_plot['SEC_HYNIX_Val'] / (df_mon_plot['KOSPI_ex_SEC_HYNIX_Val'] + 1e-10)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=raw_ratio, name="삼닉/그외 비율", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate="삼닉/그외 비율: %{y:.4f}<extra></extra>"), row=3, col=1, secondary_y=True)
+                fig_mon_all.add_shape(type="line", xref="x3 domain", yref="y6", x0=0, x1=1, y0=1.0, y1=1.0, line=dict(color="gray", width=1.0, dash="dash"), row=3, col=1)
+
+                # Row 4: 투자자별 누적 순매수 + 일일 외국인 순매수 막대 병합
+                add_kospi_trace(fig_mon_all, row=4)
+                fig_mon_all.add_trace(go.Bar(
+                    x=hd_mon, y=sq_val,
+                    name="일일 외국인순매수",
                     marker_color=bar_colors,
                     customdata=raw_flow,
-                    hovertemplate='일일 외국인순매수: %{customdata:+.4f}조 (실제)<extra></extra>'
-                ), secondary_y=True)
-                
-                fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Retail_Cum']/10000, name="개인 누적 (조원)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='개인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Foreign_Cum']/10000, name="외국인 누적 (조원)", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='외국인 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                fig_mon3.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Institution_Cum']/10000, name="기관 누적 (조원)", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate='기관 누적: %{y:.2f}조<extra></extra>'), secondary_y=True)
-                fig_mon3.update_layout(**COMMON_LAYOUT, height=472, margin=dict(l=0, r=50, t=30, b=10), showlegend=False)
-                fig_mon3.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
-                
-                # Y보조축의 모든 데이터 시리즈의 최소/최대값을 고려한 타이트한 범위 설정
+                    hovertemplate='일일 외국인순매수: %{customdata:+.4f}조<extra></extra>'
+                ), row=4, col=1, secondary_y=True)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Retail_Cum']/10000, name="개인 누적", line=dict(color='rgba(255, 255, 0, 0.8)', width=1), hovertemplate='개인 누적: %{y:.2f}조<extra></extra>'), row=4, col=1, secondary_y=True)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Foreign_Cum']/10000, name="외국인 누적", line=dict(color='rgba(255, 0, 0, 0.8)', width=1), hovertemplate='외국인 누적: %{y:.2f}조<extra></extra>'), row=4, col=1, secondary_y=True)
+                fig_mon_all.add_trace(go.Scatter(x=hd_mon, y=df_mon_plot['Institution_Cum']/10000, name="기관 누적", line=dict(color='rgba(0, 128, 0, 0.8)', width=1), hovertemplate='기관 누적: %{y:.2f}조<extra></extra>'), row=4, col=1, secondary_y=True)
+
+                # 레이아웃 통합
+                fig_mon_all.update_layout(
+                    **COMMON_LAYOUT,
+                    height=1700,
+                    margin=dict(l=0, r=50, t=30, b=10),
+                    showlegend=False
+                )
+                fig_mon_all.update_annotations(font_size=10)
+
+                # 각 서브플롯 테두리 + Y축 범위 + X축 category
+                for r_idx in range(1, 5):
+                    fig_mon_all.add_shape(
+                        type="rect", xref="x domain", yref="y domain",
+                        x0=0, y0=0, x1=1, y1=1,
+                        line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=r_idx, col=1
+                    )
+                    fig_mon_all.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False, row=r_idx, col=1)
+
+                # 보조 Y축 범위 개별 설정
+                fig_mon_all.update_yaxes(**crosshair_yaxis(), secondary_y=True, row=1, col=1)
+                fig_mon_all.update_yaxes(range=[0, 120], **crosshair_yaxis(), secondary_y=True, row=2, col=1)
+                fig_mon_all.update_yaxes(range=[0, 5], **crosshair_yaxis(), secondary_y=True, row=3, col=1)
+
+                # 누적 Y축 범위 (Row 4)
                 sec_y_series = pd.concat([
                     df_mon_plot['Retail_Cum']/10000,
                     df_mon_plot['Foreign_Cum']/10000,
                     df_mon_plot['Institution_Cum']/10000,
                     sq_val
-                ]).dropna()
-                if not sec_y_series.empty:
-                    sec_ymin = float(sec_y_series.min())
-                    sec_ymax = float(sec_y_series.max())
-                    sec_y_range = [sec_ymin - abs(sec_ymin)*0.05 - 0.1, sec_ymax + abs(sec_ymax)*0.05 + 0.1]
-                else:
-                    sec_y_range = None
+                ]).replace([np.inf, -np.inf], np.nan).dropna()
                 
-                fig_mon3.update_yaxes(range=[kmin*0.95, kmax*1.05], **crosshair_yaxis(), secondary_y=False)
-                if sec_y_range:
-                    fig_mon3.update_yaxes(range=sec_y_range, **crosshair_yaxis(), secondary_y=True)
-                else:
-                    fig_mon3.update_yaxes(**crosshair_yaxis(), secondary_y=True)
-                fig_mon3.update_xaxes(type='category', **crosshair_xaxis())
-                if initial_x_range_mon: fig_mon3.update_xaxes(range=initial_x_range_mon)
-                st.plotly_chart(fig_mon3, width='stretch', config=COMMON_CONFIG, key="mon_fig3")
+                if not sec_y_series.empty:
+                    sec_ymin, sec_ymax = float(sec_y_series.min()), float(sec_y_series.max())
+                    fig_mon_all.update_yaxes(range=[sec_ymin - abs(sec_ymin)*0.05 - 0.1, sec_ymax + abs(sec_ymax)*0.05 + 0.1], **crosshair_yaxis(), secondary_y=True, row=4, col=1)
+
+                # X축: shared_xaxes 하단 하나만 category + 범위 설정
+                for r_idx in range(1, 5):
+                    fig_mon_all.update_xaxes(type='category', **crosshair_xaxis(), row=r_idx, col=1)
+
+                if initial_x_range_mon:
+                    fig_mon_all.update_xaxes(range=initial_x_range_mon, row=4, col=1)
+
+                st.plotly_chart(fig_mon_all, width='stretch', config=COMMON_CONFIG, key="mon_all")
             else:
                 st.info("모니터링 데이터가 없습니다.")
 
     
 
     # ── 소분류 2: 등락현황 ──
-    with sub_tabs[1]:
+    with sub_tabs[2]:
         st.markdown("### 국내외 증시 등락 현황")
         with st.spinner("국내외 등락현황 데이터를 가져오는 중..."):
             kp_b, kd_b, ndx_b = fetch_historical_breadth()
             kp_p, kd_p, qqq_p = fetch_index_prices()
         def build_historical_breadth_table(df_b, title, is_us=False, ps=None):
+            if df_b.empty:
+                return f"<b>{title}</b><br>데이터를 가져올 수 없습니다."
             if ps is not None and len(ps) > 0:
-                df_b = df_b.reindex(ps.index, method='ffill')
+                try:
+                    df_b = df_b.reindex(ps.index, method='ffill')
+                except Exception:
+                    pass
             df_sub = df_b.tail(5)
             headers = ["<th style='padding:3px 6px;border:1px solid #444;color:white;background:#1F4E79;text-align:center;'>날짜</th>"]
             cols = ['상한가', '상승', '보합', '하락', '하한가'] if not is_us else ['상승', '보합', '하락']
@@ -5331,7 +5927,7 @@ with main_tabs[4]:
         st.plotly_chart(fig_breadth, width='stretch', config=COMMON_CONFIG, key="tab5_breadth_subplots")
     
     # ── 소분류 4: 감마풋콜 ──
-    with sub_tabs[2]:
+    with sub_tabs[3]:
         if not df.empty:
             df_gex = df.copy()
             hd_gex = [fmt_date_kor(d) for d in df_gex.index]
@@ -5790,93 +6386,42 @@ with main_tabs[4]:
             render_gamma_stats_table(hybrid_top_stats, '감마풋콜 혼합 고점 지표 성능 검증')
 
             st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    with sub_tabs[3]: # 채권환율 탭
+    with sub_tabs[4]: # 채권/환율 탭
         if not df.empty and 'IEF' in df.columns and 'TNX' in df.columns:
             import plotly.graph_objects as go
             from plotly.subplots import make_subplots
             import datetime
             import numpy as np
             
-            # --- x축 연동된 2개 행의 서브플롯 ---
-            st.markdown("### 📊 QQQ vs 미국 10년물 채권 (가격 및 금리) 비교 차트")
-            # st.markdown("미국 10년물 채권가격 ETF(IEF) 및 10년물 국채금리(^TNX)와 QQQ 지수를 비교합니다. (기간 연동)")
+            st.markdown("### 미국 10년물 채권 및 원달러환율 종합 차트")
             
-            # 규칙 5 준수: subplot_titles 추가
             fig = make_subplots(
-                rows=2, cols=1, 
+                rows=5, cols=1, 
                 shared_xaxes=True, 
-                vertical_spacing=0.08,
-                subplot_titles=["📊 QQQ vs 10년물 채권가격", "📊 QQQ vs 10년물 국채금리"],
-                specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
+                vertical_spacing=0.03,
+                subplot_titles=[
+                    "미국 QQQ vs 10년물 채권가격 (IEF)", 
+                    "미국 QQQ vs 10년물 국채금리 (TNX)",
+                    "한국 KOSPI vs 원달러환율 (KRW=X)",
+                    "한국 KOSPI vs 원달러환율 20일 이격도",
+                    "한국 KOSPI vs 원달러환율 20일 기울기"
+                ],
+                specs=[[{"secondary_y": True}]] * 5
             )
             
             kor_days = ['월', '화', '수', '목', '금', '토', '일']
             hd_us = [f"{d.strftime('%Y-%m-%d')}({kor_days[d.weekday()]})" for d in df.index]
             
-            # 주축 1: QQQ (규칙 2 준수)
-            fig.add_trace(go.Scatter(
-                x=hd_us, y=df['QQQ'], 
-                name="QQQ (가격비교)", 
-                line=dict(color='rgba(0, 0, 0, 0.5)', width=2), 
-                mode='lines+markers', 
-                marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))
-            ), row=1, col=1, secondary_y=False)
+            # Row 1: QQQ (Left) vs IEF (Right)
+            fig.add_trace(go.Scatter(x=hd_us, y=df['QQQ'], name="QQQ", line=dict(color='rgba(0, 0, 0, 0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))), row=1, col=1, secondary_y=False)
+            fig.add_trace(go.Scatter(x=hd_us, y=df['IEF'], name="10년물 채권가격(IEF)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=1, col=1, secondary_y=True)
             
-            # 보조 Y축 1 (규칙 1, 3 준수 - Row 1의 첫 번째 지표이므로 빨강) - IEF
-            fig.add_trace(go.Scatter(
-                x=hd_us, y=df['IEF'], 
-                name="10년물 채권가격 (IEF)", 
-                line=dict(color='rgba(255, 0, 0, 0.8)', width=1)
-            ), row=1, col=1, secondary_y=True)
-            
-            # 주축 2: QQQ (규칙 2 준수)
-            fig.add_trace(go.Scatter(
-                x=hd_us, y=df['QQQ'], 
-                name="QQQ (금리비교)", 
-                line=dict(color='rgba(0, 0, 0, 0.5)', width=2), 
-                mode='lines+markers', 
-                marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))
-            ), row=2, col=1, secondary_y=False)
-            
-            # 보조 Y축 2 (규칙 1, 3 준수 - Row 2의 첫 번째 지표이므로 리셋하여 빨강) - TNX
-            fig.add_trace(go.Scatter(
-                x=hd_us, y=df['TNX'], 
-                name="10년물 국채금리 (TNX)", 
-                line=dict(color='rgba(255, 0, 0, 0.8)', width=1)
-            ), row=2, col=1, secondary_y=True)
-            
-            fig.update_layout(
-                height=945,
-                showlegend=False,  # 규칙 4 준수
-                hovermode='x unified',
-                margin=dict(l=0, r=0, t=30, b=0)
-            )
-            
-            # 규칙 5 준수: 서브플롯 제목 크기 작게
-            fig.update_annotations(font_size=10)
-            
-            for r in range(1, 3):
-                fig.update_xaxes(type='category', categoryorder='array', categoryarray=hd_us, row=r, col=1)
-            
-            # 기간 라디오 단추와 연동 (x축)
-            if active_period_days:
-                target_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                detected = [i for i, d in enumerate(df.index) if d >= target_date]
-                if detected:
-                    fig.update_xaxes(range=[detected[0], len(hd_us) - 1], row=2, col=1)
-            
-            fig.update_yaxes(row=1, col=1, secondary_y=False)
-            fig.update_yaxes(row=1, col=1, secondary_y=True)
-            fig.update_yaxes(row=1, col=1, secondary_y=False)
-            fig.update_yaxes(row=2, col=1, secondary_y=True)
-            
-            st.plotly_chart(fig, use_container_width=True, config=COMMON_CONFIG)
+            # Row 2: QQQ (Left) vs TNX (Right)
+            fig.add_trace(go.Scatter(x=hd_us, y=df['QQQ'], name="QQQ", line=dict(color='rgba(0, 0, 0, 0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black')), showlegend=False), row=2, col=1, secondary_y=False)
+            fig.add_trace(go.Scatter(x=hd_us, y=df['TNX'], name="10년물 국채금리(TNX)", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=2, col=1, secondary_y=True)
             
             if not df_kr.empty and 'KRW=X' in df_kr.columns:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("### 📊 코스피 vs 원달러 환율 분석")
-                
-                df_kr_chart = df_kr.copy()
+                df_kr_chart = df_kr.copy().reindex(df.index, method='ffill')
                 df_kr_chart['KRW_MA20'] = df_kr_chart['KRW=X'].rolling(20).mean()
                 df_kr_chart['KRW_Disp20'] = (df_kr_chart['KRW=X'] / df_kr_chart['KRW_MA20']) * 100
                 
@@ -5888,51 +6433,46 @@ with main_tabs[4]:
                     
                 df_kr_chart['KRW_Slope20'] = df_kr_chart['KRW=X'].rolling(20).apply(calc_slope_20, raw=True)
                 
-                fig2 = make_subplots(
-                    rows=3, cols=1, 
-                    shared_xaxes=True, 
-                    vertical_spacing=0.06,
-                    subplot_titles=["📊 코스피 vs 원달러 환율", "📊 코스피 vs 원달러 환율 20일 이격도", "📊 코스피 vs 원달러 환율 20일 슬로프"],
-                    specs=[[{"secondary_y": True}], [{"secondary_y": True}], [{"secondary_y": True}]]
-                )
+                # Row 3: KOSPI (Left) vs KRW=X (Right)
+                fig.add_trace(go.Scatter(x=hd_us, y=df_kr_chart['KOSPI'], name="KOSPI", line=dict(color='rgba(0, 0, 0, 0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))), row=3, col=1, secondary_y=False)
+                fig.add_trace(go.Scatter(x=hd_us, y=df_kr_chart['KRW=X'], name="원달러환율", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=3, col=1, secondary_y=True)
                 
-                hd_kr = [f"{d.strftime('%Y-%m-%d')}({kor_days[d.weekday()]})" for d in df_kr_chart.index]
+                # Row 4: KOSPI (Left) vs KRW_Disp20 (Right)
+                fig.add_trace(go.Scatter(x=hd_us, y=df_kr_chart['KOSPI'], name="KOSPI", line=dict(color='rgba(0, 0, 0, 0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black')), showlegend=False), row=4, col=1, secondary_y=False)
+                fig.add_trace(go.Scatter(x=hd_us, y=df_kr_chart['KRW_Disp20'], name="환율 20일 이격도", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=4, col=1, secondary_y=True)
                 
-                for r in range(1, 4):
-                    fig2.add_trace(go.Scatter(
-                        x=hd_kr, y=df_kr_chart['KOSPI'], 
-                        name="KOSPI", 
-                        line=dict(color='rgba(0, 0, 0, 0.5)', width=2), 
-                        mode='lines+markers', 
-                        marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black'))
-                    ), row=r, col=1, secondary_y=False)
-                    
-                fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW=X'], name="원달러 환율", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=1, col=1, secondary_y=True)
-                fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW_Disp20'], name="환율 20일 이격도", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=2, col=1, secondary_y=True)
-                fig2.add_trace(go.Scatter(x=hd_kr, y=df_kr_chart['KRW_Slope20'], name="환율 20일 슬로프", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=3, col=1, secondary_y=True)
-                
-                fig2.update_layout(height=1215, showlegend=False, hovermode='x unified', margin=dict(l=0, r=0, t=30, b=0))
-                fig2.update_annotations(font_size=10)
-                
-                for r in range(1, 4):
-                    fig2.update_xaxes(type='category', categoryorder='array', categoryarray=hd_kr, row=r, col=1)
-                
-                if active_period_days:
-                    target_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
-                    detected = [i for i, d in enumerate(df_kr_chart.index) if d >= target_date]
-                    if detected:
-                        fig2.update_xaxes(range=[detected[0], len(hd_kr) - 1], row=3, col=1)
-                    
-                st.plotly_chart(fig2, use_container_width=True, config=COMMON_CONFIG)
-        else:
-            st.info("채권 데이터를 불러오는 중이거나 데이터가 부족합니다.")
-
-
-
-
+                # Row 5: KOSPI (Left) vs KRW_Slope20 (Right)
+                fig.add_trace(go.Scatter(x=hd_us, y=df_kr_chart['KOSPI'], name="KOSPI", line=dict(color='rgba(0, 0, 0, 0.5)', width=2), mode='lines+markers', marker=dict(size=1.5, color='white', line=dict(width=0.25, color='black')), showlegend=False), row=5, col=1, secondary_y=False)
+                fig.add_trace(go.Scatter(x=hd_us, y=df_kr_chart['KRW_Slope20'], name="환율 20일 기울기", line=dict(color='rgba(255, 0, 0, 0.8)', width=1)), row=5, col=1, secondary_y=True)
             
+            fig.update_layout(
+                height=1500,
+                showlegend=False,
+                hovermode='x unified',
+                margin=dict(l=0, r=50, t=30, b=10)
+            )
+            
+            fig.update_annotations(font_size=10)
+            
+            for r in range(1, 6):
+                fig.update_xaxes(type='category', categoryorder='array', categoryarray=hd_us, row=r, col=1, tickfont=dict(size=6))
+                fig.add_shape(type="rect", xref="x domain", yref="y domain",
+                    x0=0, y0=0, x1=1, y1=1,
+                    line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=r, col=1)
+            
+            if active_period_days:
+                target_date = pd.to_datetime(datetime.date.today() - datetime.timedelta(days=active_period_days))
+                detected = [i for i, d in enumerate(df.index) if d >= target_date]
+                if detected:
+                    fig.update_xaxes(range=[detected[0], len(hd_us) - 1], row=5, col=1)
+            
+            fig.update_yaxes(**crosshair_yaxis(), showticklabels=True, tickfont=dict(size=6))
+            
+            st.plotly_chart(fig, use_container_width=True, config=COMMON_CONFIG)
+        else:
+            st.info("데이터가 부족합니다.")
 
-with sub_tabs[4]:
+with sub_tabs[5]:
         dram_data = fetch_dram_dashboard_data()
         if dram_data:
             as_of = dram_data.get('as_of', '')
