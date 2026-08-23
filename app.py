@@ -487,8 +487,8 @@ st.markdown("""
 }
 
 /* Refresh and Update buttons size to 1/2 */
-div.element-container:has(button[key="header_data_refresh"]) button,
-div.element-container:has(button[key="header_data_update"]) button {
+div.element-container:has(button[key="header_data_refresh_v400"]) button,
+div.element-container:has(button[key="header_data_update_v400"]) button {
     font-size: 0.375rem !important; /* 1/2 of 0.75rem */
     padding: 1px 5px !important;
     min-height: 0px !important;
@@ -578,10 +578,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 with main_ui.container(horizontal=True, gap=None):
-    if st.button("refresh", key="header_data_refresh"):
+    if st.button("refresh", key="header_data_refresh_v400"):
         st.cache_data.clear()
         st.rerun()
-    if st.button("종목출입 업데이트", key="header_data_update"):
+    if st.button("종목출입 업데이트", key="header_data_update_v400"):
         with st.spinner("최신 종목 정보를 가져오는 중입니다..."):
             update_tickers()
         st.rerun()
@@ -603,7 +603,7 @@ with main_ui:
         index=country_options.index(st.session_state.selected_country),
         horizontal=True,
         label_visibility="collapsed",
-        key="country_radio_global"
+        key="country_radio_global_v400"
     )
     st.session_state.selected_country = selected_country
 
@@ -636,7 +636,7 @@ with main_ui:
         index=3, # "12M" 기본값 (사이트 최초 접속시 기본값 12M)
         horizontal=True,
         label_visibility="collapsed",
-        key="period_radio"
+        key="period_radio_v400"
     )
 
 active_period_days = None
@@ -3101,7 +3101,7 @@ if True:
         fig.update_yaxes(range=qqq_y_range, **crosshair_yaxis(), secondary_y=False)
         fig.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
 
-        st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG, key="tab1_us_fgi_chart")
+        st.plotly_chart(fig, use_container_width=True, config=COMMON_CONFIG, key="tab1_us_fgi_chart_v400")
 
         # 실시간 지표검증결과 자동 계산 (QQQ 기준)
         fgi_conditions = {
@@ -3272,7 +3272,7 @@ if True:
         fig_kr.update_yaxes(range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
         fig_kr.update_yaxes(**crosshair_yaxis(range=[-10,120]), secondary_y=True)
 
-        st.plotly_chart(fig_kr, width='stretch', config=COMMON_CONFIG, key="tab1_kr_fgi_chart")
+        st.plotly_chart(fig_kr, use_container_width=True, config=COMMON_CONFIG, key="tab1_kr_fgi_chart_v400")
 
         # 실시간 지표검증결과 자동 계산 (KOSPI 기준)
         v2_black_all = ((df_kr['FearGreedIndex'] <= 18) & (df_kr['VKOSPI'] >= 26)) | ((df_kr['FearGreedIndex'] == 50) & (df_kr['VKOSPI'] >= 30) & (df_kr['KOSPI_%B'] <= 0.05))
@@ -3478,7 +3478,7 @@ if True:
                     fig_dsi_new.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_new.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_new, width='stretch', config=COMMON_CONFIG, key="tab2_us_slope_new_chart")
+                st.plotly_chart(fig_dsi_new, use_container_width=True, config=COMMON_CONFIG, key="tab2_us_slope_new_chart_v400")
             
             # 실시간 지표검증결과 자동 계산 (QQQ 신규 슬로프합 기준)
             slope_conditions_new = {
@@ -3698,7 +3698,7 @@ if True:
                     fig_dsi_kr.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_kr.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG, key="tab2_kr_slope_chart")
+                st.plotly_chart(fig_dsi_kr, use_container_width=True, config=COMMON_CONFIG, key="tab2_kr_slope_chart_v400")
             
             # 실시간 지표검증결과 자동 계산 (KOSPI 슬로프합 기준)
             slope_conditions_kr = {
@@ -3907,7 +3907,7 @@ if True:
             
         fig_multi.update_layout(
             **COMMON_LAYOUT, 
-            height=800, 
+            height=400, 
             margin=dict(l=0, r=65, t=30, b=10),
             showlegend=False,
             barmode='overlay',
@@ -3922,7 +3922,7 @@ if True:
         fig_multi.update_yaxes(range=qqq_y_range, **crosshair_yaxis(), secondary_y=False, title_text="")
         fig_multi.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
         
-        st.plotly_chart(fig_multi, width='stretch', config=COMMON_CONFIG, key="tab5_multi_chart")
+        st.plotly_chart(fig_multi, use_container_width=True, config=COMMON_CONFIG, key="tab5_multi_chart_v400")
         
         # 지표 검증 결과
         multi_conditions = {
@@ -4142,7 +4142,7 @@ if True:
             
         fig_multi_kr.update_layout(
             **COMMON_LAYOUT, 
-            height=800, 
+            height=400, 
             margin=dict(l=0, r=65, t=30, b=10),
             showlegend=False,
             barmode='overlay',
@@ -4157,7 +4157,7 @@ if True:
         fig_multi_kr.update_yaxes(range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, title_text="")
         fig_multi_kr.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
         
-        st.plotly_chart(fig_multi_kr, width='stretch', config=COMMON_CONFIG, key="tab5_multi_chart_kr")
+        st.plotly_chart(fig_multi_kr, use_container_width=True, config=COMMON_CONFIG, key="tab5_multi_chart_kr_v400")
         
         # 지표 검증 결과
         multi_conditions_kr = {
@@ -4334,7 +4334,7 @@ if True:
         fig_pre.update_yaxes(title_text="", range=qqq_y_range, **crosshair_yaxis(), secondary_y=False)
         fig_pre.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
         
-        st.plotly_chart(fig_pre, width='stretch', config=COMMON_CONFIG, key="pre_chart_final_or")
+        st.plotly_chart(fig_pre, use_container_width=True, config=COMMON_CONFIG, key="pre_chart_final_or_v400")
         
         stats_pre = calculate_indicator_stats(df_pre, 'QQQ', pre_conditions)
         render_stats_table(stats_pre, "통합지표 통합 검증 결과 (2018.10 ~ 현재 QQQ 저점 대비 실시간 자동 업데이트)")
@@ -4488,7 +4488,7 @@ if True:
             fig_pre.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False)
             fig_pre.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
             
-            st.plotly_chart(fig_pre, width='stretch', config=COMMON_CONFIG, key="pre_chart_final_or_kr")
+            st.plotly_chart(fig_pre, use_container_width=True, config=COMMON_CONFIG, key="pre_chart_final_or_kr_v400")
             
             stats_pre_kr = calculate_indicator_stats(df_pre_kr, 'KOSPI', pre_conditions_kr)
             render_stats_table(stats_pre_kr, "통합지표 통합 검증 결과 (2018.01 ~ 현재 KOSPI 저점 대비 실시간 자동 업데이트)")
@@ -4676,7 +4676,7 @@ if True:
                     fig_dsi_test.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_test.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_test, width='stretch', config=COMMON_CONFIG, key="tab2_us_slope_test_chart")
+                st.plotly_chart(fig_dsi_test, use_container_width=True, config=COMMON_CONFIG, key="tab2_us_slope_test_chart_v400")
             
             # 실시간 지표검증결과 자동 계산 (QQQ 테스트 슬로프합 기준)
             slope_conditions_test = {
@@ -4894,7 +4894,7 @@ if True:
                     fig_dsi_test_kr.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_test_kr.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_test_kr, width='stretch', config=COMMON_CONFIG, key="tab2_kr_slope_test_chart")
+                st.plotly_chart(fig_dsi_test_kr, use_container_width=True, config=COMMON_CONFIG, key="tab2_kr_slope_test_chart_v400")
             
             # 실시간 지표검증결과 자동 계산 (KOSPI 테스트 슬로프합 기준)
             slope_conditions_test_kr = {
@@ -5505,7 +5505,7 @@ with main_tabs[4]:
         layout_update = dict(
             **COMMON_LAYOUT,
             showlegend=False,
-            height=800,
+            height=400,
             margin=dict(l=0, r=65, t=30, b=10),
             barmode='group',
             bargap=0,
@@ -5551,7 +5551,7 @@ with main_tabs[4]:
             ))
 
         fig_tic.update_layout(layout_update)
-        st.plotly_chart(fig_tic, width='stretch', config=COMMON_CONFIG, key="tic_chart")
+        st.plotly_chart(fig_tic, use_container_width=True, config=COMMON_CONFIG, key="tic_chart_v400")
 
         # 순매수 및 TIC 지표 설명 안내 버튼
         with st.expander("ℹ️ 순매수(13F) 및 TIC 지표 상세 안내", expanded=False):
@@ -5953,7 +5953,7 @@ with main_tabs[4]:
             # 레이아웃 공통 설정 및 두 번째 Y보조축(yaxis5, yaxis6) 독립 스케일 등록
             fig_test2.update_layout(
                 **COMMON_LAYOUT,
-                height=1600,
+                height=800,
                 showlegend=False,
                 yaxis5=dict(
                     overlaying="y",
@@ -6266,7 +6266,7 @@ with main_tabs[4]:
             fig_news_single.add_hline(y=70.0, line_dash="dash", line_color="gray", line_width=0.7, secondary_y=True)
             
             fig_news_single.update_layout(
-                **COMMON_LAYOUT, height=800, showlegend=False, barmode="overlay", margin=dict(l=0, r=65, t=30, b=10)
+                **COMMON_LAYOUT, height=400, showlegend=False, barmode="overlay", margin=dict(l=0, r=65, t=30, b=10)
             )
             fig_news_single.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2))
             fig_news_single.update_yaxes(range=[qmin*0.95, qmax*1.05], **crosshair_yaxis(), secondary_y=False)
@@ -6763,7 +6763,7 @@ with main_tabs[4]:
         if initial_x_range_mon:
             fig_mon_all.update_xaxes(range=initial_x_range_mon, row=4, col=1)
 
-            st.plotly_chart(fig_mon_all, width='stretch', config=COMMON_CONFIG)
+            st.plotly_chart(fig_mon_all, use_container_width=True, config=COMMON_CONFIG)
         else:
             st.info("모니터링 데이터가 부족합니다.")
 
@@ -6924,7 +6924,7 @@ with main_tabs[4]:
     
         fig_breadth.update_layout(
             **COMMON_LAYOUT,
-            height=1600,
+            height=1200,
             margin=dict(l=0, r=65, t=30, b=10),
             showlegend=False
         )
@@ -6946,7 +6946,7 @@ with main_tabs[4]:
         if initial_x_range_3:
             fig_breadth.update_xaxes(range=initial_x_range_3, row=3, col=1)
     
-        st.plotly_chart(fig_breadth, width='stretch', config=COMMON_CONFIG, key="tab5_breadth_subplots")
+        st.plotly_chart(fig_breadth, use_container_width=True, config=COMMON_CONFIG, key="tab5_breadth_subplots_v400")
     
     # ── 소분류 4: 감마풋콜 ──
     with sub_tabs[5]:
@@ -7015,7 +7015,9 @@ with main_tabs[4]:
                 go.Bar(x=hd_gex, y=np.where(df_gex['GammaPutCall_Bottom_Signal'], qmax * 1.5, np.nan),
                     name="저점 신호 감지",
                     marker_color="rgba(76, 175, 80, 0.6)",
-                    marker_line_width=0,  showlegend=False, hovertemplate=get_color_hover("rgba(76, 175, 80, 0.6)", df_gex['GammaPutCall_Bottom_Signal'])),
+                    marker_line_width=0.5,
+                    marker_line_color='white',
+                    showlegend=False, hovertemplate=get_color_hover("rgba(76, 175, 80, 0.6)", df_gex['GammaPutCall_Bottom_Signal'])),
                 secondary_y=False
             )
             # 고점 신호 감지막대 배경
@@ -7023,7 +7025,9 @@ with main_tabs[4]:
                 go.Bar(x=hd_gex, y=np.where(df_gex['GammaPutCall_Top_Signal'], qmax * 1.5, np.nan),
                     name="고점 신호 감지",
                     marker_color="rgba(244, 67, 54, 0.6)",
-                    marker_line_width=0,  showlegend=False, hovertemplate=get_color_hover("rgba(244, 67, 54, 0.6)", df_gex['GammaPutCall_Top_Signal'])),
+                    marker_line_width=0.5,
+                    marker_line_color='white',
+                    showlegend=False, hovertemplate=get_color_hover("rgba(244, 67, 54, 0.6)", df_gex['GammaPutCall_Top_Signal'])),
                 secondary_y=False
             )
 
@@ -7083,7 +7087,7 @@ with main_tabs[4]:
                 fig_single_combined.update_xaxes(range=initial_x_range_gex)
 
             fig_single_combined.add_hline(y=1.0, line_dash="dash", line_color="gray", line_width=0.7, secondary_y=True)
-            st.plotly_chart(fig_single_combined, width="stretch", config=COMMON_CONFIG, key="single_combined_subplots")
+            st.plotly_chart(fig_single_combined, use_container_width=True, config=COMMON_CONFIG, key="single_combined_subplots_v400")
 
             # 접기(expander) 형태로 GEX 설명 노출 (기본값: False 닫힘)
             with st.expander("💡 감마 익스포저(GEX) 및 풋콜레이쇼(PCR) 지표 설명 및 활용 가이드", expanded=False):
@@ -7293,7 +7297,7 @@ with main_tabs[4]:
         fig_hybrid_combined.update_xaxes(type="category", **crosshair_xaxis())
         if initial_x_range_gex:
             fig_hybrid_combined.update_xaxes(range=initial_x_range_gex)
-        st.plotly_chart(fig_hybrid_combined, width="stretch", config=COMMON_CONFIG, key="hybrid_combined_subplots")
+        st.plotly_chart(fig_hybrid_combined, use_container_width=True, config=COMMON_CONFIG, key="hybrid_combined_subplots_v400")
 
         # 감마풋콜 혼합 지표 성능 검증 표 추가
         hybrid_bottom_conditions = {
@@ -7344,7 +7348,7 @@ with main_tabs[4]:
                 subplot_titles=[
                     "미국 QQQ vs 채권가격 ETF (10년물 IEF · 단기채 SHY · 장기채 TLT)", 
                     "미국 QQQ vs 국채금리 (2년물 · 10년물 · 30년물) 및 장단기금리차 (10Y-2Y)",
-                    "한국 KOSPI vs 원달러환율 (KRW=X) 및 20일 기울기"
+                    "한국 KOSPI vs 원달러환율 (KRW=X) & 10~70일 슬로프합 고점(7색)·저점(검정 단계별) 감지"
                 ],
                 specs=[[{"secondary_y": True}]] * 3
             )
@@ -7427,17 +7431,80 @@ with main_tabs[4]:
                     line=dict(color="gray", width=0.7, dash="dash"), row=2, col=1
                 )
 
-            # ── Row 3: 한국 KOSPI (주축) vs 원달러환율 & 20일 기울기 (보조 Y축) ──
+            # ── Row 3: 한국 KOSPI (주축) vs 원달러환율 & 10~70일 슬로프합 고점(7색)·저점(진한회색) 감지 ──
             if not df_kr.empty and 'KRW=X' in df_kr.columns:
                 df_kr_chart = df_kr.copy().reindex(df.index, method='ffill')
+                daily_sl_krw = df_kr_chart['KRW=X'].diff().values
+                max_kp_val = float(df_kr_chart['KOSPI'].dropna().max()) if not df_kr_chart['KOSPI'].dropna().empty else 3500.0
 
-                x_arr_20 = np.arange(20)
-                var_x_20 = np.var(x_arr_20)
-                def calc_slope_20(y):
-                    if len(y) < 20: return 0
-                    return np.cov(x_arr_20, y)[0,1] / var_x_20
+                # 1. 고점 감지 슬로프합 ([조건 2] 최적 지표: 24.5, 33.6, 40.6, 45.5, 51.8, 57.4, 61.6)
+                c10_top = slope_sum_lagged(daily_sl_krw, 10) >= 24.5
+                c20_top = slope_sum_lagged(daily_sl_krw, 20) >= 33.6
+                c30_top = slope_sum_lagged(daily_sl_krw, 30) >= 40.6
+                c40_top = slope_sum_lagged(daily_sl_krw, 40) >= 45.5
+                c50_top = slope_sum_lagged(daily_sl_krw, 50) >= 51.8
+                c60_top = slope_sum_lagged(daily_sl_krw, 60) >= 57.4
+                c70_top = slope_sum_lagged(daily_sl_krw, 70) >= 61.6
 
-                df_kr_chart['KRW_Slope20'] = df_kr_chart['KRW=X'].rolling(20).apply(calc_slope_20, raw=True)
+                top_slope_cnt = (c10_top.astype(int) + c20_top.astype(int) + c30_top.astype(int) + 
+                                 c40_top.astype(int) + c50_top.astype(int) + c60_top.astype(int) + c70_top.astype(int))
+
+                # 7단계 고점 막대그래프 (공탐변동 탭과 동일한 투명도 0.60 적용)
+                krw_top_color_map = [
+                    (top_slope_cnt == 1, 'rgba(244, 67, 54, 0.6)', '1단계(빨강)'),
+                    (top_slope_cnt == 2, 'rgba(239, 108, 0, 0.6)', '2단계(주황)'),
+                    (top_slope_cnt == 3, 'rgba(255, 238, 88, 0.6)', '3단계(노랑)'),
+                    (top_slope_cnt == 4, 'rgba(76, 175, 80, 0.6)', '4단계(초록)'),
+                    (top_slope_cnt == 5, 'rgba(129, 212, 250, 0.6)', '5단계(하늘)'),
+                    (top_slope_cnt == 6, 'rgba(40, 53, 147, 0.6)', '6단계(남색)'),
+                    (top_slope_cnt == 7, 'rgba(156, 39, 176, 0.6)', '7단계(보라)')
+                ]
+                for cond_mask, bar_col, lbl in krw_top_color_map:
+                    fig.add_trace(go.Bar(
+                        x=hd_us,
+                        y=np.where(cond_mask, max_kp_val * 1.2, np.nan),
+                        name=f"환율 고점 감지 {lbl}",
+                        marker_color=bar_col,
+                        marker_line_width=0.5,
+                        marker_line_color='white',
+                        showlegend=False,
+                        hovertemplate=get_color_hover(bar_col, cond_mask)
+                    ), row=3, col=1, secondary_y=False)
+
+                # 2. 저점 감지 슬로프합 ([조건 2] 최적 지표: -26.6, -38.5, -47.6, -52.5, -56.0, -59.5, -59.5)
+                c10_bot = slope_sum_lagged(daily_sl_krw, 10) <= -26.6
+                c20_bot = slope_sum_lagged(daily_sl_krw, 20) <= -38.5
+                c30_bot = slope_sum_lagged(daily_sl_krw, 30) <= -47.6
+                c40_bot = slope_sum_lagged(daily_sl_krw, 40) <= -52.5
+                c50_bot = slope_sum_lagged(daily_sl_krw, 50) <= -56.0
+                c60_bot = slope_sum_lagged(daily_sl_krw, 60) <= -59.5
+                c70_bot = slope_sum_lagged(daily_sl_krw, 70) <= -59.5
+
+                bot_slope_cnt = (c10_bot.astype(int) + c20_bot.astype(int) + c30_bot.astype(int) + 
+                                 c40_bot.astype(int) + c50_bot.astype(int) + c60_bot.astype(int) + c70_bot.astype(int))
+
+                # 저점 진한 회색(Dark Gray: rgba(70, 70, 70, ...)) 막대 1~7단계 투명도: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7
+                krw_bot_gray_map = [
+                    (bot_slope_cnt == 1, 'rgba(70, 70, 70, 0.10)', '1단계(투명도 0.1)'),
+                    (bot_slope_cnt == 2, 'rgba(70, 70, 70, 0.20)', '2단계(투명도 0.2)'),
+                    (bot_slope_cnt == 3, 'rgba(70, 70, 70, 0.30)', '3단계(투명도 0.3)'),
+                    (bot_slope_cnt == 4, 'rgba(70, 70, 70, 0.40)', '4단계(투명도 0.4)'),
+                    (bot_slope_cnt == 5, 'rgba(70, 70, 70, 0.50)', '5단계(투명도 0.5)'),
+                    (bot_slope_cnt == 6, 'rgba(70, 70, 70, 0.60)', '6단계(투명도 0.6)'),
+                    (bot_slope_cnt == 7, 'rgba(70, 70, 70, 0.70)', '7단계(투명도 0.7)')
+                ]
+                for cond_mask, bar_col, lbl in krw_bot_gray_map:
+                    fig.add_trace(go.Bar(
+                        x=hd_us,
+                        y=np.where(cond_mask, max_kp_val * 1.2, np.nan),
+                        name=f"환율 저점 감지 {lbl}",
+                        marker_color=bar_col,
+                        marker_line_width=0.5,
+                        marker_line_color='white',
+                        showlegend=False,
+                        customdata=[f"환율 저점 감지(진한회색): {lbl}" if c else "" for c in cond_mask],
+                        hovertemplate="%{customdata}<extra></extra>"
+                    ), row=3, col=1, secondary_y=False)
 
                 # KOSPI 주축 (규칙 2번)
                 fig.add_trace(go.Scatter(
@@ -7447,37 +7514,21 @@ with main_tabs[4]:
                     hovertemplate="KOSPI: %{y:,.2f}<extra></extra>"
                 ), row=3, col=1, secondary_y=False)
 
-                # 원달러환율 보조축 1 (빨강)
+                # 원달러환율 보조축 1 (빨강 - 규칙 1번)
                 fig.add_trace(go.Scatter(
                     x=hd_us, y=df_kr_chart['KRW=X'], name="원달러환율",
                     line=dict(color='rgba(255, 0, 0, 0.7)', width=0.7),
                     hovertemplate="원달러환율: %{y:,.2f}원<extra></extra>"
                 ), row=3, col=1, secondary_y=True)
 
-                # 환율 20일 기울기 두번째 보조 Y축 (노랑, yaxis8 독립 바인딩)
-                slope_raw = df_kr_chart['KRW_Slope20'].round(3)
-                fig.add_trace(go.Scatter(
-                    x=hd_us, y=slope_raw, name="환율 20일 기울기",
-                    line=dict(color='rgba(255, 255, 0, 0.7)', width=0.7),
-                    customdata=slope_raw,
-                    hovertemplate="환율 20일 기울기: %{customdata:+.3f}<extra></extra>",
-                    xaxis='x3', yaxis='y8'
-                ))
-
             fig.update_layout(
                 **COMMON_LAYOUT,
                 height=1200,
                 showlegend=False,
+                barmode='overlay',
                 margin=dict(l=0, r=65, t=30, b=10),
                 yaxis7=dict(
                     overlaying='y3',
-                    side='right',
-                    position=1.0,
-                    showticklabels=True,
-                    tickfont=dict(size=6)
-                ),
-                yaxis8=dict(
-                    overlaying='y5',
                     side='right',
                     position=1.0,
                     showticklabels=True,
@@ -7547,6 +7598,384 @@ with main_tabs[4]:
             fig.update_yaxes(**crosshair_yaxis(), showticklabels=True, tickfont=dict(size=6))
 
             st.plotly_chart(fig, use_container_width=True, config=COMMON_CONFIG)
+
+            # ──────────────────────────────────────────────────────────
+            # ── 3. 차트 하단 서랍창(Expander) 검증표 / 환전수익률계산표 ──
+            # ──────────────────────────────────────────────────────────
+            st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
+            bot_s_series = pd.Series(bot_slope_cnt, index=df_kr_chart.index)
+            top_s_series = pd.Series(top_slope_cnt, index=df_kr_chart.index)
+
+            # [서랍창 1] 환율 저점 감지검증표 (원달러 환율 KRW=X 기준)
+            krw_bot_conditions = {
+                "**[1단계] 저점 1개 감지**": (bot_s_series >= 1, "1개 이상 감지"),
+                "**[2단계] 저점 2개 감지**": (bot_s_series >= 2, "2개 이상 감지"),
+                "**[3단계] 저점 3개 감지**": (bot_s_series >= 3, "3개 이상 감지"),
+                "**[4단계] 저점 4개 감지**": (bot_s_series >= 4, "4개 이상 감지"),
+                "**[5단계] 저점 5개 감지**": (bot_s_series >= 5, "5개 이상 감지 (원→달러 5만)"),
+                "**[6단계] 저점 6개 감지**": (bot_s_series >= 6, "6개 이상 감지 (원→달러 10만)"),
+                "**[7단계] 저점 7개 감지**": (bot_s_series >= 7, "7개 이상 감지 (원→달러 20만)"),
+            }
+            stats_krw_bot = calculate_indicator_stats(df_kr_chart, 'KRW=X', krw_bot_conditions, dd_threshold=0.03)
+            render_stats_table(stats_krw_bot, "📊 환율 저점 슬로프합 지표검증결과 (원달러환율 기준)", target_type="저점")
+
+            # [서랍창 2] 환율 고점 감지검증표 (원달러 환율 KRW=X 기준)
+            krw_top_conditions = {
+                "**[1단계] 고점 1개 감지 (빨강)**": (top_s_series >= 1, "1개 이상 감지"),
+                "**[2단계] 고점 2개 감지 (주황)**": (top_s_series >= 2, "2개 이상 감지"),
+                "**[3단계] 고점 3개 감지 (노랑)**": (top_s_series >= 3, "3개 이상 감지"),
+                "**[4단계] 고점 4개 감지 (초록)**": (top_s_series >= 4, "4개 이상 감지"),
+                "**[5단계] 고점 5개 감지 (하늘)**": (top_s_series >= 5, "5개 이상 감지 (달러→원 5만)"),
+                "**[6단계] 고점 6개 감지 (남색)**": (top_s_series >= 6, "6개 이상 감지 (달러→원 10만)"),
+                "**[7단계] 고점 7개 감지 (보라)**": (top_s_series >= 7, "7개 이상 감지 (달러→원 20만)"),
+            }
+            stats_krw_top = calculate_top_stats(df_kr_chart, 'KRW=X', krw_top_conditions, ru_threshold=0.03)
+            render_top_stats_table(stats_krw_top, "📊 환율 고점 슬로프합 지표검증결과 (원달러환율 기준)")
+
+            # [서랍창 3] 환전수익률계산표
+            with st.expander("💡 💰 원/달러 환전 수익률 계산표 (조건 커스텀 및 시뮬레이션)", expanded=False):
+                st.markdown("#### 💰 원/달러 환전 수익률 계산기 및 시뮬레이션")
+                
+                # ── FX 시뮬레이션 설정 파일 영구 저장/로드 ──
+                fx_settings_path = os.path.join(os.path.dirname(__file__), "fx_sim_settings.json")
+                default_fx_cfg = {
+                    "start_date": "2025-04-01",
+                    "end_date": datetime.date.today().strftime('%Y-%m-%d'),
+                    "initial_krw": 100000000,
+                    "first_exchange_krw": 50000000,
+                    "trade_mode": "고정금액(원)",
+                    "bot_tier_amounts": [0, 0, 0, 1500000, 2000000, 2500000, 3000000],
+                    "bot_tier_pcts": [0.0, 0.0, 0.0, 15.0, 20.0, 25.0, 30.0],
+                    "top_tier_amounts": [0, 0, 0, 0, 1500000, 2500000, 3500000],
+                    "top_tier_pcts": [0.0, 0.0, 0.0, 0.0, 15.0, 25.0, 35.0]
+                }
+                
+                # 파일에서 로드
+                loaded_fx_cfg = default_fx_cfg.copy()
+                if os.path.exists(fx_settings_path):
+                    try:
+                        with open(fx_settings_path, "r", encoding="utf-8") as f:
+                            saved_f = json.load(f)
+                            loaded_fx_cfg.update(saved_f)
+                    except Exception:
+                        pass
+                
+                # 이전 호환성: bot_mode나 top_mode가 있으면 trade_mode로 통합
+                if "trade_mode" not in loaded_fx_cfg:
+                    loaded_fx_cfg["trade_mode"] = loaded_fx_cfg.get("bot_mode", "고정금액(원)")
+
+                # ── 상단 폼 설정 패널 ──
+                with st.form("fx_simulation_parameter_form"):
+                    st.markdown(
+                        "<div style='font-size:0.85rem;font-weight:bold;color:#79c0ff;margin-bottom:8px;'>⚙️ 환전 시뮬레이션 파라미터 조절</div>",
+                        unsafe_allow_html=True
+                    )
+                    
+                    # 1행: 집계기간 & 자본금
+                    p_c1, p_c2, p_c3, p_c4 = st.columns([1.2, 1.2, 1.3, 1.3])
+                    with p_c1:
+                        try:
+                            init_s_dt = datetime.datetime.strptime(loaded_fx_cfg.get("start_date", "2025-04-01"), "%Y-%m-%d").date()
+                        except Exception:
+                            init_s_dt = datetime.date(2025, 4, 1)
+                        cfg_s_dt = st.date_input("시작일", value=init_s_dt)
+                    with p_c2:
+                        try:
+                            init_e_dt = datetime.datetime.strptime(loaded_fx_cfg.get("end_date", datetime.date.today().strftime('%Y-%m-%d')), "%Y-%m-%d").date()
+                        except Exception:
+                            init_e_dt = datetime.date.today()
+                        cfg_e_dt = st.date_input("종료일", value=init_e_dt)
+                    with p_c3:
+                        cfg_init_krw = st.number_input("초기금액 (원)", min_value=10000, max_value=1000000000, value=int(loaded_fx_cfg.get("initial_krw", 100000000)), step=1000000)
+                    with p_c4:
+                        cfg_first_krw = st.number_input("최초 환전액 (원)", min_value=0, max_value=int(cfg_init_krw), value=int(min(loaded_fx_cfg.get("first_exchange_krw", 50000000), cfg_init_krw)), step=1000000)
+
+                    # 2행: [통합 단추] 환전 방식 선택 (저점/고점 동시 적용)
+                    saved_t_mode = loaded_fx_cfg.get("trade_mode", "고정금액(원)")
+                    t_mode_idx = 0 if saved_t_mode == "고정금액(원)" else 1
+                    cfg_trade_mode = st.radio("환전 방식 선택 (저점/고점 공통 적용)", ["고정금액(원)", "% 비중"], index=t_mode_idx, horizontal=True)
+
+                    # 3행: 저점 신호 설정 (원 ➔ 달러)
+                    unit_bot_label = "원" if cfg_trade_mode == "고정금액(원)" else "%"
+                    st.markdown(f"<div style='margin-top:6px;font-size:0.75rem;font-weight:bold;color:#58a6ff;'>🔵 저점신호 감지 시 (원 ➔ 달러 환전 {unit_bot_label})</div>", unsafe_allow_html=True)
+                    b_cols = st.columns(7)
+                    saved_b_amts = loaded_fx_cfg.get("bot_tier_amounts", [0, 0, 0, 0, 5000000, 7500000, 10000000])
+                    saved_b_pcts = loaded_fx_cfg.get("bot_tier_pcts", [0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 40.0])
+                    bot_inputs = []
+                    for t_idx in range(7):
+                        with b_cols[t_idx]:
+                            if cfg_trade_mode == "고정금액(원)":
+                                val_b = st.number_input(f"{t_idx+1}단계(원)", min_value=0, max_value=100000000, value=int(saved_b_amts[t_idx] if t_idx < len(saved_b_amts) else 0), step=500000, key=f"form_fx_b_amt_{t_idx}")
+                                bot_inputs.append(val_b)
+                            else:
+                                val_b = st.number_input(f"{t_idx+1}단계(%)", min_value=0.0, max_value=100.0, value=float(saved_b_pcts[t_idx] if t_idx < len(saved_b_pcts) else 0.0), step=5.0, key=f"form_fx_b_pct_{t_idx}")
+                                bot_inputs.append(val_b)
+
+                    # 4행: 고점 신호 설정 (달러 ➔ 원)
+                    unit_top_label = "원상당" if cfg_trade_mode == "고정금액(원)" else "%"
+                    st.markdown(f"<div style='margin-top:6px;font-size:0.75rem;font-weight:bold;color:#ff7b72;'>🔴 고점신호 감지 시 (달러 ➔ 원 환전 {unit_top_label})</div>", unsafe_allow_html=True)
+                    t_cols = st.columns(7)
+                    saved_t_amts = loaded_fx_cfg.get("top_tier_amounts", [0, 0, 0, 0, 5000000, 7500000, 10000000])
+                    saved_t_pcts = loaded_fx_cfg.get("top_tier_pcts", [0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 40.0])
+                    top_inputs = []
+                    for t_idx in range(7):
+                        with t_cols[t_idx]:
+                            if cfg_trade_mode == "고정금액(원)":
+                                val_t = st.number_input(f"{t_idx+1}단계(원상당)", min_value=0, max_value=100000000, value=int(saved_t_amts[t_idx] if t_idx < len(saved_t_amts) else 0), step=500000, key=f"form_fx_t_amt_{t_idx}")
+                                top_inputs.append(val_t)
+                            else:
+                                val_t = st.number_input(f"{t_idx+1}단계(%)", min_value=0.0, max_value=100.0, value=float(saved_t_pcts[t_idx] if t_idx < len(saved_t_pcts) else 0.0), step=5.0, key=f"form_fx_t_pct_{t_idx}")
+                                top_inputs.append(val_t)
+
+                    # 5행: 버튼 구역 (계산 및 초기화)
+                    btn_c1, btn_c2, _ = st.columns([1.5, 1.2, 4.3])
+                    with btn_c1:
+                        calc_submitted = st.form_submit_button("🚀 계산 (저장 및 실행)", use_container_width=True)
+                    with btn_c2:
+                        reset_submitted = st.form_submit_button("🔄 기본값 초기화", use_container_width=True)
+
+                # 초기화 버튼 처리
+                if reset_submitted:
+                    try:
+                        with open(fx_settings_path, "w", encoding="utf-8") as f:
+                            json.dump(default_fx_cfg, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+                    st.rerun()
+
+                # "계산" 버튼을 눌렀을 때만 영구 저장
+                if calc_submitted:
+                    current_save_cfg = {
+                        "start_date": cfg_s_dt.strftime('%Y-%m-%d'),
+                        "end_date": cfg_e_dt.strftime('%Y-%m-%d'),
+                        "initial_krw": cfg_init_krw,
+                        "first_exchange_krw": cfg_first_krw,
+                        "trade_mode": cfg_trade_mode,
+                        "bot_tier_amounts": bot_inputs if cfg_trade_mode == "고정금액(원)" else saved_b_amts,
+                        "bot_tier_pcts": bot_inputs if cfg_trade_mode == "% 비중" else saved_b_pcts,
+                        "top_tier_amounts": top_inputs if cfg_trade_mode == "고정금액(원)" else saved_t_amts,
+                        "top_tier_pcts": top_inputs if cfg_trade_mode == "% 비중" else saved_t_pcts
+                    }
+                    try:
+                        with open(fx_settings_path, "w", encoding="utf-8") as f:
+                            json.dump(current_save_cfg, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+
+                # ── 시뮬레이션 계산 로직 ──
+                str_s_date = cfg_s_dt.strftime('%Y-%m-%d')
+                str_e_date = cfg_e_dt.strftime('%Y-%m-%d')
+                sim_krw = df_kr_chart[(df_kr_chart.index >= str_s_date) & (df_kr_chart.index <= str_e_date)].copy()
+                
+                if not sim_krw.empty:
+                    initial_krw = float(cfg_init_krw)
+                    first_trade_krw = float(cfg_first_krw)
+                    first_rate = float(sim_krw.iloc[0]['KRW=X'])
+                    
+                    cur_krw = initial_krw - first_trade_krw
+                    cur_usd = (first_trade_krw / first_rate) if first_trade_krw > 0 else 0.0
+                    avg_buy_rate = first_rate if cur_usd > 0 else 0.0  # 이동평균법: 최초 평단가
+                    
+                    fx_history = []
+                    if first_trade_krw > 0:
+                        first_pct_str = f"{(first_trade_krw / initial_krw * 100):.0f}%" if initial_krw > 0 else ""
+                        fx_history.append({
+                            'date': sim_krw.index[0].strftime('%Y-%m-%d'),
+                            'type': f'최초 환전 ({first_pct_str})',
+                            'badge_color': '#4CAF50',
+                            'rate': first_rate,
+                            'avg_rate': avg_buy_rate,
+                            'trade_krw': first_trade_krw,
+                            'trade_usd': cur_usd,
+                            'held_krw': cur_krw,
+                            'held_usd': cur_usd,
+                            'total_krw': cur_krw + cur_usd * first_rate,
+                            'profit_krw': 0.0,
+                            'profit_pct': 0.0
+                        })
+                    
+                    for idx, (dt, row_val) in enumerate(sim_krw.iterrows()):
+                        if idx == 0 and first_trade_krw > 0:
+                            continue
+                        r_rate = float(row_val['KRW=X'])
+                        loc_idx = df_kr_chart.index.get_loc(dt)
+                        t_lvl = int(top_slope_cnt[loc_idx]) if loc_idx < len(top_slope_cnt) else 0
+                        b_lvl = int(bot_slope_cnt[loc_idx]) if loc_idx < len(bot_slope_cnt) else 0
+                        
+                        # [저점 신호: 1~7단계 원 -> 달러 환전]
+                        if b_lvl >= 1 and cur_krw > 1000.0:
+                            b_idx = b_lvl - 1
+                            if cfg_trade_mode == "고정금액(원)":
+                                tgt_amt = float(bot_inputs[b_idx]) if b_idx < len(bot_inputs) else 0.0
+                            else:
+                                tgt_pct = float(bot_inputs[b_idx]) if b_idx < len(bot_inputs) else 0.0
+                                tgt_amt = cur_krw * (tgt_pct / 100.0)
+                            
+                            act_amt = min(tgt_amt, cur_krw)
+                            if act_amt > 0:
+                                bought_usd = act_amt / r_rate
+                                # 이동평균 평단가: (기존달러*기존평단가 + 신규원화) / (기존달러 + 신규달러)
+                                new_total_usd = cur_usd + bought_usd
+                                if new_total_usd > 0:
+                                    avg_buy_rate = (cur_usd * avg_buy_rate + act_amt) / new_total_usd
+                                
+                                cur_krw -= act_amt
+                                cur_usd += bought_usd
+                                tot_krw = cur_krw + cur_usd * r_rate
+                                p_krw = tot_krw - initial_krw
+                                p_pct = (p_krw / initial_krw) * 100.0 if initial_krw > 0 else 0.0
+                                fx_history.append({
+                                    'date': dt.strftime('%Y-%m-%d'),
+                                    'type': f'저점 {b_lvl}단계 (원→달러)',
+                                    'badge_color': '#2196F3',
+                                    'rate': r_rate,
+                                    'avg_rate': avg_buy_rate,
+                                    'trade_krw': act_amt,
+                                    'trade_usd': bought_usd,
+                                    'held_krw': cur_krw,
+                                    'held_usd': cur_usd,
+                                    'total_krw': tot_krw,
+                                    'profit_krw': p_krw,
+                                    'profit_pct': p_pct
+                                })
+                        # [고점 신호: 1~7단계 달러 -> 원 환전]
+                        elif t_lvl >= 1 and cur_usd > 1.0:
+                            t_idx = t_lvl - 1
+                            if cfg_trade_mode == "고정금액(원)":
+                                tgt_amt_krw = float(top_inputs[t_idx]) if t_idx < len(top_inputs) else 0.0
+                                tgt_usd = tgt_amt_krw / r_rate
+                            else:
+                                tgt_pct = float(top_inputs[t_idx]) if t_idx < len(top_inputs) else 0.0
+                                tgt_usd = cur_usd * (tgt_pct / 100.0)
+                            
+                            act_usd = min(tgt_usd, cur_usd)
+                            if act_usd > 0:
+                                sold_krw = act_usd * r_rate
+                                # 달러 매도 시 평균 매수환율(평단가)은 변하지 않고 유지됨
+                                cur_usd -= act_usd
+                                cur_krw += sold_krw
+                                tot_krw = cur_krw + cur_usd * r_rate
+                                p_krw = tot_krw - initial_krw
+                                p_pct = (p_krw / initial_krw) * 100.0 if initial_krw > 0 else 0.0
+                                fx_history.append({
+                                    'date': dt.strftime('%Y-%m-%d'),
+                                    'type': f'고점 {t_lvl}단계 (달러→원)',
+                                    'badge_color': '#FF5722',
+                                    'rate': r_rate,
+                                    'avg_rate': avg_buy_rate,
+                                    'trade_krw': sold_krw,
+                                    'trade_usd': act_usd,
+                                    'held_krw': cur_krw,
+                                    'held_usd': cur_usd,
+                                    'total_krw': tot_krw,
+                                    'profit_krw': p_krw,
+                                    'profit_pct': p_pct
+                                })
+
+                    if fx_history:
+                        # 최신 평가 요약 KPI
+                        latest_fx = fx_history[-1]
+                        p_col = "#FF5252" if latest_fx['profit_krw'] >= 0 else "#448AFF"
+                        p_sign = "+" if latest_fx['profit_krw'] >= 0 else ""
+                        
+                        st.markdown(
+                            f"<div style='display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;'>"
+                            f"  <div style='flex:1;min-width:130px;background:#171a21;border:1px solid #333;border-radius:8px;padding:8px 12px;text-align:center;'>"
+                            f"    <div style='font-size:0.65rem;color:#888;'>초기 투자금</div>"
+                            f"    <div style='font-size:0.95rem;font-weight:bold;color:white;'>{int(initial_krw):,}원</div>"
+                            f"  </div>"
+                            f"  <div style='flex:1;min-width:130px;background:#171a21;border:1px solid #333;border-radius:8px;padding:8px 12px;text-align:center;'>"
+                            f"    <div style='font-size:0.65rem;color:#888;'>현재 총 평가금액</div>"
+                            f"    <div style='font-size:0.95rem;font-weight:bold;color:white;'>{int(round(latest_fx['total_krw'])):,}원</div>"
+                            f"  </div>"
+                            f"  <div style='flex:1;min-width:130px;background:#171a21;border:1px solid #333;border-radius:8px;padding:8px 12px;text-align:center;'>"
+                            f"    <div style='font-size:0.65rem;color:#888;'>전체 수익금 / 수익률</div>"
+                            f"    <div style='font-size:0.95rem;font-weight:bold;color:{p_col};'>{p_sign}{int(round(latest_fx['profit_krw'])):,}원 ({p_sign}{latest_fx['profit_pct']:.2f}%)</div>"
+                            f"  </div>"
+                            f"  <div style='flex:1;min-width:130px;background:#171a21;border:1px solid #333;border-radius:8px;padding:8px 12px;text-align:center;'>"
+                            f"    <div style='font-size:0.65rem;color:#888;'>현재 평균 매수환율</div>"
+                            f"    <div style='font-size:0.95rem;font-weight:bold;color:#ffeb3b;'>{latest_fx['avg_rate']:,.2f}원</div>"
+                            f"  </div>"
+                            f"  <div style='flex:1;min-width:130px;background:#171a21;border:1px solid #333;border-radius:8px;padding:8px 12px;text-align:center;'>"
+                            f"    <div style='font-size:0.65rem;color:#888;'>현재 보유 잔고</div>"
+                            f"    <div style='font-size:0.85rem;font-weight:bold;color:#ccc;'>원화: {int(round(latest_fx['held_krw'])):,}원 | 달러: ${latest_fx['held_usd']:.2f}</div>"
+                            f"  </div>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+
+                        # 거래 내역 표 (규칙 8 가운데 정렬 준수 + 이동평균 평단가 열)
+                        table_rows = []
+                        for item in reversed(fx_history):
+                            s_color = "#FF5252" if item['profit_krw'] >= 0 else "#448AFF"
+                            s_prefix = "+" if item['profit_krw'] >= 0 else ""
+                            row_str = (
+                                f"<tr style='border-bottom:1px solid #333;'>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;font-weight:bold;'>{item['date']}</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;'><span style='background:{item['badge_color']};color:white;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:bold;'>{item['type']}</span></td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;'>{item['rate']:,.2f}원</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;font-weight:bold;color:#ffeb3b;'>{item['avg_rate']:,.2f}원</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;'>{int(round(item['trade_krw'])):,}원</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;'>${item['trade_usd']:,.2f}</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;font-weight:bold;'>{int(round(item['held_krw'])):,}원</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;font-weight:bold;'>${item['held_usd']:,.2f}</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;'>{int(round(item['total_krw'])):,}원</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;color:{s_color};font-weight:bold;'>{s_prefix}{int(round(item['profit_krw'])):,}원</td>"
+                                f"  <td style='padding:5px;border:1px solid #444;text-align:center;color:{s_color};font-weight:bold;'>{s_prefix}{item['profit_pct']:.2f}%</td>"
+                            f"</tr>"
+                        )
+                        table_rows.append(row_str)
+                    
+                        all_rows_html = "".join(table_rows)
+                        fx_tbl_html = (
+                            f"<div style='width:100%;overflow-x:auto;'>"
+                            f"<table style='width:100%;border-collapse:collapse;font-size:0.65rem;text-align:center;vertical-align:middle;border:1px solid #444;'>"
+                            f"  <thead>"
+                            f"    <tr style='background:#1F4E79;color:white;font-weight:bold;'>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>환전일</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>구분</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>적용환율</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;background:#16365C;color:#ffeb3b;'>평균환율(이동평균)</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>환전금액 (원)</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>환전금액 ($)</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>보유원화</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>보유달러</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>전체평가금</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>전체수익금</th>"
+                            f"      <th style='padding:6px;border:1px solid #444;text-align:center;'>전체수익률</th>"
+                            f"    </tr>"
+                            f"  </thead>"
+                            f"  <tbody>{all_rows_html}</tbody>"
+                            f"</table>"
+                            f"</div>"
+                        )
+                        st.markdown(fx_tbl_html, unsafe_allow_html=True)
+                    else:
+                        st.info("선택한 기간 동안 감지된 환전 거래 내역이 없습니다.")
+                    
+                    # 동적 환전 규칙 안내문
+                    bot_desc_list = [f"{i+1}단계: {int(bot_inputs[i]):,}원" if cfg_trade_mode == "고정금액(원)" else f"{i+1}단계: {bot_inputs[i]}%" for i in range(7) if bot_inputs[i] > 0]
+                    bot_desc_str = ", ".join(bot_desc_list) if bot_desc_list else "설정된 환전 금액 없음"
+                    
+                    top_desc_list = [f"{i+1}단계: {int(top_inputs[i]):,}원상당" if cfg_trade_mode == "고정금액(원)" else f"{i+1}단계: {top_inputs[i]}%" for i in range(7) if top_inputs[i] > 0]
+                    top_desc_str = ", ".join(top_desc_list) if top_desc_list else "설정된 환전 금액 없음"
+
+                    st.markdown(
+                        f"""
+                        <div style='background:#11151c;border:1px solid #222;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:0.65rem;color:#aaa;line-height:1.5;'>
+                          <strong style='color:#fff;'>📌 환전 규칙 및 현재 적용 기준 안내</strong><br>
+                          • <strong>집계기간:</strong> {str_s_date} ~ {str_e_date}<br>
+                          • <strong>초기금액 / 최초환전액:</strong> {int(initial_krw):,}원 중 {int(first_trade_krw):,}원을 시작일({str_s_date}) 환율로 달러로 환전하여 시작<br>
+                          • <strong>평균환율:</strong> 표준 이동평균법(Moving Average) 적용 (달러 매수 시 평단가 갱신, 달러 매도 시 기존 평단가 유지)<br>
+                          • <strong>저점신호 (원 ➔ 달러 환전):</strong> [{cfg_trade_mode} 방식] {bot_desc_str} (보유 원화 1,000원 이하 시 환전 보류 및 대기)<br>
+                          • <strong>고점신호 (달러 ➔ 원 환전):</strong> [{cfg_trade_mode} 방식] {top_desc_str} (보유 달러 $1 이하 시 환전 보류 및 대기)<br>
+                          • <strong>전체수익금/수익률:</strong> 전체 보유금액(보유원화 + 보유달러 환산액)을 당일 환율로 환전했을 시 초기 투자금({int(initial_krw):,}원) 대비 평가손익 및 수익률
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.info("선택한 기간의 환율 데이터가 존재하지 않습니다.")
         else:
             st.info("데이터가 부족합니다.")
             st.info("데이터가 부족합니다.")
@@ -7706,16 +8135,18 @@ with main_tabs[4]:
             detected_indices = [i for i, d in enumerate(sorted_dates) if d >= target_start]
             initial_x_range_idx = [detected_indices[0], len(sorted_dates)-1] if detected_indices else [0, len(sorted_dates)-1]
     
-            titles = ["DXI 지수 vs KOSPI", "Overview: KOSPI vs DRAM/NAND Monthly Price (2020~)"] + [grp[1] for grp in spot_groups]
-            total_rows = 2 + len(spot_groups)
+            titles = ["📊 1. DXI 지수 & Overview 메모리 가격 (DRAM/NAND 현물·수출) vs KOSPI", "📊 2. KOSPI & 메모리 현물 세부 품목 (Spot Groups 6대 지표)"]
             fig_mem = make_subplots(
-                rows=total_rows, cols=1, 
-                shared_xaxes=True, vertical_spacing=0.03,
+                rows=2, cols=1, 
+                shared_xaxes=True, vertical_spacing=0.08,
                 subplot_titles=titles, 
-                specs=[[{"secondary_y": True}]] * total_rows
+                specs=[[{"secondary_y": True}], [{"secondary_y": True}]]
             )
     
-            # 0) DXI Row
+            # ──────────────────────────────────────────────────────────
+            # [차트 1] Row 1: DXI 지수 & Overview 메모리 4종 지표 vs KOSPI
+            # ──────────────────────────────────────────────────────────
+            # 1. 주축(왼쪽): KOSPI 지수
             if 'dxi_dates' in locals() and dxi_dates:
                 hd_dxi = [fmt_date_kor(d) for d in dxi_dates]
                 fig_mem.add_trace(go.Scatter(
@@ -7724,82 +8155,131 @@ with main_tabs[4]:
                     marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
                     hovertemplate='KOSPI: %{y:.2f}<extra></extra>', showlegend=False
                 ), row=1, col=1, secondary_y=False)
+                # 보조축 1(오른쪽): DXI 지수 (스케일: 수십만~수백만 포인트)
                 fig_mem.add_trace(go.Scatter(
                     x=hd_dxi, y=dxi_vals, name='DXI 지수', mode='lines', line=dict(color='rgba(255, 0, 0, 0.7)', width=0.7),
                     hovertemplate='DXI 지수: %{y:.2f}<extra></extra>', showlegend=False
                 ), row=1, col=1, secondary_y=True)
 
-            # 1) Overview Row
+            # 보조축 2(오른쪽 yaxis6): Overview 4종 지표 ($10~$100 스케일 독립 분리)
+            m_hd = [fmt_date_kor(d) for d in monthly_dates]
+            fig_mem.add_trace(go.Scatter(
+                x=m_hd, y=dr_m_vals, name='DRAM 현물 ($)', mode='lines',
+                line=dict(color='rgba(255, 255, 0, 0.7)', width=0.7),
+                hovertemplate='DRAM 현물: $%{y:.2f}<extra></extra>', showlegend=False,
+                xaxis='x', yaxis='y6'
+            ))
+            fig_mem.add_trace(go.Scatter(
+                x=m_hd, y=na_m_vals, name='NAND 웨이퍼 ($)', mode='lines',
+                line=dict(color='rgba(0, 128, 0, 0.7)', width=0.7),
+                hovertemplate='NAND 웨이퍼: $%{y:.2f}<extra></extra>', showlegend=False,
+                xaxis='x', yaxis='y6'
+            ))
+
+            c_hd = [fmt_date_kor(d) for d in customs_dates]
+            fig_mem.add_trace(go.Scatter(
+                x=c_hd, y=dr_c_vals, name='수출 DRAM (k$/kg)', mode='lines',
+                line=dict(color='rgba(0, 0, 128, 0.7)', width=0.7),
+                hovertemplate='수출 DRAM: %{y:.2f}k/kg<extra></extra>', showlegend=False,
+                xaxis='x', yaxis='y6'
+            ))
+            fig_mem.add_trace(go.Scatter(
+                x=c_hd, y=na_c_vals, name='수출 NAND (k$/kg)', mode='lines',
+                line=dict(color='rgba(128, 0, 128, 0.7)', width=0.7),
+                hovertemplate='수출 NAND: %{y:.2f}k/kg<extra></extra>', showlegend=False,
+                xaxis='x', yaxis='y6'
+            ))
+
+            # ──────────────────────────────────────────────────────────
+            # [차트 2] Row 2: KOSPI & 메모리 현물 세부 품목 (Spot Groups)
+            # ──────────────────────────────────────────────────────────
+            # 1. 주축(왼쪽): KOSPI 지수
             kospi_hd = [fmt_date_kor(d) for d in df1_kr.index if d >= start_date_2020]
             df1_kr_overview = df1_kr[df1_kr.index >= start_date_2020]
             fig_mem.add_trace(go.Scatter(
                 x=kospi_hd, y=df1_kr_overview['KOSPI'], name='KOSPI 지수',
                 mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
                 marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                hovertemplate='KOSPI: %{y:.2f}<extra></extra>'
+                hovertemplate='KOSPI: %{y:.2f}<extra></extra>', showlegend=False
             ), row=2, col=1, secondary_y=False)
-    
-            m_hd = [fmt_date_kor(d) for d in monthly_dates]
-            fig_mem.add_trace(go.Scatter(
-                x=m_hd, y=dr_m_vals, name='DRAM 현물 ($)', mode='lines', line=dict(color='rgba(255, 0, 0, 0.7)', width=0.7),
-                hovertemplate='DRAM 현물: $%{y:.2f}<extra></extra>'
-            ), row=2, col=1, secondary_y=True)
-            fig_mem.add_trace(go.Scatter(
-                x=m_hd, y=na_m_vals, name='NAND 웨이퍼 ($)', mode='lines', line=dict(color='rgba(255, 255, 0, 0.7)', width=0.7),
-                hovertemplate='NAND 웨이퍼: $%{y:.2f}<extra></extra>'
-            ), row=2, col=1, secondary_y=True)
-    
-            c_hd = [fmt_date_kor(d) for d in customs_dates]
-            fig_mem.add_trace(go.Scatter(
-                x=c_hd, y=dr_c_vals, name='수출 DRAM (k$/kg)', mode='lines', line=dict(color='rgba(0, 128, 0, 0.7)', width=0.7),
-                hovertemplate='수출 DRAM: %{y:.2f}k/kg<extra></extra>'
-            ), row=2, col=1, secondary_y=True)
-            fig_mem.add_trace(go.Scatter(
-                x=c_hd, y=na_c_vals, name='수출 NAND (k$/kg)', mode='lines', line=dict(color='rgba(0, 0, 128, 0.7)', width=0.7),
-                hovertemplate='수출 NAND: %{y:.2f}k/kg<extra></extra>'
-            ), row=2, col=1, secondary_y=True)
-    
-            # 2) 6 Spot Group Rows
-            colors = ['#ff5b5b', '#3b82f6', '#d99a2b', '#10b981', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4', '#6366f1']
-            for idx, grp in enumerate(spot_groups):
-                row_idx = idx + 3
-        
-                # KOSPI on left
-                fig_mem.add_trace(go.Scatter(
-                    x=kospi_hd, y=df1_kr['KOSPI'], name=f'KOSPI ({grp[1]})',
-                    mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=2),
-                    marker=dict(symbol='circle', color='white', size=1.5, line=dict(color='black', width=0.25)),
-                    hovertemplate='KOSPI: %{y:.2f}<extra></extra>', showlegend=False
-                ), row=row_idx, col=1, secondary_y=False)
-        
-                # Series items on right
-                for c_idx, row in enumerate(grp[2]):
-                    item_name = row[0]
-                    tid = row[3]
-                    parsed_dates, spot_v = parsed_spot_dict[tid]
-                    s_hd = [fmt_date_kor(d) for d in parsed_dates]
-                    c = colors[c_idx % len(colors)]
-        
-                    mem_palette = ['rgba(255, 0, 0, 0.7)', 'rgba(255, 255, 0, 0.7)', 'rgba(0, 128, 0, 0.7)', 'rgba(0, 0, 128, 0.7)', 'rgba(128, 0, 128, 0.7)', 'rgba(165, 42, 42, 0.7)', 'rgba(135, 206, 235, 0.7)']
-                    fig_mem.add_trace(go.Scatter(
-                        x=s_hd, y=spot_v, name=item_name, mode='lines', line=dict(color=mem_palette[c_idx % len(mem_palette)], width=0.7),
-                        hovertemplate=f'{item_name}: %{{y:.3f}}<extra></extra>', showlegend=False
-                    ), row=row_idx, col=1, secondary_y=True)
 
+            # Spot Groups 품목 순회 (저가/중가 현물은 yaxis4, 고가 모듈은 yaxis5 독립 분배)
+            spot_low_colors = [
+                'rgba(255, 0, 0, 0.7)',     # 빨강 (DDR5 16Gb)
+                'rgba(255, 255, 0, 0.7)',   # 노랑 (DDR4 8Gb)
+                'rgba(0, 128, 0, 0.7)',     # 초록 (GDDR6 8Gb)
+                'rgba(0, 0, 128, 0.7)',     # 남색 (512Gb TLC Wafer)
+                'rgba(128, 0, 128, 0.7)',   # 보라
+                'rgba(165, 42, 42, 0.7)',   # 갈색
+                'rgba(135, 206, 235, 0.7)'  # 하늘
+            ]
+            spot_high_colors = {
+                '21': 'rgba(233, 30, 99, 0.7)',   # 핑크 (DDR5 RDIMM 32GB)
+                '18': 'rgba(0, 188, 212, 0.7)',   # 청록 (DDR5 UDIMM 16GB)
+                '9506': 'rgba(255, 87, 34, 0.7)'  # 딥오렌지 (DDR4 UDIMM 16GB)
+            }
+            
+            spot_color_idx = 0
+            for grp in spot_groups:
+                grp_code = grp[0]
+                for row in grp[2]:
+                    item_name = row[0]
+                    tid_val = row[3]
+                    tid_str = str(tid_val)
+                    parsed_dates, spot_v = parsed_spot_dict.get(tid_val, ([], []))
+                    if not parsed_dates or not spot_v:
+                        parsed_dates, spot_v = parsed_spot_dict.get(tid_str, ([], []))
+                    if parsed_dates and spot_v:
+                        s_hd = [fmt_date_kor(d) for d in parsed_dates]
+                        # 모듈 품목(DDR5 RDIMM, DDR5 UDIMM 등 $100 이상 고가 지표) -> Row 2의 두 번째 보조 Y축(yaxis5)에 바인딩
+                        valid_nums = [v for v in spot_v if v is not None and isinstance(v, (int, float))]
+                        is_module_high = (grp_code == 'module') or (tid_str in spot_high_colors) or (valid_nums and max(valid_nums) > 100)
+                        
+                        if is_module_high:
+                            c_high = spot_high_colors.get(tid_str, 'rgba(233, 30, 99, 0.7)')
+                            fig_mem.add_trace(go.Scatter(
+                                x=s_hd, y=spot_v, name=item_name, mode='lines',
+                                line=dict(color=c_high, width=0.7),
+                                hovertemplate=f'{item_name}(모듈): $%{{y:,.2f}}<extra></extra>',
+                                showlegend=False,
+                                xaxis='x2', yaxis='y5'
+                            ))
+                        else:
+                            # 저가/중가 현물 지표 -> Row 2의 첫 번째 보조 Y축(yaxis4)에 배정
+                            c_str = spot_low_colors[spot_color_idx % len(spot_low_colors)]
+                            spot_color_idx += 1
+                            fig_mem.add_trace(go.Scatter(
+                                x=s_hd, y=spot_v, name=item_name, mode='lines',
+                                line=dict(color=c_str, width=0.7),
+                                hovertemplate=f'{item_name}: $%{{y:.3f}}<extra></extra>',
+                                showlegend=False
+                            ), row=2, col=1, secondary_y=True)
+
+            # 레이아웃 및 Row 1의 두 번째 보조축(yaxis6), Row 2의 두 번째 보조축(yaxis5) 독립 스케일 설정
             fig_mem.update_layout(
                 **COMMON_LAYOUT,
-                height=3200, 
+                height=800, 
                 margin=dict(l=0, r=65, t=30, b=10),
                 showlegend=False,
+                yaxis5=dict(
+                    overlaying='y3',
+                    side='right',
+                    position=1.0,
+                    showticklabels=True,
+                    tickfont=dict(size=6)
+                ),
+                yaxis6=dict(
+                    overlaying='y',
+                    side='right',
+                    position=1.0,
+                    showticklabels=True,
+                    tickfont=dict(size=6)
+                )
             )
             fig_mem.update_annotations(font_size=10)
-            # Set layout properties
     
-            for i in range(1, total_rows + 1):
-                # Apply rectangle shape to each row
+            for i in range(1, 3):
                 fig_mem.add_shape(type="rect", xref="x domain", yref="y domain", x0=0, y0=0, x1=1, y1=1, line=dict(color="rgba(150, 150, 150, 0.4)", width=1.2), row=i, col=1)
-        
-                # Apply crosshair configs to X and Y axes of each subplot
                 fig_mem.update_xaxes(type='category', categoryorder='array', categoryarray=hd_mem, **crosshair_xaxis(), row=i, col=1)
                 if kospi_y_range:
                     fig_mem.update_yaxes(title_text="", range=kospi_y_range, **crosshair_yaxis(), secondary_y=False, row=i, col=1)
@@ -7807,10 +8287,9 @@ with main_tabs[4]:
                     fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=False, row=i, col=1)
                 fig_mem.update_yaxes(title_text="", **crosshair_yaxis(), secondary_y=True, row=i, col=1)
 
-            # Set initial range for the shared x-axis
-            fig_mem.update_xaxes(range=initial_x_range_idx, row=total_rows, col=1)
+            fig_mem.update_xaxes(range=initial_x_range_idx, row=2, col=1)
     
-            st.plotly_chart(fig_mem, width='stretch', config=COMMON_CONFIG, key="tab4_merged_all_chart")
+            st.plotly_chart(fig_mem, use_container_width=True, config=COMMON_CONFIG, key="tab4_merged_all_chart_v400")
     
             # 3. 현물가 상세 표
             def format_price(p):
@@ -8167,7 +8646,7 @@ if True:
             fig_u.update_layout(height=400, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=30, b=10))
             fig_u.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
             fig_u.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis())
-            st.plotly_chart(fig_u, width='stretch', config=COMMON_CONFIG, key="unified_chart_top")
+            st.plotly_chart(fig_u, use_container_width=True, config=COMMON_CONFIG, key="unified_chart_top_v400")
             
             with st.expander("📊 통합 감지 분석 및 성능검증표 열기", expanded=True):
                 labels_u = ["7대 감지지표 합산 >= 2점", "7대 감지지표 합산 >= 4점", "7대 감지지표 합산 >= 8점", "7대 감지지표 합산 >= 12점", "7대 감지지표 합산 >= 18점", "7대 감지지표 합산 >= 24점", "7대 감지지표 합산 >= 28점"]
@@ -8274,7 +8753,7 @@ if True:
                 fig.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False, row=i, col=1)
                 fig.update_yaxes(**crosshair_yaxis(), secondary_y=True, row=i, col=1)
                 
-            st.plotly_chart(fig, width='stretch', config=COMMON_CONFIG, key="test_tab_us_top_multiplot")
+            st.plotly_chart(fig, use_container_width=True, config=COMMON_CONFIG, key="test_tab_us_top_multiplot_v400")
             
             # --- Expander for Logic Explanation and Validation Tables ---
             with st.expander("📊 조건식 상세 설명 및 지표검증결과 (각 조건별 분석 표)"):
@@ -8555,7 +9034,7 @@ if True:
                         sc, thresh = chart_info_map[days]
                         fig_dsi.update_layout({y_axis_key_sec: crosshair_yaxis(range=[-thresh*2.2, thresh*2.2], side='right', overlaying=y_axis_key.replace("yaxis", "y"))})
                 
-                st.plotly_chart(fig_dsi, width='stretch', config=COMMON_CONFIG, key="top_fv5_slope_chart")
+                st.plotly_chart(fig_dsi, use_container_width=True, config=COMMON_CONFIG, key="top_fv5_slope_chart_v400")
             
             # 고점 검증결과 표
             _nb = _not_bottom
@@ -8774,7 +9253,7 @@ if True:
                     fig_top_sl.update_xaxes(type='category', **crosshair_xaxis())
                 fig_top_sl.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_top_sl, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_chart")
+                st.plotly_chart(fig_top_sl, use_container_width=True, config=COMMON_CONFIG, key="top_tab_slope_chart_v400")
             
             # 슬로프합 고점 검증결과 표
             slope_top_conditions = {
@@ -8964,7 +9443,7 @@ if True:
             fig_top_multi.update_yaxes(range=qqq_yr_tm, **crosshair_yaxis(), secondary_y=False, title_text="")
             fig_top_multi.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
             
-            st.plotly_chart(fig_top_multi, width='stretch', config=COMMON_CONFIG, key="top_tab_multi_chart")
+            st.plotly_chart(fig_top_multi, use_container_width=True, config=COMMON_CONFIG, key="top_tab_multi_chart_v400")
             
             # 다중지표 고점 검증결과 (저점 다중지표 탭과 동일하게 7단계 구간 통계)
             top_multi_verify = {
@@ -9064,7 +9543,7 @@ if True:
                 fig_top_final.update_yaxes(title_text="", range=qqq_yr_tt, **crosshair_yaxis(), secondary_y=False)
                 fig_top_final.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
                 
-                st.plotly_chart(fig_top_final, width='stretch', config=COMMON_CONFIG, key="top_tab_final_chart")
+                st.plotly_chart(fig_top_final, use_container_width=True, config=COMMON_CONFIG, key="top_tab_final_chart_v400")
                 
                 # 통합지표 고점 검증결과 표
                 top_final_conditions = {
@@ -9243,7 +9722,7 @@ if True:
                     fig_top_sl_test.update_xaxes(type='category', **crosshair_xaxis())
                 fig_top_sl_test.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_top_sl_test, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_test_chart")
+                st.plotly_chart(fig_top_sl_test, use_container_width=True, config=COMMON_CONFIG, key="top_tab_slope_test_chart_v400")
             
             # 슬로프합 고점 검증결과 표
             slope_top_conditions_test = {
@@ -9546,7 +10025,7 @@ if True:
                         sc, thresh = chart_info_map_kr[days]
                         fig_dsi_kr.update_layout({y_axis_key_sec: crosshair_yaxis(range=[-thresh*2.2, thresh*2.2], side='right', overlaying=y_axis_key.replace("yaxis", "y"))})
                 
-                st.plotly_chart(fig_dsi_kr, width='stretch', config=COMMON_CONFIG, key="top_fv5_slope_chart_kr")
+                st.plotly_chart(fig_dsi_kr, use_container_width=True, config=COMMON_CONFIG, key="top_fv5_slope_chart_kr_v400")
             
             # 고점 검증결과 표
             top_fv5_conditions_kr = {
@@ -9759,7 +10238,7 @@ if True:
                     fig_dsi_kr_top.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_kr_top.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_kr_top, width='stretch', config=COMMON_CONFIG, key='tab4_kr_slope_chart_top')
+                st.plotly_chart(fig_dsi_kr_top, use_container_width=True, config=COMMON_CONFIG, key='tab4_kr_slope_chart_top_v400')
                 
             slope_conditions_kr_top = {
                 '**10일합 이탈**': (df_top_kr['슬로프10일합'] >= 384, '10일슬로프합 >= 384'),
@@ -9952,7 +10431,7 @@ if True:
             fig_top_multi_kr.update_yaxes(range=kospi_yr_tm, **crosshair_yaxis(), secondary_y=False, title_text="")
             fig_top_multi_kr.update_yaxes(showticklabels=False, showgrid=False, secondary_y=True)
             
-            st.plotly_chart(fig_top_multi_kr, width='stretch', config=COMMON_CONFIG, key="top_tab_multi_chart_kr")
+            st.plotly_chart(fig_top_multi_kr, use_container_width=True, config=COMMON_CONFIG, key="top_tab_multi_chart_kr_v400")
             
             top_multi_verify_kr = {
                 "**빨간색**": (top_cond_map_kr[0][0], top_cond_map_kr[0][3]),
@@ -10039,7 +10518,7 @@ if True:
                     fig_top_final_kr.update_xaxes(range=initial_x_tt)
                 fig_top_final_kr.update_yaxes(title_text="", range=kospi_yr_tt, **crosshair_yaxis(), secondary_y=False)
                 fig_top_final_kr.update_yaxes(range=[0, 1.2], showticklabels=False, showgrid=False, secondary_y=True)
-                st.plotly_chart(fig_top_final_kr, width='stretch', config=COMMON_CONFIG, key="top_chart_final_or_kr")
+                st.plotly_chart(fig_top_final_kr, use_container_width=True, config=COMMON_CONFIG, key="top_chart_final_or_kr_v400")
                 
                 top_final_conditions_kr = {
                     "**최종 4대 통합 고점지표 (OR)**": (c_top_all_kr, '과열에너지 + RSI다이버전스·RU + MACD전환 + SKEW경고'),
@@ -10216,7 +10695,7 @@ if True:
                     fig_dsi_kr_top_test.update_xaxes(type='category', **crosshair_xaxis())
                 fig_dsi_kr_top_test.update_annotations(font_size=10)
                 
-                st.plotly_chart(fig_dsi_kr_top_test, width='stretch', config=COMMON_CONFIG, key="top_tab_slope_test_chart_kr")
+                st.plotly_chart(fig_dsi_kr_top_test, use_container_width=True, config=COMMON_CONFIG, key="top_tab_slope_test_chart_kr_v400")
                 
             # 슬로프합 고점 검증결과 표
             slope_top_conditions_kr_test = {
