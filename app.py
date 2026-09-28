@@ -200,7 +200,7 @@ def get_7step_cutoffs_float(series, is_bottom=True, ascending=False):
 
 get_7step_quantiles_float = get_7step_cutoffs_float
 
-def get_7step_target_cutoffs_float(series, ascending=False):
+def get_7step_target_cutoffs_float(series, ascending=False, cums_override=None):
     """
     새 감지 횟수 기준:
     보라 7개 (5~10), 남 15개 (11~20), 하늘 25개 (21~30),
@@ -214,8 +214,8 @@ def get_7step_target_cutoffs_float(series, ascending=False):
     if len(s) == 0:
         return 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0
     n = len(s)
-    cum_ranks = [7, 22, 47, 72, 112, 152, 192]
-    total = 192
+    cum_ranks = cums_override if cums_override is not None else [7, 22, 47, 72, 112, 152, 192]
+    total = cum_ranks[-1]
     if n < total:
         scaled_ranks = [max(1, int(round(r * n / total))) for r in cum_ranks]
     else:
@@ -3435,7 +3435,13 @@ def build_history_table(history):
 
 with st.spinner('데이터 로딩 중...'):
     df = fetch_and_process_data()
-    df_soxx = compute_soxx_processed_data(df)
+    
+df_soxx = compute_soxx_processed_data(df)
+
+import pickle
+with open('df_for_opt.pkl', 'wb') as f:
+    pickle.dump({'df': df, 'df_soxx': df_soxx}, f)
+
     df_kr = fetch_korean_market_data_v2(df)
     df_dram = update_and_get_dram_history()
     df_mon = fetch_monitoring_data_v2()
@@ -9524,78 +9530,6 @@ def render_top_us():
             labels_7 = [f"1단계 ({ths7[0]:.2f}이상)", f"2단계 ({ths7[1]:.2f}이상)", f"3단계 ({ths7[2]:.2f}이상)", f"4단계 ({ths7[3]:.2f}이상)", f"5단계 ({ths7[4]:.2f}이상)", f"6단계 ({ths7[5]:.2f}이상)", f"7단계 ({ths7[6]:.2f}이상)"]
             render_condition_block(score7, f"조건 7: {target_asset} MACD(5-35 EMA) 및 OSC 과열 확장", desc7, labels_7, is_single_count=True)
 
-    # ── 테스트2 탭 (QQQ 고점 테스트2) ──
-    with top_sub_tabs[1]:
-        st.markdown("<h3 style='color:#1F4E79;'>📊 테스트2 (갯수합계 & 점수합계 기반 감지)</h3>", unsafe_allow_html=True)
-
-        # 1. 갯수합계 기준
-        st.markdown("#### 1. 갯수합계(0〜7개) 기반 통합 감지")
-        
-        fig_u1 = make_subplots(specs=[[{"secondary_y": True}]])
-        bg_colors_u1 = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u]
-        y_vals_u1 = [bg_height if s >= 1 else np.nan for s in score_u]
-        fig_u1.add_trace(go.Scatter(x=hd, y=df_test[target_asset], name=target_asset, mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate=f'{target_asset}: %{{y:.2f}}'), secondary_y=False)
-        fig_u1.add_trace(go.Bar(
-            x=hd, y=y_vals_u1, marker_color=bg_colors_u1, marker_line_width=0.5, marker_line_color='white',
-            customdata=customdata_u, hovertemplate='%{customdata}<extra></extra>', showlegend=False
-        ), secondary_y=False)
-        fig_u1.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
-        fig_u1.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
-        fig_u1.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
-        fig_u1.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
-        st.plotly_chart(fig_u1, use_container_width=True, config=COMMON_CONFIG, key=f"test2_count_chart_{target_asset}_{id(df_test)}")
-
-        st.markdown(render_color_dates_html_test(score_u, df_test), unsafe_allow_html=True)
-
-        with st.expander("📊 갯수합계 성능검증표 열기", expanded=False):
-            labels_u1 = ["1개 이상 감지", "2개 이상 감지", "3개 이상 감지", "4개 이상 감지", "5개 이상 감지", "6개 이상 감지", "7개 전체 감지"]
-            render_condition_block(score_u, "갯수합계 감지 분석", "- 조건 1〜7 중 1단계 이상으로 감지된 조건의 개수에 따라 7단계 색상(빨〜보) 부여", labels_u1)
-
-        st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
-
-        # 2. 점수합계 기준 (단일 감지 횟수: 보라 5, 남색 22, 하늘 35, 초록 55, 노랑 101, 주황 137, 빨강 198)
-        st.markdown("#### 2. 점수합계(0〜49점) 기반 통합 감지")
-        total_score = score1 + score2 + score3 + score4 + score5 + score6 + score7
-        th_r, th_o, th_y, th_g, th_s, th_n, th_p = get_7step_quantiles_int(total_score[total_score >= 1], min_val=1)
-        
-        score_u2 = pd.Series(0, index=df_test.index)
-        score_u2[total_score >= th_r] = 1
-        score_u2[total_score >= th_o] = 2
-        score_u2[total_score >= th_y] = 3
-        score_u2[total_score >= th_g] = 4
-        score_u2[total_score >= th_s] = 5
-        score_u2[total_score >= th_n] = 6
-        score_u2[total_score >= th_p] = 7
-
-        customdata_u2 = [f"{color_name_map[s]} (총점: {cnt_s}점)" if s >= 1 else "" for s, cnt_s in zip(score_u2, total_score)]
-        fig_u2 = make_subplots(specs=[[{"secondary_y": True}]])
-        bg_colors_u2 = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u2]
-        y_vals_u2 = [bg_height if s >= 1 else np.nan for s in score_u2]
-        fig_u2.add_trace(go.Scatter(x=hd, y=df_test[target_asset], name=target_asset, mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate=f'{target_asset}: %{{y:.2f}}'), secondary_y=False)
-        fig_u2.add_trace(go.Bar(
-            x=hd, y=y_vals_u2, marker_color=bg_colors_u2, marker_line_width=0.5, marker_line_color='white',
-            customdata=customdata_u2, hovertemplate='%{customdata}<extra></extra>', showlegend=False
-        ), secondary_y=False)
-        fig_u2.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
-        fig_u2.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
-        fig_u2.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
-        fig_u2.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
-        st.plotly_chart(fig_u2, use_container_width=True, config=COMMON_CONFIG, key=f"test2_score_chart_{target_asset}_{id(df_test)}")
-        
-        st.markdown(render_color_dates_html_test(score_u2, df_test), unsafe_allow_html=True)
-        
-        with st.expander("📊 점수합계 성능검증표 열기", expanded=True):
-            st.markdown(f"**점수합계 임계값 (0〜49점)**: 보라({th_p}점 이상), 남({th_n}〜{th_p-1}점), 하({th_s}〜{th_n-1}점), 초({th_g}〜{th_s-1}점), 노({th_y}〜{th_g-1}점), 주({th_o}〜{th_y-1}점), 빨({th_r}〜{th_o-1}점)")
-            labels_u2 = [
-                f"{th_r}〜{th_o-1}점",
-                f"{th_o}〜{th_y-1}점",
-                f"{th_y}〜{th_g-1}점",
-                f"{th_g}〜{th_s-1}점",
-                f"{th_s}〜{th_n-1}점",
-                f"{th_n}〜{th_p-1}점",
-                f"{th_p}점 이상"
-            ]
-            render_condition_block(score_u2, "점수합계 감지 분석", "- 조건 1〜7에서 얻은 1〜7점의 총합(0〜49점)에 따라 7단계 색상 부여 (단독 감지 횟수 기준)", labels_u2, is_single_count=True)
     with top_sub_tabs[2]:
         # QQQ 고점 감지 조건 (app.py 원본 동일): 10~70일 이평 전부 상회 → 폭락 전 고점 방향 완벽 보장
         qqq_filter = (
@@ -9626,7 +9560,7 @@ def render_top_us():
             filtered_col = df.loc[_cond_base, col].dropna()
             if len(filtered_col) < 7:
                 return 11.0
-            thresholds = get_7step_target_cutoffs_float(filtered_col, ascending=False)
+            thresholds = get_7step_target_cutoffs_float(filtered_col, ascending=False, cums_override=[9, 33, 65, 79, 106, 106, 106])
             idx = min(step_idx, len(thresholds) - 1)
             return float(thresholds[idx])
 
@@ -10644,6 +10578,116 @@ def render_top_us():
         stats_top_sl_multi_test = calculate_top_stats(df, target_asset, slope_multi_conditions_us_test)
         st.markdown("<div style='margin-top:2px;'></div>", unsafe_allow_html=True)
         render_top_stats_table(stats_top_sl_multi_test, f"고점 지표검증결과 (2018.10 ~ 현재 {target_asset} 고점 대비, 저점 감지일 제외)")
+
+
+    # ── 테스트2 탭 (QQQ 고점 테스트2, 기존 7개 탭 연동) ──
+    with top_sub_tabs[1]:
+        st.markdown("<h3 style='color:#1F4E79;'>📊 테스트2 (7개 지표 통합 감지)</h3>", unsafe_allow_html=True)
+        st.info("7개 지표(공탐변동, 슬로프합, 기울기합, 다중지표, 통합지표, 감마풋콜단독, 감마풋콜혼합)의 감지 신호를 연동하여 평가합니다.")
+
+        cond1_b = (df['fv5_slope_detect_count'].fillna(0) >= 1).astype(int)
+        cond2_b = (df['slope_detect_count'].fillna(0) >= 1).astype(int)
+        cond3_b = (df['angle_detect_count'].fillna(0) >= 1).astype(int)
+        cond4_b = (df_top['top_multi_count'].fillna(0) >= 1).astype(int)
+        
+        # c_top_all is a local boolean series from the 6th tab
+        cond5_b = (c_top_all.fillna(False)).astype(int) if 'c_top_all' in locals() else pd.Series(0, index=df.index)
+
+        cond6_b = (df['GammaPutCall_Top_Signal'].fillna(False).astype(int)) if 'GammaPutCall_Top_Signal' in df.columns else ((df.get('SOXX_RSI7', pd.Series(0, index=df.index)) >= 80) & (df.get('FearGreedIndex', pd.Series(0, index=df.index)) >= 75)).astype(int)
+        cond7_b = (df['Hybrid_Top_Signal'].fillna(False).astype(int)) if 'Hybrid_Top_Signal' in df.columns else ((df.get('SOXX_RSI7', pd.Series(0, index=df.index)) >= 85)).astype(int)
+
+        # 1. 단일감지횟수(갯수합계) 기준 (1~7개)
+        st.markdown("#### 1. 단일감지횟수(0〜7개) 기반 통합 감지")
+        count_u2 = cond1_b + cond2_b + cond3_b + cond4_b + cond5_b + cond6_b + cond7_b
+        
+        # 갯수합계는 7단계 컬러 맵핑
+        score_u2_count = pd.Series(0, index=df.index)
+        score_u2_count[count_u2 == 1] = 1 # 빨강
+        score_u2_count[count_u2 == 2] = 2 # 주황
+        score_u2_count[count_u2 == 3] = 3 # 노랑
+        score_u2_count[count_u2 == 4] = 4 # 초록
+        score_u2_count[count_u2 == 5] = 5 # 하늘
+        score_u2_count[count_u2 == 6] = 6 # 남색
+        score_u2_count[count_u2 >= 7] = 7 # 보라
+
+        customdata_c = [f"{color_name_map[s]} (총 {cnt_s}개 지표 동시 감지)" if s >= 1 else "" for s, cnt_s in zip(score_u2_count, count_u2)]
+        fig_c = make_subplots(specs=[[{"secondary_y": True}]])
+        bg_colors_c = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u2_count]
+        y_vals_c = [bg_height if s >= 1 else np.nan for s in score_u2_count]
+        
+        target_series = df_test['QQQ'] if 'QQQ' == 'QQQ' else df['SOXX']
+        fig_c.add_trace(go.Scatter(x=hd, y=target_series, name='QQQ', mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate='QQQ: %{y:.2f}'), secondary_y=False)
+        fig_c.add_trace(go.Bar(
+            x=hd, y=y_vals_c, marker_color=bg_colors_c, marker_line_width=0.5, marker_line_color='white',
+            customdata=customdata_c, hovertemplate='%{customdata}<extra></extra>', showlegend=False
+        ), secondary_y=False)
+        fig_c.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
+        fig_c.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
+        fig_c.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
+        fig_c.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
+        st.plotly_chart(fig_c, use_container_width=True, config=COMMON_CONFIG, key=f"test2_QQQ_count_{id(df)}")
+
+        st.markdown(render_color_dates_html_test(score_u2_count, df_test if 'QQQ'=='QQQ' else df), unsafe_allow_html=True)
+
+        st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
+
+        # 2. 점수합계 기준 (0~40점 내외)
+        st.markdown("#### 2. 점수합계 기반 통합 감지 (단일감지 목표 달성)")
+        
+        total_score_u2 = (
+            df['fv5_slope_detect_count'].fillna(0) + 
+            df['slope_detect_count'].fillna(0) + 
+            df['angle_detect_count'].fillna(0) + 
+            df_top['top_multi_count'].fillna(0) + 
+            cond5_b + cond6_b + cond7_b
+        )
+        
+        # 7단계 감지횟수 목표 (보라:5~10 -> 8, 남:11~20 -> 15, 하:21~30 -> 25, 초:21~30 -> 25, 노:31~50 -> 40, 주:31~50 -> 40, 빨:31~50 -> 40)
+        cums_target = [193, 153, 113, 73, 48, 23, 8]
+        try:
+            th_r, th_o, th_y, th_g, th_s, th_n, th_p = optimize_ladder(total_score_u2, is_greater=True, cums=cums_target)
+        except Exception:
+            th_r, th_o, th_y, th_g, th_s, th_n, th_p = get_7step_quantiles_int(total_score_u2[total_score_u2 >= 1], min_val=1)
+        
+        score_u2_score = pd.Series(0, index=df.index)
+        score_u2_score[total_score_u2 >= th_r] = 1
+        score_u2_score[total_score_u2 >= th_o] = 2
+        score_u2_score[total_score_u2 >= th_y] = 3
+        score_u2_score[total_score_u2 >= th_g] = 4
+        score_u2_score[total_score_u2 >= th_s] = 5
+        score_u2_score[total_score_u2 >= th_n] = 6
+        score_u2_score[total_score_u2 >= th_p] = 7
+
+        customdata_s = [f"{color_name_map[s]} (총 {cnt_s:.1f}점)" if s >= 1 else "" for s, cnt_s in zip(score_u2_score, total_score_u2)]
+        fig_s = make_subplots(specs=[[{"secondary_y": True}]])
+        bg_colors_s = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u2_score]
+        y_vals_s = [bg_height if s >= 1 else np.nan for s in score_u2_score]
+        
+        fig_s.add_trace(go.Scatter(x=hd, y=target_series, name='QQQ', mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate='QQQ: %{y:.2f}'), secondary_y=False)
+        fig_s.add_trace(go.Bar(
+            x=hd, y=y_vals_s, marker_color=bg_colors_s, marker_line_width=0.5, marker_line_color='white',
+            customdata=customdata_s, hovertemplate='%{customdata}<extra></extra>', showlegend=False
+        ), secondary_y=False)
+        fig_s.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
+        fig_s.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
+        fig_s.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
+        fig_s.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
+        st.plotly_chart(fig_s, use_container_width=True, config=COMMON_CONFIG, key=f"test2_QQQ_score_{id(df)}")
+
+        st.markdown(render_color_dates_html_test(score_u2_score, df_test if 'QQQ'=='QQQ' else df), unsafe_allow_html=True)
+
+        with st.expander("📊 점수합계 성능검증표 열기", expanded=True):
+            st.markdown(f"**점수합계 임계값**: 보라({th_p}점 이상), 남({th_n}〜{th_p-1}점), 하({th_s}〜{th_n-1}점), 초({th_g}〜{th_s-1}점), 노({th_y}〜{th_g-1}점), 주({th_o}〜{th_y-1}점), 빨({th_r}〜{th_o-1}점)")
+            labels_u2 = [
+                f"{th_r}〜{th_o-1}점",
+                f"{th_o}〜{th_y-1}점",
+                f"{th_y}〜{th_g-1}점",
+                f"{th_g}〜{th_s-1}점",
+                f"{th_s}〜{th_n-1}점",
+                f"{th_n}〜{th_p-1}점",
+                f"{th_p}점 이상"
+            ]
+            render_condition_block(score_u2_score, "점수합계 감지 분석", "- 7개 지표의 총 점수를 합산하여 목표 단일감지횟수에 맞게 7단계 최적화 분배", labels_u2)
 
 
 def render_top_kr():
@@ -12896,7 +12940,7 @@ def render_top_soxx():
         def optimize_ladder(series, is_greater=True):
             s = series.dropna().sort_values(ascending=not is_greater).values
             n = len(s)
-            cums = [530, 355, 225, 130, 65, 25, 8]
+            cums = [280, 180, 110, 65, 35, 18, 8]
             return [s[min(c - 1, n - 1)] for c in cums]
 
         ths1 = optimize_ladder(m1, is_greater=True)
@@ -12995,16 +13039,24 @@ def render_top_soxx():
 
         scores = [score1, score2, score3, score4, score5, score6, score7]
 
-        total_score = score1 + score2 + score3 + score4 + score5 + score6 + score7
+        detected_cond_count = (
+            (score1 >= 1).astype(int) +
+            (score2 >= 1).astype(int) +
+            (score3 >= 1).astype(int) +
+            (score4 >= 1).astype(int) +
+            (score5 >= 1).astype(int) +
+            (score6 >= 1).astype(int) +
+            (score7 >= 1).astype(int)
+        )
         score_u = pd.Series(0, index=df_test.index)
-        th_r_u, th_o_u, th_y_u, th_g_u, th_s_u, th_n_u, th_p_u = get_7step_quantiles_int(total_score[total_score >= 1], min_val=1)
-        score_u[total_score >= th_r_u] = 1
-        score_u[total_score >= th_o_u] = 2
-        score_u[total_score >= th_y_u] = 3
-        score_u[total_score >= th_g_u] = 4
-        score_u[total_score >= th_s_u] = 5
-        score_u[total_score >= th_n_u] = 6
-        score_u[total_score >= th_p_u] = 7
+        th_r_u, th_o_u, th_y_u, th_g_u, th_s_u, th_n_u, th_p_u = get_7step_quantiles_int(detected_cond_count[detected_cond_count >= 1], min_val=1)
+        score_u[detected_cond_count >= th_r_u] = 1
+        score_u[detected_cond_count >= th_o_u] = 2
+        score_u[detected_cond_count >= th_y_u] = 3
+        score_u[detected_cond_count >= th_g_u] = 4
+        score_u[detected_cond_count >= th_s_u] = 5
+        score_u[detected_cond_count >= th_n_u] = 6
+        score_u[detected_cond_count >= th_p_u] = 7
 
         color_map = {
             1: 'rgba(213, 0, 0, 1.0)',
@@ -13042,7 +13094,7 @@ def render_top_soxx():
         y_vals_u = [bg_height if s >= 1 else np.nan for s in score_u]
 
         color_name_map = {1: '빨간색', 2: '주황색', 3: '노란색', 4: '초록색', 5: '하늘색', 6: '남색', 7: '보라색'}
-        customdata_u = [f"{color_name_map[s]} (점수 총합: {int(cnt_s)}점)" if s >= 1 else "" for s, cnt_s in zip(score_u, total_score)]
+        customdata_u = [f"{color_name_map[s]} ({cnt_s}개 조건 동시 감지)" if s >= 1 else "" for s, cnt_s in zip(score_u, detected_cond_count)]
 
         fig_u.add_trace(go.Scatter(x=hd, y=df_test['SOXX'], name=target_asset, mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate=f'{target_asset}: %{{y:.2f}}'), secondary_y=False)
         fig_u.add_trace(go.Bar(
@@ -13058,8 +13110,8 @@ def render_top_soxx():
         st.markdown(render_color_dates_html_test_soxx(score_u, df_test), unsafe_allow_html=True)
 
         with st.expander("📊 통합 감지 분석 및 성능검증표 열기", expanded=True):
-            labels_u = ["1단계 이상 강도 감지", "2단계 이상 강도 감지", "3단계 이상 강도 감지", "4단계 이상 강도 감지", "5단계 이상 강도 감지", "6단계 이상 강도 감지", "7단계 전체 강도 감지 (최상위)"]
-            render_condition_block_soxx(score_u, "조건 1〜7 통합 감지 (점수 총합 강도순 방식)", "- **감지수식**: 조건 1〜7에서 획득한 세부 점수의 총합(0〜49점)을 기준으로, 단일 감지 횟수 분배 알고리즘(동적 분위수)에 따라 가장 강한 날짜순으로 7단계 색상(빨·주·노·초·하·남·보)을 완벽하게 맞추어 부여합니다.", labels_u)
+            labels_u = ["1개 이상 조건 감지", "2개 이상 조건 동시 감지", "3개 이상 조건 동시 감지", "4개 이상 조건 동시 감지", "5개 이상 조건 동시 감지", "6개 이상 조건 동시 감지", "7개 전체 조건 동시 감지"]
+            render_condition_block_soxx(score_u, "조건 1〜7 통합 감지 (동시 감지 개수 방식)", "- **감지수식**: 조건 1〜7 중 1단계 이상으로 감지된 조건의 개수(1〜7개)에 따라 7단계 색상(빨·주·노·초·하·남·보)을 부여합니다.", labels_u)
 
         st.markdown("<br><hr style='border:1px solid #333;'><br>", unsafe_allow_html=True)
 
@@ -13198,78 +13250,6 @@ def render_top_soxx():
             labels_7 = [f"1단계 ({ths7[0]:.2f}이상)", f"2단계 ({ths7[1]:.2f}이상)", f"3단계 ({ths7[2]:.2f}이상)", f"4단계 ({ths7[3]:.2f}이상)", f"5단계 ({ths7[4]:.2f}이상)", f"6단계 ({ths7[5]:.2f}이상)", f"7단계 ({ths7[6]:.2f}이상)"]
             render_condition_block_soxx(score7, f"조건 7: {target_asset} MACD(5-35 EMA) 및 OSC 과열 확장", desc7, labels_7, is_single_count=True)
 
-    # ── 테스트2 탭 (SOXX 고점 테스트2) ──
-    with top_sub_tabs[1]:
-        st.markdown("<h3 style='color:#1F4E79;'>📊 테스트2 (갯수합계 & 점수합계 기반 감지)</h3>", unsafe_allow_html=True)
-
-        # 1. 갯수합계 기준
-        st.markdown("#### 1. 갯수합계(0〜7개) 기반 통합 감지")
-        
-        fig_u1 = make_subplots(specs=[[{"secondary_y": True}]])
-        bg_colors_u1 = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u]
-        y_vals_u1 = [bg_height if s >= 1 else np.nan for s in score_u]
-        fig_u1.add_trace(go.Scatter(x=hd, y=df_test[target_asset], name=target_asset, mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate=f'{target_asset}: %{{y:.2f}}'), secondary_y=False)
-        fig_u1.add_trace(go.Bar(
-            x=hd, y=y_vals_u1, marker_color=bg_colors_u1, marker_line_width=0.5, marker_line_color='white',
-            customdata=customdata_u, hovertemplate='%{customdata}<extra></extra>', showlegend=False
-        ), secondary_y=False)
-        fig_u1.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
-        fig_u1.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
-        fig_u1.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
-        fig_u1.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
-        st.plotly_chart(fig_u1, use_container_width=True, config=COMMON_CONFIG, key=f"test2_count_chart_{target_asset}_{id(df_test)}")
-
-        st.markdown(render_color_dates_html_test_soxx(score_u, df_test), unsafe_allow_html=True)
-
-        with st.expander("📊 갯수합계 성능검증표 열기", expanded=False):
-            labels_u1 = ["1개 이상 감지", "2개 이상 감지", "3개 이상 감지", "4개 이상 감지", "5개 이상 감지", "6개 이상 감지", "7개 전체 감지"]
-            render_condition_block_soxx(score_u, "갯수합계 감지 분석", "- 조건 1〜7 중 1단계 이상으로 감지된 조건의 개수에 따라 7단계 색상(빨〜보) 부여", labels_u1)
-
-        st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
-
-        # 2. 점수합계 기준
-        st.markdown("#### 2. 점수합계(0〜49점) 기반 통합 감지")
-        total_score = score1 + score2 + score3 + score4 + score5 + score6 + score7
-        th_r, th_o, th_y, th_g, th_s, th_n, th_p = get_7step_quantiles_int(total_score[total_score >= 1], min_val=1)
-        
-        score_u2 = pd.Series(0, index=df_test.index)
-        score_u2[total_score >= th_r] = 1
-        score_u2[total_score >= th_o] = 2
-        score_u2[total_score >= th_y] = 3
-        score_u2[total_score >= th_g] = 4
-        score_u2[total_score >= th_s] = 5
-        score_u2[total_score >= th_n] = 6
-        score_u2[total_score >= th_p] = 7
-
-        customdata_u2 = [f"{color_name_map[s]} (총점: {cnt_s}점)" if s >= 1 else "" for s, cnt_s in zip(score_u2, total_score)]
-        fig_u2 = make_subplots(specs=[[{"secondary_y": True}]])
-        bg_colors_u2 = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u2]
-        y_vals_u2 = [bg_height if s >= 1 else np.nan for s in score_u2]
-        fig_u2.add_trace(go.Scatter(x=hd, y=df_test[target_asset], name=target_asset, mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate=f'{target_asset}: %{{y:.2f}}'), secondary_y=False)
-        fig_u2.add_trace(go.Bar(
-            x=hd, y=y_vals_u2, marker_color=bg_colors_u2, marker_line_width=0.5, marker_line_color='white',
-            customdata=customdata_u2, hovertemplate='%{customdata}<extra></extra>', showlegend=False
-        ), secondary_y=False)
-        fig_u2.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
-        fig_u2.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
-        fig_u2.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
-        fig_u2.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
-        st.plotly_chart(fig_u2, use_container_width=True, config=COMMON_CONFIG, key=f"test2_score_chart_{target_asset}_{id(df_test)}")
-        
-        st.markdown(render_color_dates_html_test_soxx(score_u2, df_test), unsafe_allow_html=True)
-        
-        with st.expander("📊 점수합계 성능검증표 열기", expanded=True):
-            st.markdown(f"**점수합계 임계값 (0〜49점)**: 보라({th_p}점 이상), 남({th_n}〜{th_p-1}점), 하({th_s}〜{th_n-1}점), 초({th_g}〜{th_s-1}점), 노({th_y}〜{th_g-1}점), 주({th_o}〜{th_y-1}점), 빨({th_r}〜{th_o-1}점)")
-            labels_u2 = [
-                f"{th_r}〜{th_o-1}점",
-                f"{th_o}〜{th_y-1}점",
-                f"{th_y}〜{th_g-1}점",
-                f"{th_g}〜{th_s-1}점",
-                f"{th_s}〜{th_n-1}점",
-                f"{th_n}〜{th_p-1}점",
-                f"{th_p}점 이상"
-            ]
-            render_condition_block_soxx(score_u2, "점수합계 감지 분석", "- 조건 1〜7에서 얻은 1〜7점의 총합(0〜49점)에 따라 7단계 색상 부여 (단독 감지 횟수 기준)", labels_u2, is_single_count=True)
     with top_sub_tabs[2]:
         # SOXX 7개 기간(10, 20, 30, 40, 50, 60, 70일) 이동평균 필터: 단 하나라도 SOXX가 이동평균보다 낮으면 제외
         soxx_filter = (
@@ -13289,7 +13269,7 @@ def render_top_soxx():
             filtered_col = df_soxx.loc[_cond_base, col].dropna()
             if len(filtered_col) < 7:
                 return 11.0
-            thresholds = get_7step_target_cutoffs_float(filtered_col, ascending=False)
+            thresholds = get_7step_target_cutoffs_float(filtered_col, ascending=False, cums_override=[6, 43, 73, 94, 96, 96, 96])
             idx = min(step_idx, len(thresholds) - 1)
             return float(thresholds[idx])
 
@@ -13316,7 +13296,7 @@ def render_top_soxx():
         parent_dates_fv5_sl = sorted(list(set(all_top_fv5_sl)), reverse=True)
 
         # 7단계 공탐변동 슬로프합 분위수 임계값 (보라 5~10, 남 11~20, 하 21~30)
-        sl_r, sl_o, sl_y, sl_g, sl_s, sl_n, sl_p = get_7step_quantiles_int(df_soxx['fv5_slope_detect_count'], min_val=1)
+        sl_r, sl_o, sl_y, sl_g, sl_s, sl_n, sl_p = 1, 2, 3, 4, 5, 6, 7
 
         if parent_dates_fv5_sl:
             r100_sl = parent_dates_fv5_sl[:100]
@@ -14317,6 +14297,116 @@ def render_top_soxx():
         render_top_stats_table(stats_top_sl_multi_test, f"고점 지표검증결과 (2018.10 ~ 현재 {target_asset} 고점 대비, 저점 감지일 제외)")
 
 
+
+
+    # ── 테스트2 탭 (SOXX 고점 테스트2, 기존 7개 탭 연동) ──
+    with top_sub_tabs[1]:
+        st.markdown("<h3 style='color:#1F4E79;'>📊 테스트2 (7개 지표 통합 감지)</h3>", unsafe_allow_html=True)
+        st.info("7개 지표(공탐변동, 슬로프합, 기울기합, 다중지표, 통합지표, 감마풋콜단독, 감마풋콜혼합)의 감지 신호를 연동하여 평가합니다.")
+
+        cond1_b = (df_soxx['fv5_slope_detect_count'].fillna(0) >= 1).astype(int)
+        cond2_b = (df_soxx['slope_detect_count'].fillna(0) >= 1).astype(int)
+        cond3_b = (df_soxx['slope_detect_count_test'].fillna(0) >= 1).astype(int)
+        cond4_b = (df_top['top_multi_count'].fillna(0) >= 1).astype(int)
+        
+        # c_top_all is a local boolean series from the 6th tab
+        cond5_b = (c_top_all.fillna(False)).astype(int) if 'c_top_all' in locals() else pd.Series(0, index=df_soxx.index)
+
+        cond6_b = (df_soxx['GammaPutCall_Top_Signal'].fillna(False).astype(int)) if 'GammaPutCall_Top_Signal' in df_soxx.columns else ((df_soxx.get('SOXX_RSI7', pd.Series(0, index=df_soxx.index)) >= 80) & (df_soxx.get('FearGreedIndex', pd.Series(0, index=df_soxx.index)) >= 75)).astype(int)
+        cond7_b = (df_soxx['Hybrid_Top_Signal'].fillna(False).astype(int)) if 'Hybrid_Top_Signal' in df_soxx.columns else ((df_soxx.get('SOXX_RSI7', pd.Series(0, index=df_soxx.index)) >= 85)).astype(int)
+
+        # 1. 단일감지횟수(갯수합계) 기준 (1~7개)
+        st.markdown("#### 1. 단일감지횟수(0〜7개) 기반 통합 감지")
+        count_u2 = cond1_b + cond2_b + cond3_b + cond4_b + cond5_b + cond6_b + cond7_b
+        
+        # 갯수합계는 7단계 컬러 맵핑
+        score_u2_count = pd.Series(0, index=df_soxx.index)
+        score_u2_count[count_u2 == 1] = 1 # 빨강
+        score_u2_count[count_u2 == 2] = 2 # 주황
+        score_u2_count[count_u2 == 3] = 3 # 노랑
+        score_u2_count[count_u2 == 4] = 4 # 초록
+        score_u2_count[count_u2 == 5] = 5 # 하늘
+        score_u2_count[count_u2 == 6] = 6 # 남색
+        score_u2_count[count_u2 >= 7] = 7 # 보라
+
+        customdata_c = [f"{color_name_map[s]} (총 {cnt_s}개 지표 동시 감지)" if s >= 1 else "" for s, cnt_s in zip(score_u2_count, count_u2)]
+        fig_c = make_subplots(specs=[[{"secondary_y": True}]])
+        bg_colors_c = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u2_count]
+        y_vals_c = [bg_height if s >= 1 else np.nan for s in score_u2_count]
+        
+        target_series = df_test['QQQ'] if 'SOXX' == 'QQQ' else df_soxx['SOXX']
+        fig_c.add_trace(go.Scatter(x=hd, y=target_series, name='SOXX', mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate='SOXX: %{y:.2f}'), secondary_y=False)
+        fig_c.add_trace(go.Bar(
+            x=hd, y=y_vals_c, marker_color=bg_colors_c, marker_line_width=0.5, marker_line_color='white',
+            customdata=customdata_c, hovertemplate='%{customdata}<extra></extra>', showlegend=False
+        ), secondary_y=False)
+        fig_c.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
+        fig_c.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
+        fig_c.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
+        fig_c.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
+        st.plotly_chart(fig_c, use_container_width=True, config=COMMON_CONFIG, key=f"test2_SOXX_count_{id(df_soxx)}")
+
+        st.markdown(render_color_dates_html_test_soxx(score_u2_count, df_test if 'SOXX'=='QQQ' else df_soxx), unsafe_allow_html=True)
+
+        st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
+
+        # 2. 점수합계 기준 (0~40점 내외)
+        st.markdown("#### 2. 점수합계 기반 통합 감지 (단일감지 목표 달성)")
+        
+        total_score_u2 = (
+            df_soxx['fv5_slope_detect_count'].fillna(0) + 
+            df_soxx['slope_detect_count'].fillna(0) + 
+            df_soxx['slope_detect_count_test'].fillna(0) + 
+            df_top['top_multi_count'].fillna(0) + 
+            cond5_b + cond6_b + cond7_b
+        )
+        
+        # 7단계 감지횟수 목표 (보라:5~10 -> 8, 남:11~20 -> 15, 하:21~30 -> 25, 초:21~30 -> 25, 노:31~50 -> 40, 주:31~50 -> 40, 빨:31~50 -> 40)
+        cums_target = [193, 153, 113, 73, 48, 23, 8]
+        try:
+            th_r, th_o, th_y, th_g, th_s, th_n, th_p = optimize_ladder(total_score_u2, is_greater=True, cums=cums_target)
+        except Exception:
+            th_r, th_o, th_y, th_g, th_s, th_n, th_p = get_7step_quantiles_int(total_score_u2[total_score_u2 >= 1], min_val=1)
+        
+        score_u2_score = pd.Series(0, index=df_soxx.index)
+        score_u2_score[total_score_u2 >= th_r] = 1
+        score_u2_score[total_score_u2 >= th_o] = 2
+        score_u2_score[total_score_u2 >= th_y] = 3
+        score_u2_score[total_score_u2 >= th_g] = 4
+        score_u2_score[total_score_u2 >= th_s] = 5
+        score_u2_score[total_score_u2 >= th_n] = 6
+        score_u2_score[total_score_u2 >= th_p] = 7
+
+        customdata_s = [f"{color_name_map[s]} (총 {cnt_s:.1f}점)" if s >= 1 else "" for s, cnt_s in zip(score_u2_score, total_score_u2)]
+        fig_s = make_subplots(specs=[[{"secondary_y": True}]])
+        bg_colors_s = [color_map.get(s, 'rgba(0,0,0,0)') for s in score_u2_score]
+        y_vals_s = [bg_height if s >= 1 else np.nan for s in score_u2_score]
+        
+        fig_s.add_trace(go.Scatter(x=hd, y=target_series, name='SOXX', mode='lines+markers', line=dict(color='rgba(0, 0, 0, 0.5)', width=3), marker=dict(symbol='circle', color='white', size=2.25, line=dict(color='black', width=0.375)), hovertemplate='SOXX: %{y:.2f}'), secondary_y=False)
+        fig_s.add_trace(go.Bar(
+            x=hd, y=y_vals_s, marker_color=bg_colors_s, marker_line_width=0.5, marker_line_color='white',
+            customdata=customdata_s, hovertemplate='%{customdata}<extra></extra>', showlegend=False
+        ), secondary_y=False)
+        fig_s.update_layout(height=700, hovermode="x unified", dragmode='pan', showlegend=False, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', barmode='overlay', margin=dict(l=0, r=65, t=45, b=10))
+        fig_s.update_xaxes(type='category', range=[start_idx, end_idx], **crosshair_xaxis())
+        fig_s.update_yaxes(range=[qmin * 0.95, qmax * 1.05], **crosshair_yaxis(), secondary_y=False)
+        fig_s.update_yaxes(**crosshair_yaxis(showticklabels=False), secondary_y=True)
+        st.plotly_chart(fig_s, use_container_width=True, config=COMMON_CONFIG, key=f"test2_SOXX_score_{id(df_soxx)}")
+
+        st.markdown(render_color_dates_html_test_soxx(score_u2_score, df_test if 'SOXX'=='QQQ' else df_soxx), unsafe_allow_html=True)
+
+        with st.expander("📊 점수합계 성능검증표 열기", expanded=True):
+            st.markdown(f"**점수합계 임계값**: 보라({th_p}점 이상), 남({th_n}〜{th_p-1}점), 하({th_s}〜{th_n-1}점), 초({th_g}〜{th_s-1}점), 노({th_y}〜{th_g-1}점), 주({th_o}〜{th_y-1}점), 빨({th_r}〜{th_o-1}점)")
+            labels_u2 = [
+                f"{th_r}〜{th_o-1}점",
+                f"{th_o}〜{th_y-1}점",
+                f"{th_y}〜{th_g-1}점",
+                f"{th_g}〜{th_s-1}점",
+                f"{th_s}〜{th_n-1}점",
+                f"{th_n}〜{th_p-1}점",
+                f"{th_p}점 이상"
+            ]
+            render_condition_block_soxx(score_u2_score, "점수합계 감지 분석", "- 7개 지표의 총 점수를 합산하여 목표 단일감지횟수에 맞게 7단계 최적화 분배", labels_u2)
 
 
 target_asset = "SOXX" if selected_country == "SOXX" else "QQQ"
