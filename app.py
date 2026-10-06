@@ -4747,7 +4747,7 @@ def render_bottom_multi_us():
     ]
 
     # 표 생성을 위한 데이터 준비 (최근 100개)
-    df_sig = df_multi[df_multi['multi_count'] >= 1].sort_index(ascending=False).head(100)
+    df_sig = df_multi[df_multi['multi_count'] >= m_r].sort_index(ascending=False).head(100)
 
     if not df_sig.empty:
         dates_row_multi = []
@@ -10362,7 +10362,7 @@ def render_top_us():
         ]
 
         # 감지 신호표 (1개 이상 감지된 날 기준)
-        df_sig_tm = df_top[df_top['top_multi_count'] >= 1].sort_index(ascending=False).head(100)
+        df_sig_tm = df_top[tm_score >= 1].sort_index(ascending=False).head(100)
         if not df_sig_tm.empty:
             dates_row_tm = []
             counts_row_tm = []
@@ -12667,7 +12667,7 @@ def render_bottom_multi_soxx():
     ]
 
     # 표 생성을 위한 데이터 준비 (최근 100개)
-    df_sig = df_multi[df_multi['multi_count'] >= 1].sort_index(ascending=False).head(100)
+    df_sig = df_multi[df_multi['multi_count'] >= m_r].sort_index(ascending=False).head(100)
 
     if not df_sig.empty:
         dates_row_multi = []
@@ -14170,7 +14170,7 @@ def render_top_soxx():
         ]
 
         # 감지 신호표 (1개 이상 감지된 날 기준)
-        df_sig_tm = df_top[df_top['top_multi_count'] >= 1].sort_index(ascending=False).head(100)
+        df_sig_tm = df_top[df_top['top_multi_count'] >= tm_r].sort_index(ascending=False).head(100)
         if not df_sig_tm.empty:
             dates_row_tm = []
             counts_row_tm = []
